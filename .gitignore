@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+
+# Node
+node_modules/
+dist/
+
+# Env
+.env
+
+# Uploads
+backend/uploads/
+
+# IDE
+.vscode/
+.idea/
