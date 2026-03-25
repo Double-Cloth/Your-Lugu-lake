@@ -5,6 +5,8 @@ const api = axios.create({
   timeout: 15000,
 });
 
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
+
 export function getUserToken() {
   return localStorage.getItem("user_token") || "";
 }
@@ -15,6 +17,12 @@ export function getAdminToken() {
 
 function authHeader(token) {
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export function buildAssetUrl(path) {
+  if (!path) return "";
+  if (/^https?:\/\//i.test(path)) return path;
+  return `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
 }
 
 export async function fetchLocations() {
@@ -34,6 +42,20 @@ export async function registerUser(payload) {
 
 export async function loginUser(payload) {
   const { data } = await api.post("/api/auth/login", payload);
+  return data;
+}
+
+export async function fetchCurrentUser(token) {
+  const { data } = await api.get("/api/auth/me", {
+    headers: authHeader(token),
+  });
+  return data;
+}
+
+export async function updateCurrentUser(payload, token) {
+  const { data } = await api.put("/api/auth/me", payload, {
+    headers: authHeader(token),
+  });
   return data;
 }
 
@@ -93,6 +115,19 @@ export async function generateLocationQr(locationId, token) {
   const { data } = await api.post(`/api/admin/qrcodes/generate/${locationId}`, {}, {
     headers: authHeader(token),
   });
+  return data;
+}
+
+export async function sceneChat(message, systemPrompt, token) {
+  const { data } = await api.post("/api/routes/chat", 
+    {
+      message,
+      system_prompt: systemPrompt,
+    },
+    {
+      headers: authHeader(token),
+    }
+  );
   return data;
 }
 

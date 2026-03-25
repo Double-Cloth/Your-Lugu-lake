@@ -6,9 +6,8 @@ export default function PageHeader() {
 
   // 页面标题映射
   const pageConfig = {
-    "/home": { title: "首页", showBack: false },
-    "/guide": { title: "AI 导览", showBack: false },
-    "/checkin": { title: "打卡点位", showBack: false },
+    "/home": { title: "主页", showBack: false },
+    "/checkin": { title: "打卡", showBack: false },
     "/me": { title: "我的", showBack: false },
     "/scroll": { title: "我的旅行绘卷", showBack: true },
     "/locations": { title: "景点详情", showBack: true },
@@ -27,6 +26,13 @@ export default function PageHeader() {
 
   const handleBack = () => {
     if (config.showBack) {
+      if (location.pathname.startsWith("/locations/")) {
+        const fromPanel = location.state?.fromPanel;
+        if (fromPanel === "overview" || fromPanel === "global") {
+          navigate("/home", { state: { openPanel: fromPanel } });
+          return;
+        }
+      }
       navigate(-1);
     }
   };

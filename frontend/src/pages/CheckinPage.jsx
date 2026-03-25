@@ -1,44 +1,32 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Card, ImageUploader, Input, Toast } from "antd-mobile";
+import { Button, Card, ImageUploader, Input, Modal, Toast } from "antd-mobile";
 import { Html5Qrcode } from "html5-qrcode";
-import { useNavigate } from "react-router-dom";
 
-import { createFootprint, getUserToken } from "../api";
+import { buildAssetUrl, createFootprint, fetchLocationById, getUserToken } from "../api";
 
 function parseLocationIdFromText(text) {
   if (!text) return null;
-  const match = text.match(/\/locations\/(\d+)/);
-  return match ? Number(match[1]) : null;
-}
+  const pathMatch = text.match(/\/locations\/(\d+)/);
+  if (pathMatch?.[1]) return Number(pathMatch[1]);
 
-async function stopAndClearScanner(instance) {
-  if (!instance) {
-    return;
+  const plainNumber = Number(text);
+  if (Number.isFinite(plainNumber) && plainNumber > 0) {
+    return plainNumber;
   }
 
-  try {
-    const stopResult = instance.stop();
-    if (stopResult && typeof stopResult.then === "function") {
-      await stopResult;
-    }
-  } catch {
-    // Ignore scanner state errors such as "not running or paused".
-  }
-
-  try {
-    const clearResult = instance.clear();
-    if (clearResult && typeof clearResult.then === "function") {
-      await clearResult;
-    }
-  } catch {
-    // Ignore clear failures if scanner is already disposed.
-  }
+  return null;
 }
 
 export default function CheckinPage() {
-  const navigate = useNavigate();
-  const [scanEnabled, setScanEnabled] = useState(false);
+  const canvasRef = useRef(null);
   const scannerRef = useRef(null);
+  const watchIdRef = useRef(null);
+  const [scanLoading, setScanLoading] = useState(false);
+  const [scanEnabled, setScanEnabled] = useState(false);
+  const [scanModalVisible, setScanModalVisible] = useState(false);
+  const [tracking, setTracking] = useState(false);
+  const [trackPoints, setTrackPoints] = useState([]);
+  const [activeSpot, setActiveSpot] = useState(null);
   const [locationId, setLocationId] = useState("");
   const [moodText, setMoodText] = useState("");
   const [gps, setGps] = useState({ lat: "", lon: "" });
@@ -50,42 +38,124 @@ export default function CheckinPage() {
   }, [locationId, gps.lat, gps.lon]);
 
   useEffect(() => {
-    let disposed = false;
+    return () => {
+      if (watchIdRef.current !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      if (scannerRef.current) {
+        scannerRef.current
+          .stop()
+          .catch(() => null)
+          .then(() => scannerRef.current?.clear().catch(() => null));
+        scannerRef.current = null;
+      }
+    };
+  }, []);
 
-    if (scanEnabled) {
-      const instance = new Html5Qrcode("qr-reader");
-      scannerRef.current = instance;
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-      instance
-        .start(
-          { facingMode: "environment" },
-          { fps: 10, qrbox: { width: 220, height: 220 } },
-          (decodedText) => {
-            const id = parseLocationIdFromText(decodedText);
-            if (id) {
-              setLocationId(String(id));
-              Toast.show({ content: `识别到景点ID: ${id}` });
-              navigate(`/locations/${id}`);
-            } else {
-              Toast.show({ content: "二维码内容不符合景点格式" });
-            }
-          }
-        )
-        .catch(() => {
-          if (!disposed) {
-            Toast.show({ content: "无法启动摄像头，请检查权限" });
-            setScanEnabled(false);
-          }
-        });
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#eaf7ff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.strokeStyle = "rgba(15, 126, 181, 0.18)";
+    ctx.lineWidth = 1;
+    for (let i = 24; i < canvas.width; i += 32) {
+      ctx.beginPath();
+      ctx.moveTo(i, 0);
+      ctx.lineTo(i, canvas.height);
+      ctx.stroke();
+    }
+    for (let j = 20; j < canvas.height; j += 28) {
+      ctx.beginPath();
+      ctx.moveTo(0, j);
+      ctx.lineTo(canvas.width, j);
+      ctx.stroke();
     }
 
-    return () => {
-      disposed = true;
-      const current = scannerRef.current;
-      scannerRef.current = null;
-      void stopAndClearScanner(current);
-    };
-  }, [scanEnabled, navigate, setScanEnabled]);
+    if (trackPoints.length === 0) {
+      ctx.fillStyle = "#6b7280";
+      ctx.font = "14px sans-serif";
+      ctx.fillText("开启实时轨迹后会在这里绘制真实移动路线", 22, 106);
+      return;
+    }
+
+    const lats = trackPoints.map((p) => p.lat);
+    const lons = trackPoints.map((p) => p.lon);
+    const minLat = Math.min(...lats);
+    const maxLat = Math.max(...lats);
+    const minLon = Math.min(...lons);
+    const maxLon = Math.max(...lons);
+
+    const width = canvas.width - 40;
+    const height = canvas.height - 40;
+    const xRange = maxLon - minLon || 0.0001;
+    const yRange = maxLat - minLat || 0.0001;
+
+    const projected = trackPoints.map((point) => {
+      const x = 20 + ((point.lon - minLon) / xRange) * width;
+      const y = 20 + ((maxLat - point.lat) / yRange) * height;
+      return [x, y];
+    });
+
+    ctx.strokeStyle = "#1295c9";
+    ctx.lineWidth = 4;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(projected[0][0], projected[0][1]);
+    for (let i = 1; i < projected.length; i += 1) {
+      ctx.lineTo(projected[i][0], projected[i][1]);
+    }
+    ctx.stroke();
+
+    const latest = projected[projected.length - 1];
+    ctx.fillStyle = "#ff8c00";
+    ctx.beginPath();
+    ctx.arc(latest[0], latest[1], 6, 0, Math.PI * 2);
+    ctx.fill();
+  }, [trackPoints]);
+
+  function startTracking() {
+    if (!navigator.geolocation) {
+      Toast.show({ content: "当前设备不支持定位" });
+      return;
+    }
+    if (watchIdRef.current !== null) {
+      return;
+    }
+
+    setTracking(true);
+    watchIdRef.current = navigator.geolocation.watchPosition(
+      (pos) => {
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        setGps({ lat: String(lat), lon: String(lon) });
+        setTrackPoints((prev) => [...prev, { lat, lon, t: Date.now() }]);
+      },
+      () => {
+        Toast.show({ content: "实时定位失败，请检查权限" });
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+    );
+  }
+
+  function stopTracking() {
+    if (watchIdRef.current !== null && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    setTracking(false);
+  }
+
+  function resetTrack() {
+    stopTracking();
+    setTrackPoints([]);
+  }
 
   async function locateMe() {
     if (!navigator.geolocation) {
@@ -137,31 +207,93 @@ export default function CheckinPage() {
     }
   }
 
-  async function toggleScan() {
-    if (scanEnabled) {
-      const current = scannerRef.current;
-      scannerRef.current = null;
-      await stopAndClearScanner(current);
+  async function stopScan() {
+    if (!scannerRef.current) {
       setScanEnabled(false);
       return;
     }
-    setScanEnabled(true);
+
+    try {
+      await scannerRef.current.stop();
+    } catch {
+      // ignore
+    }
+    try {
+      await scannerRef.current.clear();
+    } catch {
+      // ignore
+    }
+    scannerRef.current = null;
+    setScanEnabled(false);
+  }
+
+  async function startScan() {
+    if (scanEnabled) {
+      await stopScan();
+      return;
+    }
+
+    setScanLoading(true);
+    try {
+      const instance = new Html5Qrcode("qr-reader");
+      scannerRef.current = instance;
+      await instance.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 220, height: 220 } },
+        async (decodedText) => {
+          const parsedId = parseLocationIdFromText(decodedText);
+          if (!parsedId) {
+            Toast.show({ content: "二维码内容无效" });
+            return;
+          }
+
+          setLocationId(String(parsedId));
+          try {
+            const location = await fetchLocationById(parsedId);
+            setActiveSpot(location);
+          } catch {
+            setActiveSpot(null);
+          }
+          setScanModalVisible(true);
+          Toast.show({ content: `扫码成功，景点ID: ${parsedId}` });
+          await stopScan();
+        }
+      );
+      setScanEnabled(true);
+    } catch {
+      Toast.show({ content: "启动扫码失败，请检查摄像头权限" });
+      await stopScan();
+    } finally {
+      setScanLoading(false);
+    }
   }
 
   return (
     <div className="page-fade-in">
       <div className="hero-shell mb-3">
-        <div className="hero-kicker">Scan & Checkin</div>
-        <h1 className="page-title m-0">扫码打卡</h1>
-        <p className="hero-copy">扫码识别景点并记录此刻位置、心情和照片。</p>
+        <div className="hero-kicker">Check-in Trail</div>
+        <h1 className="page-title m-0">地图打卡</h1>
+        <p className="hero-copy">使用实时定位绘制真实移动轨迹，并通过真实二维码完成景点打卡。</p>
       </div>
 
       <Card className="card card-glass">
         <div className="flex items-center justify-between mb-2">
-          <h3 className="section-title m-0">扫码入口</h3>
-          <span className="chip-soft">{scanEnabled ? "扫描中" : "已停止"}</span>
+          <h3 className="section-title m-0">路线地图</h3>
+          <span className="chip-soft">{tracking ? "定位中" : "未定位"}</span>
         </div>
-        <Button block onClick={toggleScan}>{scanEnabled ? "关闭扫码" : "开启扫码"}</Button>
+        <canvas ref={canvasRef} className="checkin-map-canvas" width={320} height={210} />
+        <div className="button-group-horizontal mt-3">
+          <Button color="primary" block onClick={tracking ? stopTracking : startTracking}>{tracking ? "停止定位" : "开始实时轨迹"}</Button>
+          <Button block onClick={resetTrack}>重置轨迹</Button>
+        </div>
+      </Card>
+
+      <Card className="card card-glass">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="section-title m-0">扫码打卡</h3>
+          <span className="chip-soft">真实摄像头</span>
+        </div>
+        <Button block color="primary" loading={scanLoading} onClick={startScan}>{scanEnabled ? "关闭扫码" : "扫描二维码"}</Button>
         {scanEnabled && <div id="qr-reader" className="mt-3" />}
 
         <Input
@@ -201,6 +333,21 @@ export default function CheckinPage() {
           提交打卡
         </Button>
       </Card>
+
+      <Modal
+        visible={scanModalVisible}
+        content={
+          <div>
+            <div className="text-base font-semibold text-lake-700">{activeSpot?.name || "当前景点"}</div>
+            {activeSpot?.qr_code_url ? <img src={buildAssetUrl(activeSpot.qr_code_url)} alt="景点二维码" className="w-full rounded-xl mt-2" /> : null}
+            <div className="text-sm text-slate-600 mt-2">{activeSpot?.description || "已完成扫码，欢迎继续探索。"}</div>
+            <div className="text-xs text-slate-500 mt-3">分类：{activeSpot?.category || "景点"}</div>
+          </div>
+        }
+        closeOnMaskClick
+        onClose={() => setScanModalVisible(false)}
+        actions={[{ key: "ok", text: "继续打卡", primary: true, onClick: () => setScanModalVisible(false) }]}
+      />
     </div>
   );
 }
