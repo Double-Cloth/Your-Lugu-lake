@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-03-26",
+  "locations": [
+    {
+      "slug": "lugu-lake",
+      "id": 1,
+      "name": "泸沽湖"
+    },
+    {
+      "slug": "dapeng-island",
+      "id": 2,
+      "name": "大鹏岛"
+    }
+  ]
+}

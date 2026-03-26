@@ -9,6 +9,8 @@ import HomePage from "./pages/HomePage";
 import CheckinPage from "./pages/CheckinPage";
 import ProfilePage from "./pages/ProfilePage";
 import LocationDetailPage from "./pages/LocationDetailPage";
+import LuguLakeOverviewPage from "./pages/LuguLakeOverviewPage";
+import MosuoCulturePage from "./pages/MosuoCulturePage";
 import ScrollPage from "./pages/ScrollPage";
 import AdminLoginPage from "./pages/admin/AdminLoginPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
@@ -84,6 +86,8 @@ function MobileShell() {
           <Route path="/checkin" element={<CheckinPage />} />
           <Route path="/me" element={<ProfilePage />} />
           <Route path="/scroll" element={<ScrollPage />} />
+          <Route path="/lugu-lake" element={<LuguLakeOverviewPage />} />
+          <Route path="/mosuo-culture" element={<MosuoCulturePage />} />
           <Route path="/locations/:id" element={<LocationDetailPage />} />
           <Route path="*" element={<Navigate to="/home" replace />} />
         </Routes>

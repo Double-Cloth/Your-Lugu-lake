@@ -46,6 +46,7 @@ services:
       - "${FRONTEND_PORT:-5173}:5173"
     volumes:
       - ./frontend:/app
+      - ./knowledge-base:/knowledge-base
       - /app/node_modules
     depends_on:
       - backend

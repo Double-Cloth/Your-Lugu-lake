@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-03-26",
+  "pages": [
+    {
+      "slug": "lugu-lake",
+      "title": "泸沽湖整体介绍",
+      "file": "lugu-lake.json"
+    },
+    {
+      "slug": "mosuo-culture",
+      "title": "摩梭文化介绍",
+      "file": "mosuo-culture.json"
+    }
+  ]
+}

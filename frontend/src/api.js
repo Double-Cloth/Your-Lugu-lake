@@ -35,6 +35,226 @@ export async function fetchLocationById(id) {
   return data;
 }
 
+/**
+ * 从知识库加载景点详情 (info.json)
+ * @param {string} slug - 景点slug (如 'lugu-lake')
+ * @returns {Promise<object>} 景点详细信息
+ */
+export async function fetchKnowledgeBaseLocationBySlug(slug) {
+  try {
+    const response = await fetch(`/knowledge-base/locations/${slug}/info.json`);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.warn(`Failed to load knowledge base location: ${slug}`, error);
+    return null;
+  }
+}
+
+/**
+ * 获取知识库中景点的图片列表
+ * @param {string} slug - 景点slug
+ * @returns {Promise<string[]>} 图片URL列表
+ */
+export async function fetchKnowledgeBaseLocationImages(slug) {
+  try {
+    const locationInfo = await fetchKnowledgeBaseLocationBySlug(slug);
+    if (!locationInfo || !locationInfo.images || !locationInfo.images.files) {
+      return [];
+    }
+    const basePath = `/knowledge-base/locations/${slug}/${locationInfo.images.basePath}`;
+    return locationInfo.images.files.map(file => `${basePath}${file}`);
+  } catch (error) {
+    console.warn(`Failed to load knowledge base location images: ${slug}`, error);
+    return [];
+  }
+}
+
+/**
+ * 从后端API加载知识库景点数据
+ * @param {string} slug - 景点标识
+ * @returns {Promise<object>} 景点详细信息
+ */
+export async function fetchKnowledgeBaseLocationFromAPI(slug) {
+  try {
+    const { data } = await api.get(`/api/locations/knowledge-base/${slug}`);
+    return data;
+  } catch (error) {
+    console.warn(`Failed to load KB location from API: ${slug}`, error);
+    return null;
+  }
+}
+
+export async function fetchKnowledgeBaseCommonConfig() {
+  try {
+    const response = await fetch("/knowledge-base/common/config.json");
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.warn("Failed to load knowledge base common config", error);
+    return null;
+  }
+}
+
+export async function fetchKnowledgeBaseOverview() {
+  try {
+    const response = await fetch("/knowledge-base/common/overview.json");
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.warn("Failed to load knowledge base overview", error);
+    return null;
+  }
+}
+
+/**
+ * 加载 common/pages 下的专题页面数据
+ * @param {string} pageSlug - 专题slug，如 lugu-lake / mosuo-culture
+ * @returns {Promise<object|null>}
+ */
+export async function fetchKnowledgeBaseCommonPage(pageSlug) {
+  if (!pageSlug) return null;
+
+  // 新结构优先：common/pages/{slug}.json
+  try {
+    const response = await fetch(`/knowledge-base/common/pages/${pageSlug}.json`);
+    if (response.ok) {
+      return await response.json();
+    }
+  } catch (error) {
+    console.warn(`Failed to load KB common page (new path): ${pageSlug}`, error);
+  }
+
+  // 兼容旧结构：common/{slug}.json
+  try {
+    const legacyResponse = await fetch(`/knowledge-base/common/${pageSlug}.json`);
+    if (!legacyResponse.ok) return null;
+    return await legacyResponse.json();
+  } catch (error) {
+    console.warn(`Failed to load KB common page (legacy path): ${pageSlug}`, error);
+    return null;
+  }
+}
+
+export async function fetchKnowledgeBaseLocationsIndex() {
+  try {
+    const response = await fetch("/knowledge-base/locations/index.json");
+    if (!response.ok) return [];
+
+    const indexJson = await response.json();
+    const entries = Array.isArray(indexJson?.locations) ? indexJson.locations : [];
+    if (entries.length === 0) return [];
+
+    const loadedFromIndex = await Promise.all(
+      entries.map(async (entry) => {
+        const slug = typeof entry?.slug === "string" ? entry.slug : "";
+        if (!slug) return null;
+        const item = await fetchKnowledgeBaseLocationBySlug(slug);
+        if (!item) return null;
+        return { ...item, slug };
+      })
+    );
+
+    const valid = loadedFromIndex.filter(Boolean);
+    if (valid.length > 0) return valid;
+    return [];
+  } catch (error) {
+    console.warn("Failed to load locations index", error);
+    return [];
+  }
+}
+
+async function resolveKbSlugById(idOrSlug) {
+  if (typeof idOrSlug === "string" && /[^\d]/.test(idOrSlug)) {
+    return idOrSlug;
+  }
+
+  const idNum = Number(idOrSlug);
+  if (!Number.isFinite(idNum)) return null;
+
+  try {
+    const response = await fetch("/knowledge-base/locations/index.json");
+    if (!response.ok) return null;
+    const indexJson = await response.json();
+    const entries = Array.isArray(indexJson?.locations) ? indexJson.locations : [];
+    const hit = entries.find((entry) => Number(entry?.id) === idNum);
+    return typeof hit?.slug === "string" ? hit.slug : null;
+  } catch {
+    return null;
+  }
+}
+
+async function resolveKbSlugByIdOrDatabase(idOrSlug, dbLocation) {
+  const fromIndex = await resolveKbSlugById(idOrSlug);
+  if (fromIndex) return fromIndex;
+  if (typeof dbLocation?.slug === "string" && dbLocation.slug) {
+    return dbLocation.slug;
+  }
+  return null;
+}
+
+/**
+ * 综合获取景点信息：优先使用知识库，回退到数据库
+ * 
+ * 优先级：
+ * 1. 静态知识库文件 (前端 /knowledge-base/)
+ * 2. 后端知识库API (/api/locations/knowledge-base/{slug})
+ * 3. 数据库 (/api/locations/{id})
+ * 
+ * @param {number|string} idOrSlug - 景点ID或slug
+ * @returns {Promise<object>} 完整景点信息
+ */
+export async function fetchLocationDetail(idOrSlug) {
+  // 如果是数字ID，先从数据库获取基础数据和slug
+  if (typeof idOrSlug === 'number' || /^\d+$/.test(idOrSlug)) {
+    try {
+      const dbLocation = await fetchLocationById(idOrSlug);
+      
+      // 尝试从知识库获取扩展信息
+      if (dbLocation) {
+        const mappedSlug = await resolveKbSlugByIdOrDatabase(dbLocation.id, dbLocation);
+
+        // 1. 先通过index映射出的slug从静态知识库获取
+        let kbData = mappedSlug ? await fetchKnowledgeBaseLocationBySlug(mappedSlug) : null;
+        
+        // 2. 如果没有，尝试从后端API获取
+        if (!kbData) {
+          kbData = mappedSlug ? await fetchKnowledgeBaseLocationFromAPI(mappedSlug) : null;
+        }
+        
+        if (kbData) {
+          return { ...dbLocation, ...kbData, slug: kbData.slug || mappedSlug || dbLocation.slug, _source: 'hybrid' };
+        }
+      }
+      return { ...dbLocation, _source: 'database' };
+    } catch (error) {
+      console.error("Failed to fetch location by ID:", error);
+      return null;
+    }
+  }
+
+  // 如果是string slug，优先从知识库获取
+  try {
+    // 1. 尝试静态知识库文件
+    let kbData = await fetchKnowledgeBaseLocationBySlug(idOrSlug);
+    
+    // 2. 如果没有，尝试从后端API
+    if (!kbData) {
+      kbData = await fetchKnowledgeBaseLocationFromAPI(idOrSlug);
+    }
+    
+    if (kbData) {
+      return { ...kbData, _source: 'knowledge-base' };
+    }
+
+    // 回退：返回null如果都找不到
+    return null;
+  } catch (error) {
+    console.error("Failed to fetch location by slug:", error);
+    return null;
+  }
+}
+
 export async function registerUser(payload) {
   const { data } = await api.post("/api/auth/register", payload);
   return data;
@@ -137,6 +357,30 @@ export async function downloadQrcodeZip(token) {
     responseType: "blob",
   });
   return response.data;
+}
+
+export async function fetchKnowledgeBaseHotels() {
+  try {
+    const response = await fetch("/knowledge-base/hotels/index.json");
+    if (!response.ok) return [];
+    const data = await response.json();
+    return Array.isArray(data?.hotels) ? data.hotels : [];
+  } catch (error) {
+    console.warn("Failed to load knowledge base hotels", error);
+    return [];
+  }
+}
+
+export async function fetchKnowledgeBaseNearbySpots() {
+  try {
+    const response = await fetch("/knowledge-base/nearby-spots/index.json");
+    if (!response.ok) return [];
+    const data = await response.json();
+    return Array.isArray(data?.spots) ? data.spots : [];
+  } catch (error) {
+    console.warn("Failed to load knowledge base nearby spots", error);
+    return [];
+  }
 }
 
 export default api;

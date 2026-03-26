@@ -1,0 +1,26 @@
+{
+  "id": "lugu-lake-overview",
+  "slug": "lugu-lake",
+  "name": "泸沽湖",
+  "title": "泸沽湖整体介绍",
+  "subtitle": "高原湖泊与摩梭文化交织的全域目的地",
+  "description": "泸沽湖位于川滇交界地带，以高原湖泊景观、摩梭文化和环湖慢游体验闻名。这里不仅是游客观景打卡地，也是理解在地民族文化与湖区生活方式的重要窗口。",
+  "sections": {
+    "highlightsTitle": "核心亮点",
+    "tipsTitle": "游览建议"
+  },
+  "details": {
+    "introduction": "湖区四周群山环绕，湖水清澈，沿线分布多个观景点与村落，适合多日深度游。",
+    "highlights": [
+      "高原湖泊风光与四季变化",
+      "摩梭母系文化与在地民俗",
+      "环湖观景与轻徒步路线",
+      "日出日落摄影场景"
+    ],
+    "bestSeasonToVisit": "3月-11月",
+    "recommendedDuration": "2-3天",
+    "accommodationTips": "建议在大落水或里格片区住宿，便于环湖游览。"
+  },
+  "coverImage": "/knowledge-base/locations/lugu-lake/images/1.jpg",
+  "lastUpdated": "2026-03-26"
+}

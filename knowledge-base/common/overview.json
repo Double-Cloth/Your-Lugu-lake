@@ -1,0 +1,25 @@
+{
+  "version": "1.0.0",
+  "lastUpdated": "2026-03-26",
+  "overview": {
+    "summary": "景区一览由泸沽湖整体介绍与摩梭文化介绍两部分构成，内容统一维护于 knowledge-base。",
+    "lake": {
+      "title": "泸沽湖整体介绍",
+      "dataFile": "pages/lugu-lake.json",
+      "description": "泸沽湖以高原湖泊景观、环湖慢游与在地人文体验为核心，适合进行 2-3 天深度游览。",
+      "detailPath": "/lugu-lake"
+    },
+    "culture": {
+      "title": "摩梭文化介绍",
+      "detailPath": "/mosuo-culture",
+      "dataFile": "pages/mosuo-culture.json",
+      "description": "摩梭文化以母系传统、走婚习俗与独特湖区生活方式为核心。",
+      "highlights": [
+        "母系家庭组织与文化传承",
+        "走婚习俗与民俗礼仪",
+        "传统歌舞与节庆活动",
+        "木楞房与湖区聚落形态"
+      ]
+    }
+  }
+}

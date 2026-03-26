@@ -2,7 +2,17 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button, Card, DotLoading, Input, Popup, Toast } from "antd-mobile";
 
-import { buildAssetUrl, fetchLocations, fetchMyFootprints, generateRoute, getUserToken } from "../api";
+import {
+  buildAssetUrl,
+  fetchKnowledgeBaseHotels,
+  fetchKnowledgeBaseLocationsIndex,
+  fetchKnowledgeBaseNearbySpots,
+  fetchKnowledgeBaseOverview,
+  fetchLocations,
+  fetchMyFootprints,
+  generateRoute,
+  getUserToken,
+} from "../api";
 
 const LUGU_LAKE_BG_URL = "/images/lugu-hero.jpg";
 
@@ -43,6 +53,9 @@ export default function HomePage() {
   const [routePlan, setRoutePlan] = useState({ title: "", timeline: [] });
   const [coverPhotoUrl, setCoverPhotoUrl] = useState("");
   const [heroBgUrl, setHeroBgUrl] = useState("");
+  const [kbLocations, setKbLocations] = useState([]);
+  const [nearbyGuides, setNearbyGuides] = useState({ spots: [], hotels: [] });
+  const [kbOverview, setKbOverview] = useState(null);
 
   useEffect(() => {
     const panel = location.state?.openPanel;
@@ -59,6 +72,18 @@ export default function HomePage() {
         const locs = await fetchLocations();
         setLocations(Array.isArray(locs) ? locs : []);
 
+        const kbList = await fetchKnowledgeBaseLocationsIndex();
+        setKbLocations(Array.isArray(kbList) ? kbList : []);
+
+        const overview = await fetchKnowledgeBaseOverview();
+        setKbOverview(overview?.overview || null);
+
+        const spotsList = await fetchKnowledgeBaseNearbySpots();
+        const hotelsList = await fetchKnowledgeBaseHotels();
+        const spots = Array.isArray(spotsList) ? spotsList : [];
+        const hotels = Array.isArray(hotelsList) ? hotelsList : [];
+        setNearbyGuides({ spots, hotels });
+
         const token = getUserToken();
         if (token) {
           const footprints = await fetchMyFootprints(token);
@@ -71,6 +96,9 @@ export default function HomePage() {
         }
       } catch {
         setLocations([]);
+        setKbLocations([]);
+        setNearbyGuides({ spots: [], hotels: [] });
+        setKbOverview(null);
       } finally {
         setLoading(false);
       }
@@ -117,7 +145,13 @@ export default function HomePage() {
     };
   }, [coverPhotoUrl]);
 
-  const topLocations = useMemo(() => locations.slice(0, 4), [locations]);
+  const primaryLake = useMemo(() => {
+    return kbOverview?.lake || null;
+  }, [kbOverview]);
+  const cultureHighlights = useMemo(() => {
+    const list = kbOverview?.culture?.highlights;
+    return Array.isArray(list) ? list : [];
+  }, [kbOverview]);
   const locationsWithAudio = useMemo(
     () => locations.filter((item) => item.audio_url),
     [locations]
@@ -235,37 +269,59 @@ export default function HomePage() {
           {loading ? (
             <div className="card card-glass text-center"><DotLoading color="primary" /></div>
           ) : (
-            topLocations.map((item) => (
-              <Link
-                to={`/locations/${item.id}`}
-                state={{ fromPanel: "overview" }}
-                key={item.id}
-                className="block card card-glass list-card no-underline text-current"
-              >
-                <div className="flex items-center justify-between">
-                  <h3 className="m-0 text-lg">{item.name}</h3>
-                  <span className="chip-soft">{item.category}</span>
-                </div>
-                <p className="text-sm text-slate-600 mt-2 mb-0 line-clamp-2">{item.description}</p>
-              </Link>
-            ))
-          )}
+            <>
+              <Card className="card card-glass overview-module-card">
+                <div className="overview-module-title">{kbOverview?.lake?.title || "泸沽湖整体介绍"}</div>
+                {primaryLake ? (
+                  <>
+                    <div className="flex items-center justify-between mt-2">
+                      <h3 className="m-0 text-lg text-lake-700">{primaryLake.title || "泸沽湖整体介绍"}</h3>
+                      <span className="chip-soft">湖区总览</span>
+                    </div>
+                    <p className="text-sm text-slate-600 mt-2 mb-0">
+                      {primaryLake.description || ""}
+                    </p>
+                    {primaryLake.detailPath ? (
+                      <Link
+                        to={primaryLake.detailPath}
+                        state={{ fromPanel: "overview" }}
+                        className="overview-module-link"
+                      >
+                        查看泸沽湖整体详情 →
+                      </Link>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="text-sm text-slate-600 mt-2 mb-0">暂未读取到知识库湖区介绍数据。</p>
+                )}
+              </Card>
 
-          <Card className="card card-glass">
-            <div className="font-semibold text-lake-700">摩梭文化</div>
-            <div className="text-sm text-slate-600 mt-2">
-              以下内容来自真实景点描述字段：
-            </div>
-            <ul className="text-sm text-slate-700 mt-2 mb-0 pl-5">
-              {topLocations.map((item) => (
-                <li key={`culture-${item.id}`} className="mb-1">{item.name}：{item.description}</li>
-              ))}
-            </ul>
-          </Card>
+              <Card className="card card-glass overview-module-card">
+                <div className="overview-module-title">{kbOverview?.culture?.title || "摩梭文化介绍"}</div>
+                <p className="text-sm text-slate-600 mt-2 mb-2">
+                  {kbOverview?.culture?.description || ""}
+                </p>
+                <ul className="text-sm text-slate-700 mt-0 mb-0 pl-5">
+                  {cultureHighlights.map((item, idx) => (
+                    <li key={`culture-${idx}`} className="mb-1">{item}</li>
+                  ))}
+                </ul>
+                {kbOverview?.culture?.detailPath ? (
+                  <Link
+                    to={kbOverview.culture.detailPath}
+                    state={{ fromPanel: "overview" }}
+                    className="overview-module-link"
+                  >
+                    查看摩梭文化详情 →
+                  </Link>
+                ) : null}
+              </Card>
+            </>
+          )}
 
           <Card className="card card-glass mb-0">
             <div className="text-sm text-slate-600">
-              当前系统未提供“景区问答”独立接口，已按要求移除模拟聊天。
+              {kbOverview?.summary || ""}
             </div>
           </Card>
         </div>
@@ -365,21 +421,89 @@ export default function HomePage() {
             <h3 className="section-title">全域导览</h3>
             <button className="home-popup-back" onClick={closePanel}>← 返回</button>
           </div>
-          {locations.map((item) => (
-            <Link
-              to={`/locations/${item.id}`}
-              state={{ fromPanel: "global" }}
-              key={item.id}
-              className="block card card-glass list-card no-underline text-current"
-            >
-              <div className="flex items-center justify-between">
-                <div className="font-semibold text-lake-700">{item.name}</div>
-                <span className="chip-soft">{item.category}</span>
+          <Card className="card card-glass global-section-card">
+            <div className="overview-module-title">景点总览（知识库全量）</div>
+            {kbLocations.length === 0 ? (
+              <div className="text-sm text-slate-500 mt-2">暂未读取到知识库景点，已保留数据库数据作为回退。</div>
+            ) : (
+              <div className="space-y-2 mt-2">
+                {kbLocations.map((item) => (
+                  <Link
+                    to={item.id ? `/locations/${item.id}` : "/home"}
+                    state={{ fromPanel: "global" }}
+                    key={`kb-${item.slug || item.id}`}
+                    className="block card card-glass list-card no-underline text-current"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="font-semibold text-lake-700">{item.name}</div>
+                      <span className="chip-soft">{item.category || "景点"}</span>
+                    </div>
+                    <div className="text-sm text-slate-600 mt-1">{item.description || "暂无简介"}</div>
+                    {item.latitude && item.longitude ? (
+                      <div className="text-xs text-slate-500 mt-1">坐标：{item.latitude}, {item.longitude}</div>
+                    ) : null}
+                  </Link>
+                ))}
               </div>
-              <div className="text-sm text-slate-600 mt-2">坐标：{item.latitude}, {item.longitude}</div>
-              <div className="text-sm text-slate-600 mt-1">{item.description}</div>
-            </Link>
-          ))}
+            )}
+          </Card>
+
+          <Card className="card card-glass global-section-card">
+            <div className="overview-module-title">周围景点 / 酒店</div>
+            <div className="global-nearby-grid mt-2">
+              <div>
+                <div className="global-nearby-subtitle">周边景点</div>
+                {nearbyGuides.spots.length === 0 ? (
+                  <div className="text-sm text-slate-500 mt-1">暂无配置，可在 knowledge-base/nearby-spots/index.json 中添加景点。</div>
+                ) : (
+                  nearbyGuides.spots.map((item, idx) => (
+                    <div key={`spot-${idx}`} className="global-nearby-item">
+                      <div className="font-medium text-slate-700">{item.name || `周边景点 ${idx + 1}`}</div>
+                      {item.distance ? <div className="text-xs text-slate-500">距离：{item.distance}</div> : null}
+                      {item.description ? <div className="text-xs text-slate-500 mt-1">{item.description}</div> : null}
+                    </div>
+                  ))
+                )}
+              </div>
+
+              <div>
+                <div className="global-nearby-subtitle">周边酒店</div>
+                {nearbyGuides.hotels.length === 0 ? (
+                  <div className="text-sm text-slate-500 mt-1">暂无配置，可在 knowledge-base/hotels/index.json 中添加酒店。</div>
+                ) : (
+                  nearbyGuides.hotels.map((item, idx) => (
+                    <div key={`hotel-${idx}`} className="global-nearby-item">
+                      <div className="font-medium text-slate-700">{item.name || `周边酒店 ${idx + 1}`}</div>
+                      {item.price ? <div className="text-xs text-slate-500">参考价格：{item.price}</div> : null}
+                      {item.description ? <div className="text-xs text-slate-500 mt-1">{item.description}</div> : null}
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </Card>
+
+          {kbLocations.length === 0 && locations.length > 0 ? (
+            <Card className="card card-glass mb-0">
+              <div className="global-nearby-subtitle">数据库回退景点</div>
+              <div className="space-y-2 mt-2">
+                {locations.map((item) => (
+                  <Link
+                    to={`/locations/${item.id}`}
+                    state={{ fromPanel: "global" }}
+                    key={`db-${item.id}`}
+                    className="block card card-glass list-card no-underline text-current"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="font-semibold text-lake-700">{item.name}</div>
+                      <span className="chip-soft">{item.category}</span>
+                    </div>
+                    <div className="text-sm text-slate-600 mt-1">{item.description}</div>
+                  </Link>
+                ))}
+              </div>
+            </Card>
+          ) : null}
         </div>
       </Popup>
     </div>
