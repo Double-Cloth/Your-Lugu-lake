@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState, useRef } from "react";
+import LucideIcon from "./LucideIcon";
 import { useLocation } from "react-router-dom";
-import { Input, Button, Toast, DotLoading } from "antd-mobile";
+import { TextArea, Button, Toast, DotLoading } from "antd-mobile";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { sceneChat, getUserToken } from "../api";
 
 // 根据路由返回对应的系统提示词
@@ -107,6 +110,7 @@ export default function AIFloatingBall() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const messagesEndRef = useRef(null);
+  const messagesListRef = useRef(null);
   const messageRefs = useRef({});
   const sceneMeta = getSceneMetaByRoute(location.pathname);
   const currentPrompt = getSystemPromptByRoute(location.pathname);
@@ -127,6 +131,9 @@ export default function AIFloatingBall() {
   }, [messages]);
 
   const scrollToBottom = () => {
+    if (messagesListRef.current) {
+      messagesListRef.current.scrollTop = messagesListRef.current.scrollHeight;
+    }
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
@@ -175,7 +182,20 @@ export default function AIFloatingBall() {
         { id: assistantMessageId, role: "assistant", content: result.reply || "抱歉，未获得回复，请稍后重试。" },
       ]);
     } catch (error) {
-      Toast.show({ content: "对话失败，请稍后再试" });
+      const status = error?.response?.status;
+      const detail = error?.response?.data?.detail;
+      const isTimeout = error?.code === "ECONNABORTED";
+
+      let content = "对话失败，请稍后再试";
+      if (status === 401) {
+        content = "登录已过期，请重新登录";
+      } else if (isTimeout) {
+        content = "AI 响应较慢，请稍后重试";
+      } else if (typeof detail === "string" && detail.trim()) {
+        content = detail;
+      }
+
+      Toast.show({ content });
       // 删除最后添加的用户消息
       setMessages((prev) => prev.slice(0, -1));
     } finally {
@@ -199,18 +219,84 @@ export default function AIFloatingBall() {
     }
   };
 
+  const handleInputKeyDown = (event) => {
+    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+      event.preventDefault();
+      handleSend();
+    }
+  };
+
   return (
     <>
       {/* 悬浮球 */}
-      <button
-        onClick={() => setVisible(true)}
-        className="ai-floating-ball"
-        aria-label="AI助手"
-        title="AI助手"
-      >
-        <span className="ai-floating-ping" />
-        <div className="ai-ball-content">✨</div>
-      </button>
+      <div className="fixed flex flex-col items-end z-40 ai-floating-container">
+        {/* 提示气泡 (默认隐藏，鼠标悬停时显示) */}
+        <div className="bg-lake-50/95 text-lake-800 text-sm font-medium py-2 px-4 rounded-2xl shadow-lg mb-3 opacity-0 transition-opacity duration-300 transform translate-y-2 pointer-events-none border border-lake-200/60">
+          需要帮忙吗？和我聊聊！
+        </div>
+
+        {/* 按钮主体 */}
+        <button 
+          onClick={() => setVisible(true)}
+          className="group relative flex items-center justify-center w-16 h-16 bg-gradient-to-br from-lake-500 to-lake-700 text-white rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all duration-300 ai-animate-float focus:outline-none focus:ring-4 focus:ring-lake-300"
+          aria-label="AI助手"
+          title="AI助手"
+          onMouseEnter={(e) => {
+            const tooltip = e.currentTarget.previousElementSibling;
+            if (tooltip) {
+              tooltip.style.opacity = '1';
+              tooltip.style.transform = 'translateY(0)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            const tooltip = e.currentTarget.previousElementSibling;
+            if (tooltip) {
+              tooltip.style.opacity = '0';
+              tooltip.style.transform = 'translateY(8px)';
+            }
+          }}
+          style={{ boxShadow: "0 8px 22px rgba(35, 156, 201, 0.45)" }}
+        >
+            {/* 背景光晕效果 (心跳/呼吸灯效果) */}
+            <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-ping opacity-20 group-hover:opacity-40"></div>
+            
+            {/* 机器人 SVG 图标 */}
+            <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                viewBox="0 0 24 24" 
+                fill="none" 
+                stroke="currentColor" 
+                strokeWidth="1.5" 
+                strokeLinecap="round" 
+                strokeLinejoin="round" 
+                className="w-8 h-8 relative z-10"
+            >
+                {/* 头部天线 */}
+                <line x1="12" y1="3" x2="12" y2="6" strokeWidth="2"/>
+                <circle cx="12" cy="2" r="1" fill="currentColor" stroke="none"/>
+                
+                {/* 机器人外壳/面部 */}
+                <rect x="4" y="7" width="16" height="13" rx="4" ry="4" strokeWidth="2" className="fill-lake-300/20"/>
+                
+                {/* 机器人的耳朵 */}
+                <line x1="2" y1="12" x2="4" y2="12" strokeWidth="2"/>
+                <line x1="20" y1="12" x2="22" y2="12" strokeWidth="2"/>
+                
+                {/* 眼睛 (带有眨眼动画) */}
+                <circle cx="9" cy="12" r="1.5" fill="currentColor" stroke="none" className="ai-eye-blink"/>
+                <circle cx="15" cy="12" r="1.5" fill="currentColor" stroke="none" className="ai-eye-blink"/>
+                
+                {/* 嘴巴/语音指示器 */}
+                <path d="M10 16 C11 17, 13 17, 14 16" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+
+            {/* 消息红点提示 (右上角) */}
+            <span className="absolute top-0 right-0 flex h-4 w-4">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-white"></span>
+            </span>
+        </button>
+      </div>
 
       {visible && (
         <div className="ai-chat-overlay" onClick={() => setVisible(false)}>
@@ -228,7 +314,7 @@ export default function AIFloatingBall() {
                 onClick={() => setVisible(false)}
                 aria-label="关闭AI对话"
               >
-                ×
+                <LucideIcon name="X" size={16} color="currentColor" className="ai-panel-corner-close-icon" />
               </button>
             </div>
 
@@ -261,10 +347,10 @@ export default function AIFloatingBall() {
                   <p className="ai-chat-context">上下文：{currentPrompt}</p>
                 </div>
 
-                <div className="ai-messages-list">
+                <div className="ai-messages-list" ref={messagesListRef}>
                   {messages.length === 0 && (
                     <div className="ai-empty-state">
-                      <div className="ai-empty-icon">💬</div>
+                      <div className="ai-empty-icon"><LucideIcon name="MessageCircle" size={24} /></div>
                       <p>有什么我可以帮助你的吗？</p>
                       <p className="ai-empty-hint">
                         根据当前页面，我会提供更贴切的建议。
@@ -293,7 +379,17 @@ export default function AIFloatingBall() {
                       }}
                       className={`ai-message ai-message-${msg.role}`}
                     >
-                      <div className="ai-message-bubble">{msg.content}</div>
+                      <div className="ai-message-bubble">
+                        {msg.role === "assistant" ? (
+                          <div className="ai-markdown-content">
+                            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                              {typeof msg.content === "string" ? msg.content : String(msg.content ?? "")}
+                            </ReactMarkdown>
+                          </div>
+                        ) : (
+                          msg.content
+                        )}
+                      </div>
                     </div>
                   ))}
                   {loading && (
@@ -305,17 +401,23 @@ export default function AIFloatingBall() {
                   )}
                   <div ref={messagesEndRef} />
                 </div>
+                
 
                 <div className="ai-input-area">
-                  <Input
-                    placeholder="输入你的问题"
-                    value={input}
-                    onChange={setInput}
-                    onEnter={handleSend}
-                    disabled={loading}
-                    clearable
-                  />
+                  <div className="ai-input-wrapper">
+                    <TextArea
+                      style={{ border: 'none'  }}
+                      className="ai-textarea"
+                      placeholder="输入你的问题"
+                      value={input}
+                      onChange={setInput}
+                      onKeyDown={handleInputKeyDown}
+                      disabled={loading}
+                      autoSize={{ minRows: 1, maxRows: 4 }}
+                    />
+                  </div>
                   <Button
+                    className="ai-send-btn"
                     size="small"
                     color="primary"
                     onClick={handleSend}
@@ -333,3 +435,4 @@ export default function AIFloatingBall() {
     </>
   );
 }
+

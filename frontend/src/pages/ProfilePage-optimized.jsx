@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import LucideIcon from "../components/LucideIcon";
 import { Button, Input, Popup, Toast } from "antd-mobile";
 import { useNavigate } from "react-router-dom";
 
@@ -377,7 +378,7 @@ export default function ProfilePage() {
             </div>
           ) : (
             <EmptyStateComponent
-              icon="🗺️"
+              icon={<LucideIcon name="Map" size={48} className="text-white/40 mb-3 mx-auto" strokeWidth={1.5} />}
               title="暂无打卡"
               description="去首页探索泸沽湖的美景吧"
             />
@@ -398,7 +399,7 @@ export default function ProfilePage() {
               className="home-popup-close"
               onClick={() => setPosterVisible(false)}
             >
-              ✕
+              <LucideIcon name="X" size={24} />
             </button>
           </div>
           <canvas
@@ -427,3 +428,4 @@ export default function ProfilePage() {
     </div>
   );
 }
+

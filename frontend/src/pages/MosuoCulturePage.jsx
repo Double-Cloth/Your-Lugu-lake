@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import LucideIcon from "../components/LucideIcon";
 import { DotLoading } from "antd-mobile";
 import { useNavigate } from "react-router-dom";
 import { fetchKnowledgeBaseCommonPage } from "../api";
@@ -75,7 +76,7 @@ export default function MosuoCulturePage() {
           <div className="flex flex-wrap gap-2">
             {highlights.map((item, idx) => (
               <span key={`c-hl-${idx}`} className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm">
-                ✨ {item}
+                <LucideIcon name="Sparkles" size={16} className="inline-block mr-1 text-yellow-500" /> {item}
               </span>
             ))}
           </div>
@@ -95,3 +96,4 @@ export default function MosuoCulturePage() {
     </div>
   );
 }
+

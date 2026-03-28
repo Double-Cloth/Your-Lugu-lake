@@ -1,14 +1,14 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "",
   timeout: 15000,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 
 export function getUserToken() {
   return localStorage.getItem("user_token") || "";
@@ -405,6 +405,7 @@ export async function sceneChat(message, systemPrompt, token, sceneContext = nul
     },
     {
       headers: authHeader(token),
+      timeout: 70000,
     }
   );
   return data;

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import LucideIcon from "../components/LucideIcon";
 import { Popup, Toast } from "antd-mobile";
 import { UserOutline, LockOutline } from "antd-mobile-icons";
 import { useNavigate } from "react-router-dom";
@@ -350,7 +351,7 @@ export default function ProfilePage() {
   );
 
   const renderAuth = () => (
-    <div className="animate-[fadeIn_0.4s_ease-out] max-w-md mx-auto w-full pt-4 pb-12">
+    <div className="animate-[fadeIn_0.4s_ease-out] mx-auto w-full pt-4 pb-4">
       <CardComponent variant="immersive" className="relative overflow-hidden mb-6 border-white/20 p-6 flex-shrink-0">
         <div className="absolute -right-8 -top-8 w-32 h-32 bg-cyan-400/20 blur-3xl rounded-full"></div>
         <div className="flex items-center gap-5 relative z-10">
@@ -487,7 +488,7 @@ export default function ProfilePage() {
             </div>
           ) : (
             <EmptyStateComponent 
-              icon="🗺️" 
+              icon={<LucideIcon name="Map" size={48} className="text-white/40 mb-3 mx-auto" strokeWidth={1.5} />} 
               title="暂无足迹" 
               description="去景点打卡，记录你的专属旅程吧" 
               className="border-none shadow-none bg-transparent mb-0 p-4"
@@ -535,3 +536,4 @@ export default function ProfilePage() {
     </ImmersivePage>
   );
 }
+

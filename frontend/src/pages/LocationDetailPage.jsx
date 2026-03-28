@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { DotLoading } from "antd-mobile";
+import LucideIcon from "../components/LucideIcon";
 
 import { fetchLocationDetail, fetchKnowledgeBaseLocationImages } from "../api";
 
@@ -86,7 +87,7 @@ export default function LocationDetailPage() {
           <div className="flex flex-wrap gap-2">
             {details.highlights.map((highlight, idx) => (
               <span key={idx} className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm">
-                ✨ {highlight}
+                <LucideIcon name="Sparkles" size={16} className="inline-block mr-1 text-yellow-400" /> {highlight}
               </span>
             ))}
           </div>
@@ -149,7 +150,7 @@ export default function LocationDetailPage() {
         <div className="card card-glass">
           <div className="detail-section-title">{sections.locationTitle || "位置信息"}</div>
           <div className="space-y-1 text-sm">
-            {location.province && <div>📍 {location.province}</div>}
+            {location.province && <div><LucideIcon name="MapPin" size={16} className="inline-block mr-1" /> {location.province}</div>}
             {location.city && <div className="ml-2">{location.city}</div>}
             {location.district && <div className="ml-2">{location.district}</div>}
             {location.address && <div className="font-semibold mt-2">{location.address}</div>}
@@ -162,10 +163,10 @@ export default function LocationDetailPage() {
         <div className="card card-glass">
           <div className="detail-section-title">{sections.transportationTitle || "交通方式"}</div>
           <div className="space-y-2 text-sm">
-            {transportation.byAir && <div>✈️ {transportation.byAir}</div>}
-            {transportation.byTrain && <div>🚂 {transportation.byTrain}</div>}
-            {transportation.byBus && <div>🚌 {transportation.byBus}</div>}
-            {transportation.byBoat && <div>🚤 {transportation.byBoat}</div>}
+            {transportation.byAir && <div><LucideIcon name="Plane" size={16} className="inline-block mr-1" /> {transportation.byAir}</div>}
+            {transportation.byTrain && <div><LucideIcon name="Train" size={16} className="inline-block mr-1" /> {transportation.byTrain}</div>}
+            {transportation.byBus && <div><LucideIcon name="Bus" size={16} className="inline-block mr-1" /> {transportation.byBus}</div>}
+            {transportation.byBoat && <div><LucideIcon name="Navigation" size={16} className="inline-block mr-1" /> {transportation.byBoat}</div>}
           </div>
         </div>
       )}
@@ -176,19 +177,19 @@ export default function LocationDetailPage() {
           <div className="detail-section-title">{sections.facilitiesTitle || "设施服务"}</div>
           <div className="grid grid-cols-2 gap-2 text-sm">
             {facilities.parking !== undefined && (
-              <div>🅿️ 停车场 {facilities.parking ? "✅" : "❌"}</div>
+              <div><LucideIcon name="ParkingSquare" size={16} className="inline-block mr-1" /> 停车场 {facilities.parking ? <LucideIcon name="Check" size={16} className="inline-block text-green-500 ml-1" /> : <LucideIcon name="X" size={16} className="inline-block text-red-500 ml-1" />}</div>
             )}
             {facilities.restroom !== undefined && (
-              <div>🚻 卫生间 {facilities.restroom ? "✅" : "❌"}</div>
+              <div><LucideIcon name="Users" size={16} className="inline-block mr-1" /> 卫生间 {facilities.restroom ? <LucideIcon name="Check" size={16} className="inline-block text-green-500 ml-1" /> : <LucideIcon name="X" size={16} className="inline-block text-red-500 ml-1" />}</div>
             )}
             {facilities.foodAndDrink !== undefined && (
-              <div>🍽️ 餐饮 {facilities.foodAndDrink ? "✅" : "❌"}</div>
+              <div><LucideIcon name="Utensils" size={16} className="inline-block mr-1" /> 餐饮 {facilities.foodAndDrink ? <LucideIcon name="Check" size={16} className="inline-block text-green-500 ml-1" /> : <LucideIcon name="X" size={16} className="inline-block text-red-500 ml-1" />}</div>
             )}
             {facilities.accommodation !== undefined && (
-              <div>🏨 住宿 {facilities.accommodation ? "✅" : "❌"}</div>
+              <div><LucideIcon name="Building" size={16} className="inline-block mr-1" /> 住宿 {facilities.accommodation ? <LucideIcon name="Check" size={16} className="inline-block text-green-500 ml-1" /> : <LucideIcon name="X" size={16} className="inline-block text-red-500 ml-1" />}</div>
             )}
             {facilities.medicalService !== undefined && (
-              <div>🏥 医疗 {facilities.medicalService ? "✅" : "❌"}</div>
+              <div><LucideIcon name="Stethoscope" size={16} className="inline-block mr-1" /> 医疗 {facilities.medicalService ? <LucideIcon name="Check" size={16} className="inline-block text-green-500 ml-1" /> : <LucideIcon name="X" size={16} className="inline-block text-red-500 ml-1" />}</div>
             )}
           </div>
         </div>
@@ -217,3 +218,4 @@ export default function LocationDetailPage() {
     </div>
   );
 }
+

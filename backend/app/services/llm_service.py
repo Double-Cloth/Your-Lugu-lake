@@ -1,6 +1,8 @@
 import json
+import logging
 import math
 import re
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -11,6 +13,7 @@ from app.core.config import settings
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 KNOWLEDGE_BASE_ROOT = PROJECT_ROOT / "knowledge-base"
+logger = logging.getLogger(__name__)
 
 
 def _read_json_file(path: Path) -> dict | list | None:
@@ -217,6 +220,108 @@ def _extract_dashscope_text(data: dict) -> str:
     return ""
 
 
+_KB_LINE_RE = re.compile(r"^\[(\d+)\]\s*来源=([^\s]+)\s+内容=(.*)$")
+
+
+def _build_offline_quick_plan(scene_context: dict | None) -> str:
+    lines: list[str] = []
+
+    locations_index = _read_json_file(KNOWLEDGE_BASE_ROOT / "locations" / "index.json")
+    locations = locations_index.get("locations", []) if isinstance(locations_index, dict) else []
+    spot_names = [str(item.get("name")) for item in locations if isinstance(item, dict) and item.get("name")]
+    if spot_names:
+        lines.append(f"可先走精华线：{' -> '.join(spot_names[:3])}")
+
+    overview = _read_json_file(KNOWLEDGE_BASE_ROOT / "common" / "overview.json")
+    overview_root = overview.get("overview", {}) if isinstance(overview, dict) else {}
+    lake_info = overview_root.get("lake", {}) if isinstance(overview_root, dict) else {}
+    lake_description = lake_info.get("description") if isinstance(lake_info, dict) else ""
+    if isinstance(lake_description, str) and lake_description.strip():
+        lines.append(f"行程节奏建议：{lake_description.strip()}")
+
+    culture_info = overview_root.get("culture", {}) if isinstance(overview_root, dict) else {}
+    highlights = culture_info.get("highlights", []) if isinstance(culture_info, dict) else []
+    highlight_texts = [str(item).strip() for item in highlights if str(item).strip()]
+    if highlight_texts:
+        lines.append(f"推荐优先体验：{'；'.join(highlight_texts[:2])}")
+
+    scene_type = str((scene_context or {}).get("scene_type") or "").strip()
+    if scene_type == "checkin":
+        lines.append("打卡建议：优先里格半岛观景台与草海，光线好的时段集中拍摄。")
+    elif scene_type == "location-detail":
+        lines.append("景点页建议：先看交通与开放时段，再决定停留时长与下一站。")
+
+    return "\n".join(lines)
+
+
+def _clean_kb_snippet_text(text: str) -> str:
+    compact = re.sub(r"\s+", " ", text or "").strip()
+    if not compact:
+        return ""
+
+    if ":" in compact:
+        key, value = compact.split(":", 1)
+        key_norm = key.strip().lower()
+        if re.match(r"^[a-z0-9_\[\]\.\-]+$", key_norm):
+            compact = value.strip()
+
+    if compact.startswith("暂无"):
+        return ""
+
+    compact = re.sub(r"\s*([，。；：！？])\s*", r"\1", compact)
+    return compact[:120]
+
+
+def _build_chat_fallback_reply(message: str, knowledge_context: str, scene_context: dict | None = None) -> str:
+    snippets: list[str] = []
+    ignored_prefixes = ("version:", "lastupdated:", "overview.summary:")
+    for raw_line in (knowledge_context or "").splitlines():
+        line = raw_line.strip()
+        if not line:
+            continue
+        match = _KB_LINE_RE.match(line)
+        if not match:
+            continue
+        text = re.sub(r"\s+", " ", match.group(3)).strip()
+        if text.lower().startswith(ignored_prefixes):
+            continue
+        clean_text = _clean_kb_snippet_text(text)
+        if clean_text:
+            snippets.append(clean_text)
+        if len(snippets) >= 2:
+            break
+
+    offline_plan = _build_offline_quick_plan(scene_context)
+
+    if snippets:
+        joined = "\n".join(f"- {item}" for item in snippets)
+        extra_line = f"\n{offline_plan}" if offline_plan else ""
+        return (
+            "当前 AI 在线服务暂不可用，我先基于本地知识库给你参考：\n"
+            f"{joined}{extra_line}\n"
+            "如果你愿意，我也可以继续按你的问题给出更细的行程或玩法建议。"
+        )
+
+    brief = (message or "").strip()
+    if len(brief) > 40:
+        brief = f"{brief[:40]}..."
+    if not brief:
+        brief = "当前问题"
+
+    if offline_plan:
+        return (
+            "当前 AI 在线服务暂不可用，我先基于本地知识库给你一个可执行建议：\n"
+            f"{offline_plan}\n"
+            f"如果你愿意，我可以再按“{brief}”细化成半天/一天版本。"
+        )
+
+    return (
+        "当前 AI 在线服务暂不可用。"
+        f"你提到的“{brief}”，建议先补充出行时间、人数和偏好（人文/拍照/亲子/徒步），"
+        "我会基于本地知识库继续给你具体建议。"
+    )
+
+
 def generate_route(requirement: dict, locations: list) -> dict:
     location_dicts = [
         {
@@ -276,11 +381,12 @@ def generate_route(requirement: dict, locations: list) -> dict:
 
 def chat(message: str, system_prompt: str | None = None, scene_context: dict | None = None) -> str:
     """通用AI对话接口"""
+    knowledge_context = _build_knowledge_context(message, scene_context)
+
     if not settings.dashscope_api_key:
-        raise ValueError("未配置 DashScope API Key")
+        return _build_chat_fallback_reply(message, knowledge_context, scene_context)
 
     messages = []
-    knowledge_context = _build_knowledge_context(message, scene_context)
     prompt_parts = []
     if system_prompt:
         prompt_parts.append(system_prompt)
@@ -301,23 +407,66 @@ def chat(message: str, system_prompt: str | None = None, scene_context: dict | N
         "content": [{"text": message}]
     })
 
-    try:
-        resp = requests.post(
-            "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation",
-            headers={
-                "Authorization": f"Bearer {settings.dashscope_api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": settings.dashscope_model,
-                "input": {"messages": messages},
-                "parameters": {"result_format": "message"},
-            },
-            timeout=25,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        text = _extract_dashscope_text(data)
-        return text if text else "抱歉，未获得回复，请稍后重试"
-    except Exception as exc:
-        raise ValueError("对话失败") from exc
+    request_payload = {
+        "model": settings.dashscope_model,
+        "input": {"messages": messages},
+        "parameters": {"result_format": "message"},
+    }
+
+    last_error_code = ""
+    last_error_message = ""
+
+    for attempt in range(2):
+        try:
+            resp = requests.post(
+                "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation",
+                headers={
+                    "Authorization": f"Bearer {settings.dashscope_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=request_payload,
+                timeout=60,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            text = _extract_dashscope_text(data)
+            return text if text else "抱歉，未获得回复，请稍后重试"
+        except Exception as exc:
+            if isinstance(exc, requests.HTTPError) and exc.response is not None:
+                try:
+                    error_data = exc.response.json()
+                    if isinstance(error_data, dict):
+                        last_error_code = str(error_data.get("code") or "")
+                        last_error_message = str(error_data.get("message") or "")
+                except Exception:
+                    last_error_code = ""
+                    last_error_message = ""
+
+            if (
+                last_error_code == "InvalidParameter"
+                and "url error" in (last_error_message or "").lower()
+                and request_payload.get("model") != "qwen-plus"
+            ):
+                logger.warning(
+                    "DashScope model '%s' incompatible for this endpoint, fallback to qwen-plus",
+                    request_payload.get("model"),
+                )
+                request_payload["model"] = "qwen-plus"
+                continue
+
+            if last_error_code == "Arrearage":
+                logger.warning("DashScope account arrearage: %s", last_error_message)
+                return (
+                    "当前云端 AI 服务暂不可用：DashScope 账户欠费或不可用。"
+                    "请充值/检查账户状态后重试；当前先为你提供本地知识库参考。\n"
+                    + _build_chat_fallback_reply(message, knowledge_context, scene_context)
+                )
+
+            if attempt == 0:
+                logger.warning("DashScope chat attempt 1 failed: %s", exc)
+                time.sleep(0.8)
+                continue
+            logger.warning("DashScope chat fallback after retries: %s", exc)
+            return _build_chat_fallback_reply(message, knowledge_context, scene_context)
+
+    return _build_chat_fallback_reply(message, knowledge_context, scene_context)

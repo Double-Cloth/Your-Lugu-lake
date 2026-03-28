@@ -14,7 +14,7 @@ export const ImmersivePage = ({ bgImage, children, className = '' }) => {
       )}
       <div className="fixed inset-0 z-0 bg-gradient-to-b from-slate-900/40 via-slate-900/60 to-slate-900/90 backdrop-blur-[2px]" />
       
-      <div className="relative z-10 w-full flex-1 pb-24 flex flex-col">
+      <div className="relative z-10 w-full flex-1 flex flex-col">
         {children}
       </div>
     </div>
@@ -26,7 +26,7 @@ export const ImmersivePage = ({ bgImage, children, className = '' }) => {
  */
 export const ReadingGlassCard = ({ children, className = '' }) => {
   return (
-    <div className={`backdrop-blur-xl bg-white/90 text-slate-800 rounded-3xl p-6 shadow-2xl border border-white/40 ${className}`}>
+    <div className={`backdrop-blur-xl bg-white/10 text-white/90 rounded-3xl p-6 shadow-2xl border border-white/40 ${className}`}>
       {children}
     </div>
   );
@@ -42,9 +42,9 @@ export const CardComponent = ({
   variant = 'default' // 'default', 'glass', 'neon', 'immersive'
 }) => {
   const variants = {
-    default: 'bg-white/60 backdrop-blur-md border border-white/50 shadow-card hover:shadow-card-hover text-slate-800',
-    glass: 'bg-white/50 backdrop-blur-lg border border-white/70 shadow-smooth text-slate-800', 
-    neon: 'bg-gradient-to-br from-lake-50/80 to-wood-50/80 border border-lake-200/40 shadow-smooth-lg text-slate-800',
+    default: 'bg-white/10 backdrop-blur-md border border-white/20 shadow-card hover:shadow-card-hover text-white/90',
+    glass: 'bg-white/5 backdrop-blur-lg border border-white/10 shadow-smooth text-white/90', 
+    neon: 'bg-gradient-to-br from-slate-800/80 to-slate-900/80 border border-slate-700/50 shadow-smooth-lg text-white/90',
     immersive: 'backdrop-blur-md bg-white/10 border border-white/20 shadow-xl text-white' // 新增沉浸式深色玻璃
   };
 
@@ -104,7 +104,7 @@ export const SkeletonComponent = ({ className = '' }) => (
   <div className={`animate-pulse bg-white/20 rounded-xl ${className}`}></div>
 );
 
-export const EmptyStateComponent = ({ icon = '😕', title = '暂无数据', description = '', className = '' }) => (
+export const EmptyStateComponent = ({ icon = <LucideIcon name="Frown" size={48} className="text-white/40 mb-3 mx-auto" strokeWidth={1.5} />, title = '暂无数据', description = '', className = '' }) => (
   <div className={`flex flex-col items-center justify-center p-8 text-center bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl ${className}`}>
     <div className="text-4xl mb-3 opacity-60">{icon}</div>
     <div className="text-white font-bold mb-1">{title}</div>

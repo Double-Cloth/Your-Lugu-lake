@@ -25,9 +25,9 @@ function MobileShell() {
   const navigate = useNavigate();
 
   return (
-    <div className="w-full h-[100dvh] max-w-md mx-auto bg-slate-900 relative overflow-hidden flex flex-col font-sans shadow-2xl">
+    <div className="app-mobile-shell w-full h-[100dvh] max-w-md sm:max-w-xl md:max-w-3xl landscape:max-w-screen-xl mx-auto relative overflow-hidden flex flex-col font-sans shadow-2xl pt-[env(safe-area-inset-top)]">
       <PageHeader />
-      <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth scrollbar-hide">
+      <div className="app-main-scroll flex-1 overflow-y-auto overflow-x-hidden scroll-smooth scrollbar-hide pb-[calc(84px+env(safe-area-inset-bottom))]">
         <Routes>
           <Route path="/home" element={<HomePage />} />
           <Route path="/guide" element={<Navigate to="/home" replace />} />
@@ -42,13 +42,12 @@ function MobileShell() {
       </div>
       <AIFloatingBall />
       
-      {/* 沉浸式浮动 Dock 导航 */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[380px] z-50 pointer-events-none">
-        <div className="backdrop-blur-xl bg-slate-900/60 border border-white/10 rounded-[32px] shadow-2xl pb-safe pointer-events-auto">
-          <TabBar 
+      <div className="app-glass-footer-wrap" style={{ bottom: "max(14px, env(safe-area-inset-bottom))" }}>
+        <nav className="app-glass-footer" aria-label="主导航">
+          <TabBar safeArea={false} 
             activeKey={location.pathname} 
             onChange={(key) => navigate(key)}
-            className="!bg-transparent text-white/50"
+            className="app-glass-tabbar"
           >  
             {tabs.map((item) => (
               <TabBar.Item 
@@ -58,7 +57,7 @@ function MobileShell() {
               />    
             ))}
           </TabBar>
-        </div>
+        </nav>
       </div>
     </div>
   );

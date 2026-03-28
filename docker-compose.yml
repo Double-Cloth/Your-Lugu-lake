@@ -23,12 +23,14 @@ services:
     container_name: lugu-backend
     env_file:
       - .env.example
+      - .env
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-lugu}:${POSTGRES_PASSWORD:-lugu123}@db:5432/${POSTGRES_DB:-lugu_lake}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - ./backend:/app
+      - ./knowledge-base:/knowledge-base:ro
       - backend_uploads:/app/uploads
     depends_on:
       db:

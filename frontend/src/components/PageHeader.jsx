@@ -1,4 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
+import LucideIcon from "./LucideIcon";
 
 export default function PageHeader() {
   const location = useLocation();
@@ -40,22 +41,18 @@ export default function PageHeader() {
   };
 
   return (
-    <div className="sticky top-0 z-50 w-full backdrop-blur-xl bg-slate-900/60 border-b border-white/10 text-white shadow-sm flex items-center justify-between px-4 h-14 pt-safe">
-      <div className="w-10">
-        {config.showBack && (
-          <button 
-            className="flex items-center justify-center w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition-colors" 
-            onClick={handleBack} 
-            aria-label="返回"
-          >
-            <span className="text-xl leading-none -mt-1 ml-[-2px]">‹</span>
-          </button>
-        )}
+    <header className="app-glass-header">
+      <div className="app-glass-header-inner">
+        <div className="app-glass-header-side">
+          {config.showBack && (
+            <button className="app-glass-back-btn" onClick={handleBack} aria-label="返回">
+              <LucideIcon name="ChevronLeft" size={18} color="currentColor" />
+            </button>
+          )}
+        </div>
+        <h1 className="app-glass-header-title">{config.title}</h1>
+        <div className="app-glass-header-side" aria-hidden="true"></div>
       </div>
-      <h1 className="flex-1 text-center text-[17px] font-bold tracking-widest text-white/95">
-        {config.title}
-      </h1>
-      <div className="w-10"></div>
-    </div>
+    </header>
   );
 }
