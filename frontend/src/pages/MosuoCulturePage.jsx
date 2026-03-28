@@ -65,7 +65,7 @@ export default function MosuoCulturePage() {
       <div className="card card-glass">
         <p className="detail-description">{data.description || ""}</p>
         {details.introduction ? (
-          <div className="mt-3 text-sm text-slate-600 leading-relaxed">{details.introduction}</div>
+          <div className="mt-3 text-sm text-white/60 leading-relaxed">{details.introduction}</div>
         ) : null}
       </div>
 
@@ -85,7 +85,7 @@ export default function MosuoCulturePage() {
       {tips.length > 0 ? (
         <div className="card card-glass">
           <div className="detail-section-title">{sections.tipsTitle || sections.experienceTipsTitle || "参访建议"}</div>
-          <ul className="text-sm text-slate-700 mt-0 mb-0 pl-5">
+          <ul className="text-sm text-white/80 mt-0 mb-0 pl-5">
             {tips.map((item, idx) => (
               <li key={`tip-${idx}`} className="mb-1">{item}</li>
             ))}

@@ -96,7 +96,7 @@ export default function ScrollPage() {
       <div ref={scrollRef} className="card card-glass">
         <h3 className="m-0">泸沽湖足迹时间线</h3>
         {enriched.length === 0 ? (
-          <p className="text-sm text-slate-500 mt-3">暂无打卡记录，先去“打卡”页面完成行程记录。</p>
+          <p className="text-sm text-white/50 mt-3">暂无打卡记录，先去“打卡”页面完成行程记录。</p>
         ) : (
           <div className="mt-3 space-y-3">
             {enriched.map((item, idx) => (
@@ -105,9 +105,9 @@ export default function ScrollPage() {
                 className="timeline-item"
                 style={{ animationDelay: `${idx * 90}ms` }}
               >
-                <div className="text-xs text-lake-700">{new Date(item.check_in_time).toLocaleString()}</div>
+                <div className="text-xs text-white/95">{new Date(item.check_in_time).toLocaleString()}</div>
                 <div className="font-medium text-base">{item.locationName}</div>
-                <div className="text-sm text-slate-600">{item.mood_text || "无心情记录"}</div>
+                <div className="text-sm text-white/60">{item.mood_text || "无心情记录"}</div>
                 {item.photo_url && (
                   <img
                     src={`${import.meta.env.VITE_API_BASE_URL || "http://localhost:8000"}${item.photo_url}`}

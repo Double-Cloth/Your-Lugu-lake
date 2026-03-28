@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Card, ImageUploader, Input, Modal, Toast } from "antd-mobile";
+import { ImmersivePage, CardComponent, ButtonComponent, GlassInput } from "../components/SharedUI";
 import { Html5Qrcode } from "html5-qrcode";
 
 import { buildAssetUrl, createFootprint, fetchLocationById, getUserToken } from "../api";
@@ -269,7 +270,7 @@ export default function CheckinPage() {
   }
 
   return (
-    <div className="page-fade-in">
+    <ImmersivePage bgImage="/images/lugu-scenery.jpg" className="page-fade-in pt-6">
       <div className="hero-shell mb-3">
         <div className="hero-kicker">Check-in Trail</div>
         <h1 className="page-title m-0">地图打卡</h1>
@@ -296,8 +297,8 @@ export default function CheckinPage() {
         <Button block color="primary" loading={scanLoading} onClick={startScan}>{scanEnabled ? "关闭扫码" : "扫描二维码"}</Button>
         {scanEnabled && <div id="qr-reader" className="mt-3" />}
 
-        <Input
-          className="mt-3"
+        <GlassInput
+          wrapperClassName="mt-3"
           placeholder="景点ID（扫码后自动填充）"
           value={locationId}
           onChange={setLocationId}
@@ -305,19 +306,19 @@ export default function CheckinPage() {
         />
 
         <Button className="mt-3" block onClick={locateMe}>获取当前位置</Button>
-        <div className="mt-2 text-xs text-slate-500">
+        <div className="mt-2 text-xs text-white/50">
           纬度: {gps.lat || "未获取"}，经度: {gps.lon || "未获取"}
         </div>
 
-        <Input
-          className="mt-3"
+        <GlassInput
+          wrapperClassName="mt-3"
           placeholder="记录此刻心情"
           value={moodText}
           onChange={setMoodText}
           clearable
         />
 
-        <div className="mt-3">
+        <div className="mt-3 bg-white/10 p-3 rounded-xl border border-white/20">
           <ImageUploader
             value={files}
             onChange={setFiles}
@@ -338,16 +339,16 @@ export default function CheckinPage() {
         visible={scanModalVisible}
         content={
           <div>
-            <div className="text-base font-semibold text-lake-700">{activeSpot?.name || "当前景点"}</div>
+            <div className="text-base font-semibold text-white/95">{activeSpot?.name || "当前景点"}</div>
             {activeSpot?.qr_code_url ? <img src={buildAssetUrl(activeSpot.qr_code_url)} alt="景点二维码" className="w-full rounded-xl mt-2" /> : null}
-            <div className="text-sm text-slate-600 mt-2">{activeSpot?.description || "已完成扫码，欢迎继续探索。"}</div>
-            <div className="text-xs text-slate-500 mt-3">分类：{activeSpot?.category || "景点"}</div>
+            <div className="text-sm text-white/60 mt-2">{activeSpot?.description || "已完成扫码，欢迎继续探索。"}</div>
+            <div className="text-xs text-white/50 mt-3">分类：{activeSpot?.category || "景点"}</div>
           </div>
         }
         closeOnMaskClick
         onClose={() => setScanModalVisible(false)}
         actions={[{ key: "ok", text: "继续打卡", primary: true, onClick: () => setScanModalVisible(false) }]}
       />
-    </div>
+    </ImmersivePage>
   );
 }

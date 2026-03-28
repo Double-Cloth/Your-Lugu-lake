@@ -41,7 +41,8 @@ def chat(
 ):
     """通用AI对话端点，支持自定义系统提示词"""
     try:
-        reply = chat_via_llm(payload.message, payload.system_prompt)
+        scene_context = payload.scene_context.model_dump() if payload.scene_context else None
+        reply = chat_via_llm(payload.message, payload.system_prompt, scene_context)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 

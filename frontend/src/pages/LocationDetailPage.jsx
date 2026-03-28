@@ -73,7 +73,7 @@ export default function LocationDetailPage() {
         </div>
         <p className="detail-description">{item.description}</p>
         {details.introduction && (
-          <div className="mt-3 text-sm text-slate-600 leading-relaxed">
+          <div className="mt-3 text-sm text-white/60 leading-relaxed">
             {details.introduction}
           </div>
         )}
@@ -201,14 +201,14 @@ export default function LocationDetailPage() {
           <div className="text-lg font-bold">
             ¥{ticketInfo.price} {ticketInfo.currency}
           </div>
-          {ticketInfo.validDays && <div className="text-sm text-slate-600">有效期：{ticketInfo.validDays}天</div>}
-          {ticketInfo.remark && <div className="text-xs text-slate-500 mt-2">{ticketInfo.remark}</div>}
+          {ticketInfo.validDays && <div className="text-sm text-white/60">有效期：{ticketInfo.validDays}天</div>}
+          {ticketInfo.remark && <div className="text-xs text-white/50 mt-2">{ticketInfo.remark}</div>}
         </div>
       )}
 
       {/* 基础信息 */}
       <div className="card card-glass">
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-white/50">
           <span className="chip-soft">景点ID {item.id}</span>
           {item.slug && <span className="chip-soft ml-2">标识 {item.slug}</span>}
           {item._source && <span className="chip-soft ml-2">数据源 {item._source}</span>}

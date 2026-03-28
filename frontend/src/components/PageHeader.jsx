@@ -11,6 +11,8 @@ export default function PageHeader() {
     "/me": { title: "我的", showBack: false },
     "/scroll": { title: "我的旅行绘卷", showBack: true },
     "/locations": { title: "景点详情", showBack: true },
+    "/lugu-lake": { title: "泸沽湖概览", showBack: true },
+    "/mosuo-culture": { title: "摩梭文化", showBack: true },
   };
 
   // 根据路径获取配置
@@ -38,18 +40,22 @@ export default function PageHeader() {
   };
 
   return (
-    <div className="page-header">
-      <div className="page-header-container">
-        {config.showBack ? (
-          <button className="page-header-back" onClick={handleBack} aria-label="返回">
-            <span>‹</span>
+    <div className="sticky top-0 z-50 w-full backdrop-blur-xl bg-slate-900/60 border-b border-white/10 text-white shadow-sm flex items-center justify-between px-4 h-14 pt-safe">
+      <div className="w-10">
+        {config.showBack && (
+          <button 
+            className="flex items-center justify-center w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 transition-colors" 
+            onClick={handleBack} 
+            aria-label="返回"
+          >
+            <span className="text-xl leading-none -mt-1 ml-[-2px]">‹</span>
           </button>
-        ) : (
-          <div className="page-header-spacer"></div>
         )}
-        <h1 className="page-header-title">{config.title}</h1>
-        <div className="page-header-spacer"></div>
       </div>
+      <h1 className="flex-1 text-center text-[17px] font-bold tracking-widest text-white/95">
+        {config.title}
+      </h1>
+      <div className="w-10"></div>
     </div>
   );
 }

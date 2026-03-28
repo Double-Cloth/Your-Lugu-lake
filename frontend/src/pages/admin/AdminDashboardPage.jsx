@@ -309,7 +309,7 @@ export default function AdminDashboardPage() {
               <Input value={form.name} onChange={(val) => setForm((prev) => ({ ...prev, name: val }))} placeholder="景点名称" clearable />
               <Input value={form.description} onChange={(val) => setForm((prev) => ({ ...prev, description: val }))} placeholder="景点介绍" clearable />
               <div>
-                <div className="text-xs text-slate-500 mb-1">景点类别</div>
+                <div className="text-xs text-white/50 mb-1">景点类别</div>
                 <Selector
                   options={categoryOptions}
                   value={[form.category]}
@@ -334,7 +334,7 @@ export default function AdminDashboardPage() {
               />
 
               <div className="rounded-xl bg-slate-50 p-2">
-                <div className="text-xs text-slate-500 mb-2">坐标地图预览</div>
+                <div className="text-xs text-white/50 mb-2">坐标地图预览</div>
                 {createMap.staticMapUrl ? (
                   <>
                     <img src={createMap.staticMapUrl} alt="地图预览" className="w-full rounded-lg border" />
@@ -360,7 +360,7 @@ export default function AdminDashboardPage() {
               {locations.map((loc) => (
                 <div key={loc.id} className="border rounded-xl p-3">
                   <div className="font-medium">{loc.name}</div>
-                  <div className="text-xs text-slate-500">{loc.category} | {loc.latitude}, {loc.longitude}</div>
+                  <div className="text-xs text-white/50">{loc.category} | {loc.latitude}, {loc.longitude}</div>
                   <div className="mt-2 flex flex-wrap gap-2">
                     <Button size="mini" onClick={() => startEditLocation(loc)}>编辑</Button>
                     <Button size="mini" onClick={() => handleQuickUpdateCategory(loc)}>切换类别</Button>
@@ -368,7 +368,7 @@ export default function AdminDashboardPage() {
                     <Button size="mini" onClick={() => handleDownloadSingleQr(loc)}>下载二维码</Button>
                     <Button size="mini" color="danger" onClick={() => handleDeleteLocation(loc.id)}>删除</Button>
                   </div>
-                  {loc.qr_code_url && <div className="text-xs text-lake-700 mt-2">{loc.qr_code_url}</div>}
+                  {loc.qr_code_url && <div className="text-xs text-white/95 mt-2">{loc.qr_code_url}</div>}
                 </div>
               ))}
             </div>
@@ -385,7 +385,7 @@ export default function AdminDashboardPage() {
               <Input value={editForm.description} onChange={(val) => setEditForm((prev) => ({ ...prev, description: val }))} placeholder="景点介绍" clearable />
               <Input value={editForm.audio_url} onChange={(val) => setEditForm((prev) => ({ ...prev, audio_url: val }))} placeholder="音频链接（http/https）" clearable />
               <div>
-                <div className="text-xs text-slate-500 mb-1">景点类别</div>
+                <div className="text-xs text-white/50 mb-1">景点类别</div>
                 <Selector
                   options={categoryOptions}
                   value={[editForm.category]}
@@ -410,7 +410,7 @@ export default function AdminDashboardPage() {
               />
 
               <div className="rounded-xl bg-slate-50 p-2">
-                <div className="text-xs text-slate-500 mb-2">坐标地图预览</div>
+                <div className="text-xs text-white/50 mb-2">坐标地图预览</div>
                 {editMap.staticMapUrl ? (
                   <>
                     <img src={editMap.staticMapUrl} alt="地图预览" className="w-full rounded-lg border" />

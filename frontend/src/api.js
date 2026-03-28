@@ -3,6 +3,9 @@ import axios from "axios";
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
   timeout: 15000,
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "http://localhost:8000").replace(/\/$/, "");
@@ -256,13 +259,68 @@ export async function fetchLocationDetail(idOrSlug) {
 }
 
 export async function registerUser(payload) {
-  const { data } = await api.post("/api/auth/register", payload);
-  return data;
+  if (!payload || !payload.username || !payload.password) {
+    throw new Error("Username and password are required");
+  }
+  try {
+    const { data } = await api.post("/api/auth/register", {
+      username: String(payload.username).trim(),
+      password: String(payload.password),
+    });
+    return data;
+  } catch (error) {
+    console.error("Register error:", error.response?.status, error.response?.data);
+    // 提取可读的错误消息
+    const errorMsg = extractErrorMessage(error);
+    const newError = new Error(errorMsg);
+    newError.response = error.response;
+    throw newError;
+  }
 }
 
 export async function loginUser(payload) {
-  const { data } = await api.post("/api/auth/login", payload);
-  return data;
+  if (!payload || !payload.username || !payload.password) {
+    throw new Error("Username and password are required");
+  }
+  try {
+    const { data } = await api.post("/api/auth/login", {
+      username: String(payload.username).trim(),
+      password: String(payload.password),
+    });
+    return data;
+  } catch (error) {
+    console.error("Login error:", error.response?.status, error.response?.data);
+    // 提取可读的错误消息
+    const errorMsg = extractErrorMessage(error);
+    const newError = new Error(errorMsg);
+    newError.response = error.response;
+    throw newError;
+  }
+}
+
+/**
+ * 从 API 错误响应中提取可读的错误消息
+ */
+function extractErrorMessage(error) {
+  // 如果是 FastAPI Pydantic 验证错误
+  const detail = error?.response?.data?.detail;
+  
+  if (Array.isArray(detail)) {
+    // 多个验证错误：[{loc, msg, type, ...}, ...]
+    const messages = detail.map(err => {
+      const field = Array.isArray(err.loc) ? err.loc[err.loc.length - 1] : 'field';
+      return `${field}: ${err.msg}`;
+    });
+    return messages.join('; ') || '请求格式错误';
+  }
+  
+  if (typeof detail === 'string') {
+    // 单个错误消息
+    return detail;
+  }
+  
+  // 其他错误格式
+  return error?.message || '请求失败，请重试';
 }
 
 export async function fetchCurrentUser(token) {
@@ -338,11 +396,12 @@ export async function generateLocationQr(locationId, token) {
   return data;
 }
 
-export async function sceneChat(message, systemPrompt, token) {
+export async function sceneChat(message, systemPrompt, token, sceneContext = null) {
   const { data } = await api.post("/api/routes/chat", 
     {
       message,
       system_prompt: systemPrompt,
+      scene_context: sceneContext,
     },
     {
       headers: authHeader(token),

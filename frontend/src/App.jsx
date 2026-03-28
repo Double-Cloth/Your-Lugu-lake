@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { Navigate, Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import { TabBar } from "antd-mobile";
 import { AppOutline, EnvironmentOutline, UserOutline } from "antd-mobile-icons";
@@ -21,65 +20,14 @@ const tabs = [
   { key: "/me", title: "我的", icon: <UserOutline /> },
 ];
 
-function createMovingBlobs(count = 8) {
-  const palette = [
-    "hsla(198 86% 64% / 0.34)",
-    "hsla(176 68% 66% / 0.3)",
-    "hsla(36 94% 69% / 0.24)",
-    "hsla(210 82% 68% / 0.3)",
-    "hsla(165 62% 69% / 0.3)",
-    "hsla(22 92% 71% / 0.24)",
-  ];
-
-  const pick = (min, max) => Math.round(min + Math.random() * (max - min));
-
-  return Array.from({ length: count }, (_, index) => ({
-    id: `app-blob-${index}`,
-    color: palette[index % palette.length],
-    top: `${pick(-12, 88)}%`,
-    left: `${pick(-18, 88)}%`,
-    size: `${pick(130, 260)}px`,
-    duration: `${pick(14, 26)}s`,
-    delay: `${pick(-12, 0)}s`,
-    x1: `${pick(-28, 28)}px`,
-    y1: `${pick(-26, 24)}px`,
-    x2: `${pick(-36, 36)}px`,
-    y2: `${pick(-30, 30)}px`,
-    scale2: (0.82 + Math.random() * 0.36).toFixed(2),
-  }));
-}
-
 function MobileShell() {
   const location = useLocation();
   const navigate = useNavigate();
-  const movingBlobs = useMemo(() => createMovingBlobs(8), []);
 
   return (
-    <div className="mobile-shell">
-      <div className="app-dynamic-bg" aria-hidden="true">
-        {movingBlobs.map((blob) => (
-          <span
-            key={blob.id}
-            className="app-bg-blob"
-            style={{
-              top: blob.top,
-              left: blob.left,
-              width: blob.size,
-              height: blob.size,
-              background: blob.color,
-              animationDuration: blob.duration,
-              animationDelay: blob.delay,
-              "--x1": blob.x1,
-              "--y1": blob.y1,
-              "--x2": blob.x2,
-              "--y2": blob.y2,
-              "--scale2": blob.scale2,
-            }}
-          />
-        ))}
-      </div>
+    <div className="w-full h-[100dvh] max-w-md mx-auto bg-slate-900 relative overflow-hidden flex flex-col font-sans shadow-2xl">
       <PageHeader />
-      <div className="mobile-content">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth scrollbar-hide">
         <Routes>
           <Route path="/home" element={<HomePage />} />
           <Route path="/guide" element={<Navigate to="/home" replace />} />
@@ -93,11 +41,25 @@ function MobileShell() {
         </Routes>
       </div>
       <AIFloatingBall />
-      <TabBar activeKey={location.pathname} onChange={(key) => navigate(key)}>
-        {tabs.map((item) => (
-          <TabBar.Item key={item.key} icon={item.icon} title={item.title} />
-        ))}
-      </TabBar>
+      
+      {/* 沉浸式浮动 Dock 导航 */}
+      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-[380px] z-50 pointer-events-none">
+        <div className="backdrop-blur-xl bg-slate-900/60 border border-white/10 rounded-[32px] shadow-2xl pb-safe pointer-events-auto">
+          <TabBar 
+            activeKey={location.pathname} 
+            onChange={(key) => navigate(key)}
+            className="!bg-transparent text-white/50"
+          >  
+            {tabs.map((item) => (
+              <TabBar.Item 
+                key={item.key} 
+                icon={item.icon} 
+                title={item.title} 
+              />    
+            ))}
+          </TabBar>
+        </div>
+      </div>
     </div>
   );
 }

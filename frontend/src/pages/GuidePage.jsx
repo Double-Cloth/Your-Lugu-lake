@@ -65,13 +65,13 @@ export default function GuidePage() {
       </div>
 
       <Card className="card card-glass">
-        <div className="text-sm text-slate-700 leading-6 mb-2">时长</div>
+        <div className="text-sm text-white/80 leading-6 mb-2">时长</div>
         <Selector options={durationOptions} value={duration} onChange={setDuration} />
 
-        <div className="text-sm text-slate-700 leading-6 mt-4 mb-2">偏好</div>
+        <div className="text-sm text-white/80 leading-6 mt-4 mb-2">偏好</div>
         <Selector options={preferenceOptions} value={preference} onChange={setPreference} />
 
-        <div className="text-sm text-slate-700 leading-6 mt-4 mb-2">出行人群</div>
+        <div className="text-sm text-white/80 leading-6 mt-4 mb-2">出行人群</div>
         <Selector options={groupOptions} value={groupType} onChange={setGroupType} />
 
         <Button color="primary" className="mt-4" loading={loading} block onClick={handleGenerate}>
@@ -81,7 +81,7 @@ export default function GuidePage() {
 
       {timeline.length > 0 && (
         <Card className="card card-glass">
-          <h3 className="m-0 text-lake-700">{title}</h3>
+          <h3 className="m-0 text-white/95">{title}</h3>
           <div className="mt-3 space-y-3">
             {timeline.map((item, idx) => (
               <div
@@ -89,9 +89,9 @@ export default function GuidePage() {
                 className="timeline-item"
                 style={{ animationDelay: `${idx * 90}ms` }}
               >
-                <div className="text-xs text-lake-700">{item.time}</div>
+                <div className="text-xs text-white/95">{item.time}</div>
                 <div className="font-medium text-base">{item.location}</div>
-                <div className="text-sm text-slate-600">停留约 {item.stay_minutes} 分钟</div>
+                <div className="text-sm text-white/60">停留约 {item.stay_minutes} 分钟</div>
                 {item.highlight && <div className="text-xs text-wood-500 mt-1">{item.highlight}</div>}
               </div>
             ))}

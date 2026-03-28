@@ -55,6 +55,51 @@ const getSceneMetaByRoute = (pathname) => {
   };
 };
 
+const getSceneContextByRoute = (pathname) => {
+  const cleanedPath = typeof pathname === "string" ? pathname : "";
+  const scene = {
+    pathname: cleanedPath,
+    scene_type: "general",
+    page_slug: null,
+    location_ref: null,
+  };
+
+  if (cleanedPath.startsWith("/locations/")) {
+    const locationRef = cleanedPath.split("/")[2] || "";
+    return {
+      ...scene,
+      scene_type: "location-detail",
+      location_ref: locationRef,
+    };
+  }
+
+  if (cleanedPath === "/lugu-lake" || cleanedPath === "/mosuo-culture") {
+    return {
+      ...scene,
+      scene_type: "page",
+      page_slug: cleanedPath.slice(1),
+    };
+  }
+
+  if (cleanedPath === "/checkin") {
+    return { ...scene, scene_type: "checkin" };
+  }
+
+  if (cleanedPath === "/scroll") {
+    return { ...scene, scene_type: "scroll" };
+  }
+
+  if (cleanedPath === "/home" || cleanedPath === "/guide") {
+    return { ...scene, scene_type: "home" };
+  }
+
+  if (cleanedPath === "/me") {
+    return { ...scene, scene_type: "profile" };
+  }
+
+  return scene;
+};
+
 export default function AIFloatingBall() {
   const location = useLocation();
   const [visible, setVisible] = useState(false);
@@ -120,7 +165,8 @@ export default function AIFloatingBall() {
 
     try {
       const systemPrompt = getSystemPromptByRoute(location.pathname);
-      const result = await sceneChat(text, systemPrompt, token);
+      const sceneContext = getSceneContextByRoute(location.pathname);
+      const result = await sceneChat(text, systemPrompt, token, sceneContext);
       
       // 添加 AI 回复到对话记录
       const assistantMessageId = `${Date.now()}-assistant`;

@@ -64,7 +64,7 @@ export default function LuguLakeOverviewPage() {
       <div className="card card-glass">
         <p className="detail-description">{data.description || ""}</p>
         {details.introduction ? (
-          <div className="mt-3 text-sm text-slate-600 leading-relaxed">{details.introduction}</div>
+          <div className="mt-3 text-sm text-white/60 leading-relaxed">{details.introduction}</div>
         ) : null}
       </div>
 
