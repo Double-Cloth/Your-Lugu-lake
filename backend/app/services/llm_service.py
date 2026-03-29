@@ -3,6 +3,7 @@ import logging
 import math
 import re
 import time
+from datetime import datetime
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,8 +11,11 @@ from threading import Lock
 from urllib.parse import parse_qs, urlparse
 
 import requests
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import settings
+from app.db.session import SessionLocal
+from app.models.knowledge_vector_store import KnowledgeVectorChunk, KnowledgeVectorStoreMeta
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
@@ -29,7 +33,7 @@ class _VectorChunk:
 
 @dataclass
 class _KnowledgeVectorStore:
-    signature: tuple[tuple[str, float, int], ...]
+    signature: tuple[tuple[str, int, int], ...]
     idf: dict[str, float]
     default_idf: float
     chunks_by_source: dict[str, list[_VectorChunk]]
@@ -197,15 +201,160 @@ def _all_knowledge_targets() -> list[tuple[str, Path]]:
     return unique
 
 
-def _build_knowledge_signature(targets: list[tuple[str, Path]]) -> tuple[tuple[str, float, int], ...]:
-    items: list[tuple[str, float, int]] = []
+def _build_knowledge_signature(targets: list[tuple[str, Path]]) -> tuple[tuple[str, int, int], ...]:
+    items: list[tuple[str, int, int]] = []
     for _, path in targets:
         if not path.exists() or not path.is_file():
             continue
         stat = path.stat()
-        items.append((path.as_posix(), stat.st_mtime, stat.st_size))
+        items.append((path.as_posix(), stat.st_mtime_ns, stat.st_size))
     items.sort(key=lambda item: item[0])
     return tuple(items)
+
+
+def _signature_to_payload(signature: tuple[tuple[str, int, int], ...]) -> list[dict]:
+    return [
+        {
+            "path": path,
+            "mtime_ns": mtime_ns,
+            "size": size,
+        }
+        for path, mtime_ns, size in signature
+    ]
+
+
+def _signature_from_payload(payload) -> tuple[tuple[str, int, int], ...]:
+    if not isinstance(payload, list):
+        return tuple()
+
+    items: list[tuple[str, int, int]] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        path = str(item.get("path") or "").strip()
+        if not path:
+            continue
+        try:
+            mtime_ns = int(item.get("mtime_ns") or 0)
+            size = int(item.get("size") or 0)
+        except Exception:
+            continue
+        items.append((path, mtime_ns, size))
+
+    items.sort(key=lambda entry: entry[0])
+    return tuple(items)
+
+
+def _load_vector_store_from_db(signature: tuple[tuple[str, int, int], ...]) -> _KnowledgeVectorStore | None:
+    try:
+        with SessionLocal() as db:
+            meta = db.query(KnowledgeVectorStoreMeta).filter(KnowledgeVectorStoreMeta.id == 1).first()
+            if not meta:
+                return None
+
+            persisted_signature = _signature_from_payload(meta.signature_json)
+            if persisted_signature != signature:
+                return None
+
+            idf_payload = meta.idf_json if isinstance(meta.idf_json, dict) else {}
+            idf: dict[str, float] = {}
+            for token, weight in idf_payload.items():
+                token_text = str(token or "").strip()
+                if not token_text:
+                    continue
+                try:
+                    idf[token_text] = float(weight)
+                except Exception:
+                    continue
+
+            chunks_by_source: dict[str, list[_VectorChunk]] = {}
+            all_chunks: list[_VectorChunk] = []
+
+            rows = db.query(KnowledgeVectorChunk).order_by(KnowledgeVectorChunk.id.asc()).all()
+            for row in rows:
+                vector_payload = row.vector_json if isinstance(row.vector_json, dict) else {}
+                vector: dict[str, float] = {}
+                for token, weight in vector_payload.items():
+                    key = str(token or "").strip()
+                    if not key:
+                        continue
+                    try:
+                        vector[key] = float(weight)
+                    except Exception:
+                        continue
+
+                try:
+                    norm = float(row.norm)
+                except Exception:
+                    norm = 0.0
+                if norm <= 0:
+                    continue
+
+                source_name = str(row.source_name or "").strip()
+                if not source_name:
+                    continue
+
+                chunk = _VectorChunk(
+                    source_name=source_name,
+                    text=str(row.text or ""),
+                    vector=vector,
+                    norm=norm,
+                )
+                chunks_by_source.setdefault(source_name, []).append(chunk)
+                all_chunks.append(chunk)
+
+            default_idf = float(meta.default_idf if meta.default_idf is not None else 1.0)
+            return _KnowledgeVectorStore(
+                signature=signature,
+                idf=idf,
+                default_idf=default_idf,
+                chunks_by_source=chunks_by_source,
+                all_chunks=all_chunks,
+            )
+    except Exception as exc:
+        logger.warning("Load knowledge vector store from DB failed: %s", exc)
+        return None
+
+
+def _save_vector_store_to_db(store: _KnowledgeVectorStore) -> None:
+    try:
+        with SessionLocal() as db:
+            meta = db.query(KnowledgeVectorStoreMeta).filter(KnowledgeVectorStoreMeta.id == 1).first()
+            payload_signature = _signature_to_payload(store.signature)
+            payload_idf = {token: float(weight) for token, weight in store.idf.items()}
+
+            now = datetime.utcnow()
+            if meta is None:
+                meta = KnowledgeVectorStoreMeta(
+                    id=1,
+                    signature_json=payload_signature,
+                    idf_json=payload_idf,
+                    default_idf=float(store.default_idf),
+                    created_at=now,
+                    updated_at=now,
+                )
+                db.add(meta)
+            else:
+                meta.signature_json = payload_signature
+                meta.idf_json = payload_idf
+                meta.default_idf = float(store.default_idf)
+                meta.updated_at = now
+
+            db.query(KnowledgeVectorChunk).delete(synchronize_session=False)
+            for chunk in store.all_chunks:
+                db.add(
+                    KnowledgeVectorChunk(
+                        source_name=chunk.source_name,
+                        text=chunk.text,
+                        vector_json={token: float(weight) for token, weight in chunk.vector.items()},
+                        norm=float(chunk.norm),
+                        created_at=now,
+                    )
+                )
+
+            db.commit()
+    except SQLAlchemyError as exc:
+        logger.warning("Persist knowledge vector store to DB failed: %s", exc)
 
 
 def _build_tfidf_vector(tokens: list[str], idf: dict[str, float], default_idf: float) -> tuple[dict[str, float], float]:
@@ -247,7 +396,7 @@ def _sparse_cosine_similarity(query_vector: dict[str, float], query_norm: float,
 
 def _build_vector_store(
     targets: list[tuple[str, Path]],
-    signature: tuple[tuple[str, float, int], ...],
+    signature: tuple[tuple[str, int, int], ...],
 ) -> _KnowledgeVectorStore:
     docs: list[tuple[str, str, list[str]]] = []
     for source_name, path in targets:
@@ -312,7 +461,19 @@ def _get_vector_store(force_rebuild: bool = False) -> _KnowledgeVectorStore:
         if not force_rebuild and _VECTOR_STORE_CACHE and _VECTOR_STORE_CACHE.signature == signature:
             return _VECTOR_STORE_CACHE
 
+        if not force_rebuild:
+            persisted = _load_vector_store_from_db(signature)
+            if persisted is not None:
+                _VECTOR_STORE_CACHE = persisted
+                logger.info(
+                    "Knowledge vector store loaded from DB: %s chunks, %s sources",
+                    len(_VECTOR_STORE_CACHE.all_chunks),
+                    len(_VECTOR_STORE_CACHE.chunks_by_source),
+                )
+                return _VECTOR_STORE_CACHE
+
         _VECTOR_STORE_CACHE = _build_vector_store(targets, signature)
+        _save_vector_store_to_db(_VECTOR_STORE_CACHE)
         logger.info(
             "Knowledge vector store rebuilt: %s chunks, %s sources",
             len(_VECTOR_STORE_CACHE.all_chunks),
