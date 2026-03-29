@@ -4,7 +4,8 @@
 
 - Base URL: `http://localhost:8000`
 - Swagger: `http://localhost:8000/docs`
-- 鉴权方式: `Authorization: Bearer <token>`
+- 鉴权方式: `HttpOnly Cookie`（兼容 Bearer）
+- 写请求防护: `X-CSRF-Token` 头（值来自 `lugu_csrf_token` Cookie）
 
 说明：当前接口返回为业务对象本身（并非统一 `{code,message,data}` 包装）。
 
@@ -25,11 +26,22 @@
 ```
 响应示例：
 ```json
-{"access_token":"...","token_type":"bearer","role":"user"}
+{"ok":true,"username":"demo_user","role":"user"}
 ```
+
+说明：成功后会通过 Set-Cookie 写入会话 Cookie 与 CSRF Cookie。
 
 ### `POST /api/auth/login`
 请求体同上，响应同 `register`。
+
+### `GET /api/auth/password-public-key`
+用于前端密码传输加密（RSA-OAEP-256）：
+```json
+{"enabled":true,"algorithm":"RSA-OAEP-256","public_key":"-----BEGIN PUBLIC KEY-----..."}
+```
+
+### `POST /api/auth/logout`
+清理会话 Cookie，需要携带 `X-CSRF-Token`。
 
 ### `GET /api/auth/me`
 需登录，返回用户信息：
@@ -42,6 +54,7 @@
 ```json
 {"username":"new_name","password":"new_pass_123"}
 ```
+需要携带 `X-CSRF-Token`。
 
 ## 景点 ` /api/locations `
 
@@ -66,14 +79,20 @@
 创建景点（请求体字段与 `LocationCreate` 一致）：
 - `name`, `description`, `audio_url`, `latitude`, `longitude`, `category`, `qr_code_url`
 
+需要携带 `X-CSRF-Token`。
+
 ### `PUT /api/admin/locations/{location_id}`
 按字段部分更新。
+
+需要携带 `X-CSRF-Token`。
 
 ### `DELETE /api/admin/locations/{location_id}`
 删除景点，返回：
 ```json
 {"ok":true}
 ```
+
+需要携带 `X-CSRF-Token`。
 
 ## 打卡 ` /api/footprints `
 
@@ -90,6 +109,8 @@
 {"id":123,"photo_url":"/uploads/xxx.jpg"}
 ```
 
+需要携带 `X-CSRF-Token`。
+
 ### `GET /api/footprints/me`
 返回当前用户足迹数组。
 
@@ -105,6 +126,8 @@
 {"route":{}}
 ```
 
+需要携带 `X-CSRF-Token`。
+
 ### `POST /api/routes/chat`
 请求体：
 ```json
@@ -114,6 +137,8 @@
 ```json
 {"reply":"..."}
 ```
+
+需要携带 `X-CSRF-Token`。
 
 ## 管理后台 ` /api/admin `（管理员）
 
@@ -125,6 +150,8 @@
 
 ### `POST /api/admin/qrcodes/generate/{location_id}`
 为景点生成二维码并写回 `qr_code_url`。
+
+需要携带 `X-CSRF-Token`。
 
 ### `GET /api/admin/qrcodes/batch-export`
 导出全部二维码 zip（二进制）。

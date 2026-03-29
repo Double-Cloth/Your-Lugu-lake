@@ -4,7 +4,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import csrf_protect, get_current_user
 from app.db.session import get_db
 from app.models.ai_route import AIRoute
 from app.models.chat import ChatMessage, ChatSession
@@ -18,10 +18,12 @@ from app.schemas.route import (
     ChatSessionItem,
     RouteGenerateRequest,
     RouteGenerateResponse,
+    SavedRouteItem,
+    SavedRoutesResponse,
 )
 from app.services.llm_service import generate_route as generate_route_via_llm, chat as chat_via_llm
 
-router = APIRouter(prefix="/api/routes", tags=["routes"])
+router = APIRouter(prefix="/api/routes", tags=["routes"], dependencies=[Depends(csrf_protect)])
 
 
 def _build_chat_title(text: str) -> str:
@@ -46,8 +48,30 @@ def generate_route(
     record = AIRoute(user_id=user.id, route_json=route_json, created_at=datetime.utcnow())
     db.add(record)
     db.commit()
+    db.refresh(record)
 
-    return RouteGenerateResponse(route=route_json)
+    return RouteGenerateResponse(route=route_json, route_id=record.id, saved=True)
+
+
+@router.get("/my", response_model=SavedRoutesResponse)
+def list_my_routes(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    rows = (
+        db.query(AIRoute)
+        .filter(AIRoute.user_id == user.id)
+        .order_by(AIRoute.created_at.desc())
+        .limit(50)
+        .all()
+    )
+
+    return SavedRoutesResponse(
+        routes=[
+            SavedRouteItem(id=row.id, created_at=row.created_at, route=row.route_json)
+            for row in rows
+        ]
+    )
 
 
 @router.post("/chat", response_model=ChatResponse)

@@ -1,58 +1,142 @@
 import axios from "axios";
+import {
+  getAdminSessionToken,
+  getUserSessionToken,
+} from "./auth";
 
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || "",
   timeout: 15000,
+  withCredentials: true,
   headers: {
     "Content-Type": "application/json",
   },
 });
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+const CSRF_COOKIE_NAME = import.meta.env.VITE_CSRF_COOKIE_NAME || "lugu_csrf_token";
+const CSRF_HEADER_NAME = import.meta.env.VITE_CSRF_HEADER_NAME || "X-CSRF-Token";
+const PASSWORD_CIPHER_PREFIX = "enc:rsa_oaep_sha256:";
 
-function parseJwtPayload(token) {
+let passwordPublicKeyCache = null;
+let passwordPublicKeyFetchedAt = 0;
+
+function readCookieValue(name) {
+  if (typeof document === "undefined") return "";
+  const chunks = document.cookie ? document.cookie.split(";") : [];
+  for (const rawChunk of chunks) {
+    const chunk = rawChunk.trim();
+    if (!chunk) continue;
+    const [key, ...rest] = chunk.split("=");
+    if (key !== name) continue;
+    return decodeURIComponent(rest.join("=") || "");
+  }
+  return "";
+}
+
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  for (let i = 0; i < bytes.byteLength; i += 1) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
+function pemToArrayBuffer(pem) {
+  const body = String(pem || "")
+    .replace(/-----BEGIN PUBLIC KEY-----/g, "")
+    .replace(/-----END PUBLIC KEY-----/g, "")
+    .replace(/\s+/g, "");
+  const binary = atob(body);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+async function fetchPasswordPublicKeyConfig() {
+  const now = Date.now();
+  if (passwordPublicKeyCache && now - passwordPublicKeyFetchedAt < 5 * 60 * 1000) {
+    return passwordPublicKeyCache;
+  }
+
   try {
-    const parts = token.split(".");
-    if (parts.length !== 3) return null;
-    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-    const padded = base64 + "=".repeat((4 - (base64.length % 4 || 4)) % 4);
-    return JSON.parse(atob(padded));
+    const { data } = await api.get("/api/auth/password-public-key");
+    passwordPublicKeyCache = data || { enabled: false, public_key: null };
+    passwordPublicKeyFetchedAt = now;
+    return passwordPublicKeyCache;
   } catch {
-    return null;
+    passwordPublicKeyCache = { enabled: false, public_key: null };
+    passwordPublicKeyFetchedAt = now;
+    return passwordPublicKeyCache;
   }
 }
 
-function readTokenFromStorage(key) {
-  const raw = localStorage.getItem(key);
-  if (!raw) return "";
-
-  const token = String(raw).trim();
-  if (!token || token === "null" || token === "undefined") {
-    localStorage.removeItem(key);
-    return "";
+async function encryptPasswordTransport(password) {
+  const plain = typeof password === "string" ? password : "";
+  if (!plain || plain.startsWith(PASSWORD_CIPHER_PREFIX)) {
+    return plain;
   }
 
-  const payload = parseJwtPayload(token);
-  const exp = Number(payload?.exp);
-  if (Number.isFinite(exp) && Date.now() >= exp * 1000) {
-    localStorage.removeItem(key);
-    return "";
+  const keyConfig = await fetchPasswordPublicKeyConfig();
+  if (!keyConfig?.enabled || !keyConfig?.public_key) {
+    return plain;
   }
 
-  return token;
+  const subtle = globalThis?.crypto?.subtle;
+  if (!subtle) {
+    return plain;
+  }
+
+  try {
+    const keyData = pemToArrayBuffer(keyConfig.public_key);
+    const publicKey = await subtle.importKey(
+      "spki",
+      keyData,
+      { name: "RSA-OAEP", hash: "SHA-256" },
+      false,
+      ["encrypt"]
+    );
+
+    const encoded = new TextEncoder().encode(plain);
+    const encrypted = await subtle.encrypt({ name: "RSA-OAEP" }, publicKey, encoded);
+    const cipherB64 = arrayBufferToBase64(encrypted);
+    return `${PASSWORD_CIPHER_PREFIX}${cipherB64}`;
+  } catch {
+    return plain;
+  }
 }
+
+api.interceptors.request.use((config) => {
+  const method = String(config.method || "get").toUpperCase();
+  if (!["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+    return config;
+  }
+
+  const csrfToken = readCookieValue(CSRF_COOKIE_NAME);
+  if (!csrfToken) {
+    return config;
+  }
+
+  config.headers = config.headers || {};
+  config.headers[CSRF_HEADER_NAME] = csrfToken;
+  return config;
+});
 
 export function getUserToken() {
-  return readTokenFromStorage("user_token");
+  return getUserSessionToken();
 }
 
 export function getAdminToken() {
-  return readTokenFromStorage("admin_token");
+  return getAdminSessionToken();
 }
 
 function authHeader(token) {
   const normalized = typeof token === "string" ? token.trim() : "";
-  return normalized ? { Authorization: `Bearer ${normalized}` } : {};
+  const isLikelyJwt = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(normalized);
+  return isLikelyJwt ? { Authorization: `Bearer ${normalized}` } : {};
 }
 
 export function buildAssetUrl(path) {
@@ -296,9 +380,10 @@ export async function registerUser(payload) {
     throw new Error("Username and password are required");
   }
   try {
+    const encryptedPassword = await encryptPasswordTransport(String(payload.password));
     const { data } = await api.post("/api/auth/register", {
       username: String(payload.username).trim(),
-      password: String(payload.password),
+      password: encryptedPassword,
     });
     return data;
   } catch (error) {
@@ -316,9 +401,10 @@ export async function loginUser(payload) {
     throw new Error("Username and password are required");
   }
   try {
+    const encryptedPassword = await encryptPasswordTransport(String(payload.password));
     const { data } = await api.post("/api/auth/login", {
       username: String(payload.username).trim(),
-      password: String(payload.password),
+      password: encryptedPassword,
     });
     return data;
   } catch (error) {
@@ -329,6 +415,10 @@ export async function loginUser(payload) {
     newError.response = error.response;
     throw newError;
   }
+}
+
+export async function logoutSession() {
+  await api.post("/api/auth/logout");
 }
 
 /**
@@ -364,7 +454,12 @@ export async function fetchCurrentUser(token) {
 }
 
 export async function updateCurrentUser(payload, token) {
-  const { data } = await api.put("/api/auth/me", payload, {
+  const nextPayload = { ...payload };
+  if (typeof nextPayload.password === "string" && nextPayload.password) {
+    nextPayload.password = await encryptPasswordTransport(nextPayload.password);
+  }
+
+  const { data } = await api.put("/api/auth/me", nextPayload, {
     headers: authHeader(token),
   });
   return data;
@@ -392,6 +487,13 @@ export async function fetchMyFootprints(token) {
     headers: authHeader(token),
   });
   return data;
+}
+
+export async function fetchMyRoutes(token) {
+  const { data } = await api.get("/api/routes/my", {
+    headers: authHeader(token),
+  });
+  return Array.isArray(data?.routes) ? data.routes : [];
 }
 
 export async function fetchAdminStats(token) {

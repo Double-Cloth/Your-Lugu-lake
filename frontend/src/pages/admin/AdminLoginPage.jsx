@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Button, Card, Input, Toast } from "antd-mobile";
 import { useNavigate } from "react-router-dom";
 
-import api from "../../api";
+import { loginUser } from "../../api";
+import { buildAdminDashboardPath, setAdminSession } from "../../auth";
 
 export default function AdminLoginPage() {
   const [username, setUsername] = useState("admin");
@@ -13,13 +14,13 @@ export default function AdminLoginPage() {
   async function handleLogin() {
     setLoading(true);
     try {
-      const { data } = await api.post("/api/auth/login", { username, password });
+      const data = await loginUser({ username, password });
       if (data.role !== "admin") {
         Toast.show({ content: "当前账号不是管理员" });
         return;
       }
-      localStorage.setItem("admin_token", data.access_token);
-      navigate("/admin");
+      setAdminSession("", data?.username || username);
+      navigate(buildAdminDashboardPath(), { replace: true });
     } catch {
       Toast.show({ content: "登录失败，请检查账号密码" });
     } finally {

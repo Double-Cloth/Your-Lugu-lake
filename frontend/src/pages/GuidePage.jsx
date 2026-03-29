@@ -30,12 +30,6 @@ export default function GuidePage() {
   const [loading, setLoading] = useState(false);
 
   async function handleGenerate() {
-    const token = getUserToken();
-    if (!token) {
-      Toast.show({ content: "请先在“我的”页面登录游客账号" });
-      return;
-    }
-
     setLoading(true);
     try {
       const result = await generateRoute(
@@ -44,12 +38,16 @@ export default function GuidePage() {
           preference: preference[0],
           group_type: groupType[0],
         },
-        token
+        getUserToken() || "cookie-session"
       );
 
       setTitle(result.route?.title || "推荐路线");
       setTimeline(Array.isArray(result.route?.timeline) ? result.route.timeline : []);
-    } catch {
+    } catch (error) {
+      if (error?.response?.status === 401) {
+        Toast.show({ content: "请先在“我的”页面登录游客账号" });
+        return;
+      }
       Toast.show({ content: "路线生成失败，请稍后再试" });
     } finally {
       setLoading(false);

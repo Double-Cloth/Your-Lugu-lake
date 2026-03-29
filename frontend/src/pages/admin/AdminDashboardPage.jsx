@@ -9,9 +9,12 @@ import {
   downloadQrcodeZip,
   fetchAdminStats,
   fetchLocations,
+  getAdminToken,
   generateLocationQr,
+  logoutSession,
   updateAdminLocation,
 } from "../../api";
+import { clearAdminSession } from "../../auth";
 
 const categoryOptions = [
   { label: "人文文化", value: "culture" },
@@ -108,23 +111,27 @@ export default function AdminDashboardPage() {
   }
 
   useEffect(() => {
-    const token = localStorage.getItem("admin_token");
+    const token = getAdminToken();
     if (!token) {
-      navigate("/admin/login");
+      navigate("/admin/login", { replace: true });
       return;
     }
 
     loadDashboard(token)
-      .catch(() => navigate("/admin/login"));
+      .catch(() => {
+        clearAdminSession();
+        navigate("/admin/login", { replace: true });
+      });
   }, [navigate]);
 
   function logout() {
-    localStorage.removeItem("admin_token");
-    navigate("/admin/login");
+    void logoutSession().catch(() => null);
+    clearAdminSession();
+    navigate("/admin/login", { replace: true });
   }
 
   async function handleCreateLocation() {
-    const token = localStorage.getItem("admin_token");
+    const token = getAdminToken();
     if (!token) return;
 
     const validationError = validateLocationPayload(form);
@@ -159,7 +166,7 @@ export default function AdminDashboardPage() {
   }
 
   async function handleDeleteLocation(locationId) {
-    const token = localStorage.getItem("admin_token");
+    const token = getAdminToken();
     if (!token) return;
     try {
       await deleteAdminLocation(locationId, token);
@@ -190,7 +197,7 @@ export default function AdminDashboardPage() {
   }
 
   async function saveEditLocation(locationId) {
-    const token = localStorage.getItem("admin_token");
+    const token = getAdminToken();
     if (!token) return;
 
     const validationError = validateLocationPayload(editForm);
@@ -219,7 +226,7 @@ export default function AdminDashboardPage() {
   }
 
   async function handleQuickUpdateCategory(location) {
-    const token = localStorage.getItem("admin_token");
+    const token = getAdminToken();
     if (!token) return;
     const nextCategory = location.category === "nature" ? "culture" : "nature";
     try {
@@ -232,7 +239,7 @@ export default function AdminDashboardPage() {
   }
 
   async function handleGenerateQrcode(locationId) {
-    const token = localStorage.getItem("admin_token");
+    const token = getAdminToken();
     if (!token) return;
     try {
       await generateLocationQr(locationId, token);
@@ -252,7 +259,7 @@ export default function AdminDashboardPage() {
   }
 
   async function handleDownloadZip() {
-    const token = localStorage.getItem("admin_token");
+    const token = getAdminToken();
     if (!token) return;
 
     try {

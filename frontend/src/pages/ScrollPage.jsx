@@ -19,16 +19,10 @@ export default function ScrollPage() {
   }, [footprints, locationMap]);
 
   async function loadScroll() {
-    const token = getUserToken();
-    if (!token) {
-      Toast.show({ content: "请先登录游客账号" });
-      return;
-    }
-
     setLoading(true);
     try {
       const [myFootprints, locations] = await Promise.all([
-        fetchMyFootprints(token),
+        fetchMyFootprints(getUserToken() || "cookie-session"),
         fetchLocations(),
       ]);
 
@@ -39,7 +33,11 @@ export default function ScrollPage() {
 
       setLocationMap(map);
       setFootprints(Array.isArray(myFootprints) ? myFootprints : []);
-    } catch {
+    } catch (error) {
+      if (error?.response?.status === 401) {
+        Toast.show({ content: "请先登录游客账号" });
+        return;
+      }
       Toast.show({ content: "加载绘卷失败" });
     } finally {
       setLoading(false);

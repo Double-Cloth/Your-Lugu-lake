@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import sys
+
+overview = """import { useEffect, useState } from "react";
 import LucideIcon from "../components/LucideIcon";
 import { DotLoading } from "antd-mobile";
 import { useNavigate } from "react-router-dom";
 import { fetchKnowledgeBaseCommonPage } from "../api";
 import { ImmersivePage, CardComponent } from "../components/SharedUI";
 
-export default function MosuoCulturePage() {
+export default function LuguLakeOverviewPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState(null);
@@ -14,7 +16,7 @@ export default function MosuoCulturePage() {
     async function loadData() {
       setLoading(true);
       try {
-        const json = await fetchKnowledgeBaseCommonPage("mosuo-culture");
+        const json = await fetchKnowledgeBaseCommonPage("lugu-lake");
         setData(json || null);
       } catch {
         setData(null);
@@ -40,7 +42,7 @@ export default function MosuoCulturePage() {
     return (
       <ImmersivePage>
         <CardComponent variant="glass" className="text-center mt-6">
-          <p className="text-white/80">摩梭文化介绍加载失败</p>
+          <p className="text-white/80">泸沽湖整体介绍加载失败</p>
         </CardComponent>
       </ImmersivePage>
     );
@@ -49,14 +51,13 @@ export default function MosuoCulturePage() {
   const details = data.details || {};
   const sections = data.sections || {};
   const highlights = Array.isArray(details.highlights) ? details.highlights : [];
-  const tips = Array.isArray(details.experienceTips) ? details.experienceTips : [];
 
   return (
     <ImmersivePage bgImage="/images/lugu-hero.jpg" className="page-fade-in pb-[env(safe-area-inset-bottom)]">
       <div className="mb-4 pt-2 -mx-2">
         <button
           type="button"
-          className="px-2 py-1 inline-flex items-center text-amber-100/80 hover:text-white transition-colors"
+          className="px-2 py-1 inline-flex items-center text-white/80 hover:text-white transition-colors"
           onClick={() => navigate("/home", { state: { openPanel: "overview" } })}
         >
           <LucideIcon name="ChevronLeft" size={20} className="mr-1" /> 返回
@@ -64,7 +65,7 @@ export default function MosuoCulturePage() {
       </div>
 
       <div className="mb-6">
-        <div className="text-amber-200 text-sm font-bold tracking-wider uppercase mb-1 drop-shadow-md text-shadow-sm">Mosuo Culture</div>
+        <div className="text-cyan-400 text-sm font-bold tracking-wider uppercase mb-1 drop-shadow-md text-shadow-sm">Lugu Lake Overview</div>
         <h1 className="text-3xl font-bold text-white drop-shadow-lg m-0 text-shadow">{data.title || data.name}</h1>
       </div>
 
@@ -80,12 +81,12 @@ export default function MosuoCulturePage() {
       {highlights.length > 0 && (
         <CardComponent variant="glass" className="mb-4">
           <h2 className="text-lg font-bold text-white mb-4 flex items-center">
-            <LucideIcon name="Sparkles" size={18} className="mr-2 text-amber-200" />
-            {sections.highlightsTitle || "文化亮点"}
+            <LucideIcon name="Sparkles" size={18} className="mr-2 text-yellow-400" />
+            {sections.highlightsTitle || "核心亮点"}
           </h2>
           <div className="flex flex-wrap gap-2">
             {highlights.map((item, idx) => (
-              <span key={`c-hl-${idx}`} className="px-3 py-1.5 bg-white/10 backdrop-blur border border-white/20 text-white rounded-full text-sm shadow-sm transition hover:bg-white/20">
+              <span key={`hl-${idx}`} className="px-3 py-1.5 bg-white/10 backdrop-blur border border-white/20 text-white rounded-full text-sm shadow-sm transition hover:bg-white/20">
                 {item}
               </span>
             ))}
@@ -93,19 +94,40 @@ export default function MosuoCulturePage() {
         </CardComponent>
       )}
 
-      {tips.length > 0 && (
+      {(details.bestSeasonToVisit || details.recommendedDuration || details.accommodationTips) && (
         <CardComponent variant="glass" className="mb-6">
           <h2 className="text-lg font-bold text-white mb-4 flex items-center">
-            <LucideIcon name="Info" size={18} className="mr-2 text-cyan-200" />
-            {sections.tipsTitle || sections.experienceTipsTitle || "参访建议"}
+            <LucideIcon name="Info" size={18} className="mr-2 text-cyan-400" />
+            {sections.tipsTitle || sections.visitTipsTitle || "游览建议"}
           </h2>
-          <ul className="text-sm text-white/80 mt-0 mb-0 pl-5 space-y-2 list-disc marker:text-cyan-200">
-            {tips.map((item, idx) => (
-              <li key={`tip-${idx}`} className="pl-1">{item}</li>
-            ))}
-          </ul>
+          <div className="space-y-3 text-sm text-white/80">
+            {details.bestSeasonToVisit && (
+              <div className="flex items-start">
+                <span className="font-semibold text-white min-w-[70px]">最佳季节：</span>
+                <span className="flex-1">{details.bestSeasonToVisit}</span>
+              </div>
+            )}
+            {details.recommendedDuration && (
+              <div className="flex items-start">
+                <span className="font-semibold text-white min-w-[70px]">推荐时长：</span>
+                <span className="flex-1">{details.recommendedDuration}</span>
+              </div>
+            )}
+            {details.accommodationTips && (
+              <div className="flex items-start">
+                <span className="font-semibold text-white min-w-[70px]">住宿建议：</span>
+                <span className="flex-1">{details.accommodationTips}</span>
+              </div>
+            )}
+          </div>
         </CardComponent>
       )}
     </ImmersivePage>
   );
 }
+"""
+
+with open("frontend/src/pages/LuguLakeOverviewPage.jsx", "w", encoding="utf-8") as f:
+    f.write(overview)
+
+print("Overview page done")

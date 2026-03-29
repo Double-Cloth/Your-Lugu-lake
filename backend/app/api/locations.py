@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 import json
 from pathlib import Path
 
-from app.api.deps import require_admin
+from app.api.deps import csrf_protect, require_admin
 from app.db.session import get_db
 from app.models.location import Location
 from app.schemas.location import LocationCreate, LocationOut, LocationUpdate
@@ -98,7 +98,7 @@ def get_location(location_id: int, db: Session = Depends(get_db)):
     return location
 
 
-@admin_router.post("", response_model=LocationOut, dependencies=[Depends(require_admin)])
+@admin_router.post("", response_model=LocationOut, dependencies=[Depends(require_admin), Depends(csrf_protect)])
 def create_location(payload: LocationCreate, db: Session = Depends(get_db)):
     location = Location(**payload.model_dump())
     db.add(location)
@@ -107,7 +107,7 @@ def create_location(payload: LocationCreate, db: Session = Depends(get_db)):
     return location
 
 
-@admin_router.put("/{location_id}", response_model=LocationOut, dependencies=[Depends(require_admin)])
+@admin_router.put("/{location_id}", response_model=LocationOut, dependencies=[Depends(require_admin), Depends(csrf_protect)])
 def update_location(location_id: int, payload: LocationUpdate, db: Session = Depends(get_db)):
     location = db.query(Location).filter(Location.id == location_id).first()
     if not location:
@@ -121,7 +121,7 @@ def update_location(location_id: int, payload: LocationUpdate, db: Session = Dep
     return location
 
 
-@admin_router.delete("/{location_id}", dependencies=[Depends(require_admin)])
+@admin_router.delete("/{location_id}", dependencies=[Depends(require_admin), Depends(csrf_protect)])
 def delete_location(location_id: int, db: Session = Depends(get_db)):
     location = db.query(Location).filter(Location.id == location_id).first()
     if not location:

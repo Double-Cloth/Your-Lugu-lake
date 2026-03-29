@@ -175,12 +175,6 @@ export default function CheckinPage() {
   }
 
   async function submitCheckin() {
-    const token = getUserToken();
-    if (!token) {
-      Toast.show({ content: "请先在“我的”页面登录游客账号" });
-      return;
-    }
-
     if (!canSubmit) {
       Toast.show({ content: "请先填写景点ID并获取定位" });
       return;
@@ -197,11 +191,15 @@ export default function CheckinPage() {
 
     setSubmitting(true);
     try {
-      await createFootprint(formData, token);
+      await createFootprint(formData, getUserToken() || "cookie-session");
       Toast.show({ content: "打卡成功" });
       setMoodText("");
       setFiles([]);
-    } catch {
+    } catch (error) {
+      if (error?.response?.status === 401) {
+        Toast.show({ content: "请先在“我的”页面登录游客账号" });
+        return;
+      }
       Toast.show({ content: "打卡失败，请稍后再试" });
     } finally {
       setSubmitting(false);

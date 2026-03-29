@@ -8,7 +8,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_admin
+from app.api.deps import csrf_protect, require_admin
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.ai_route import AIRoute
@@ -16,7 +16,11 @@ from app.models.footprint import Footprint
 from app.models.location import Location
 from app.models.user import User
 
-router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_admin)])
+router = APIRouter(
+    prefix="/api/admin",
+    tags=["admin"],
+    dependencies=[Depends(require_admin), Depends(csrf_protect)],
+)
 
 
 @router.get("/stats")

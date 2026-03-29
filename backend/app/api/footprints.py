@@ -4,13 +4,13 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_user
+from app.api.deps import csrf_protect, get_current_user
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.footprint import Footprint
 from app.models.user import User
 
-router = APIRouter(prefix="/api/footprints", tags=["footprints"])
+router = APIRouter(prefix="/api/footprints", tags=["footprints"], dependencies=[Depends(csrf_protect)])
 
 
 @router.post("")

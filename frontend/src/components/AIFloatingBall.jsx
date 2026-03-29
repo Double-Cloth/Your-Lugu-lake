@@ -54,68 +54,183 @@ const normalizeServerConversation = (session) => {
   };
 };
 
+const getScenePromptPackByRoute = (pathname) => {
+  const cleanedPath = typeof pathname === "string" ? pathname : "";
+
+  if (cleanedPath.startsWith("/locations/")) {
+    return {
+      sceneLabel: "景点详情导览",
+      capabilityHints: [
+        "可引导用户使用[打卡页](/checkin)进行扫码与轨迹打卡。",
+        "可引导用户在[旅行记录页](/scroll)沉淀图文与心得。",
+      ],
+      domainHints: [
+        "优先讲清当前景点看点、建议停留时长和下一站衔接。",
+        "建议融合泸沽湖自然景观与摩梭文化体验。",
+      ],
+      answerStyle: "先一句结论，再给 3 条可执行步骤，最后给 1 条跳转建议。",
+      recommendedLinks: [
+        "[打卡页](/checkin)",
+        "[旅行记录页](/scroll)",
+        "[首页-全域导览](/home?openPanel=global)",
+      ],
+    };
+  }
+
+  if (cleanedPath === "/checkin") {
+    return {
+      sceneLabel: "地图打卡助手",
+      capabilityHints: [
+        "可围绕扫码打卡、实时轨迹、定位补采给出操作步骤。",
+        "可引导用户回到[首页-全域导览](/home?openPanel=global)补充景点选择。",
+      ],
+      domainHints: [
+        "优先推荐可连续打卡的路线顺序与时段安排。",
+        "提醒湖区天气变化与安全边界。",
+      ],
+      answerStyle: "给出打卡顺序、耗时预估和风险提醒。",
+      recommendedLinks: [
+        "[首页-全域导览](/home?openPanel=global)",
+        "[泸沽湖专题页](/lugu-lake)",
+      ],
+    };
+  }
+
+  if (cleanedPath === "/scroll") {
+    return {
+      sceneLabel: "旅行记录助手",
+      capabilityHints: [
+        "可输出可直接使用的游记文案结构与标题建议。",
+        "可引导回[景区一览](/home?openPanel=overview)补充背景信息。",
+      ],
+      domainHints: [
+        "文案可突出高原湖景、日出日落、摩梭文化体验。",
+        "鼓励按时间线组织“地点-体验-感受”。",
+      ],
+      answerStyle: "先给文案模板，再给可替换句式。",
+      recommendedLinks: [
+        "[景区一览](/home?openPanel=overview)",
+        "[摩梭文化页](/mosuo-culture)",
+      ],
+    };
+  }
+
+  if (cleanedPath === "/me") {
+    return {
+      sceneLabel: "个人中心建议",
+      capabilityHints: [
+        "可帮助用户总结游玩偏好并给出下一次路线建议。",
+        "可结合历史打卡和记录内容给出复盘建议。",
+      ],
+      domainHints: [
+        "优先输出个性化而非通用模板。",
+        "强调泸沽湖玩法可按文化深度与景观偏好分层。",
+      ],
+      answerStyle: "简明总结 + 个性化下一步建议。",
+      recommendedLinks: [
+        "[首页](/home)",
+        "[文化导览](/home?openPanel=culture)",
+      ],
+    };
+  }
+
+  if (cleanedPath === "/guide") {
+    return {
+      sceneLabel: "智能导览规划",
+      capabilityHints: [
+        "可输出分时段路线（时间-地点-时长-理由）。",
+        "可结合人群偏好给出 A/B 方案。",
+      ],
+      domainHints: [
+        "覆盖泸沽湖景观主线与摩梭文化主线。",
+        "优先给出半天/一天可执行行程。",
+      ],
+      answerStyle: "结构化行程表 + 一句总提醒。",
+      recommendedLinks: [
+        "[泸沽湖专题页](/lugu-lake)",
+        "[摩梭文化页](/mosuo-culture)",
+        "[打卡页](/checkin)",
+      ],
+    };
+  }
+
+  if (cleanedPath === "/lugu-lake") {
+    return {
+      sceneLabel: "泸沽湖专题导览",
+      capabilityHints: [
+        "可从景观、节奏、停留天数给出专题解读。",
+        "可引导用户进入景点详情页继续深挖。",
+      ],
+      domainHints: [
+        "强调高原湖泊景观与环湖慢游体验。",
+        "结合季节与时段给出体验优先级。",
+      ],
+      answerStyle: "专题解读 + 线路建议。",
+      recommendedLinks: [
+        "[景区一览](/home?openPanel=overview)",
+        "[首页-全域导览](/home?openPanel=global)",
+      ],
+    };
+  }
+
+  if (cleanedPath === "/mosuo-culture") {
+    return {
+      sceneLabel: "摩梭文化专题",
+      capabilityHints: [
+        "可解释母系文化、礼仪边界与参访方式。",
+        "可引导用户组合文化体验与景观游览。",
+      ],
+      domainHints: [
+        "强调尊重在地生活方式与参访礼仪。",
+        "优先推荐具讲解价值的体验路径。",
+      ],
+      answerStyle: "文化解释 + 实践建议。",
+      recommendedLinks: [
+        "[文化导览](/home?openPanel=culture)",
+        "[旅行记录页](/scroll)",
+      ],
+    };
+  }
+
+  return {
+    sceneLabel: "首页全局导览",
+    capabilityHints: [
+      "可从首页三个模块（景区一览/文化导览/全域导览）组织回答。",
+      "可引导用户按目标快速跳转到对应模块。",
+    ],
+    domainHints: [
+      "优先给泸沽湖入门路线，再给文化深度路线。",
+      "建议兼顾拍照、人文、打卡三类诉求。",
+    ],
+    answerStyle: "先总览后分支，给主方案与备选方案。",
+    recommendedLinks: [
+      "[景区一览](/home?openPanel=overview)",
+      "[文化导览](/home?openPanel=culture)",
+      "[全域导览](/home?openPanel=global)",
+    ],
+  };
+};
+
 // 根据路由返回对应的系统提示词
 const getSystemPromptByRoute = (pathname) => {
+  const pack = getScenePromptPackByRoute(pathname);
   const baseRules = [
     "你是泸沽湖智慧文旅平台内嵌 AI 助手，回答必须贴合当前页面场景。",
     "先给结论，再给 2-4 条可执行建议；建议优先映射到本软件页面。",
     "知识库信息不足时要明确说明，再给出通用方案，不要编造数据。",
     "涉及价格、时效、开放时间等可能变化的信息，补充“以现场和官方信息为准”。",
+    "页面跳转建议请使用 Markdown 链接格式：[页面名](真实路径)。",
+    `当前界面定位：${pack.sceneLabel}`,
+    `回答风格：${pack.answerStyle}`,
+    "软件能力提示：",
+    ...pack.capabilityHints.map((item) => `- ${item}`),
+    "泸沽湖知识重点：",
+    ...pack.domainHints.map((item) => `- ${item}`),
+    "优先推荐链接：",
+    ...pack.recommendedLinks.map((item) => `- ${item}`),
   ].join("\n");
 
-  if (pathname.startsWith("/locations/")) {
-    return [
-      baseRules,
-      "当前是景点详情页场景。请围绕当前景点给出：核心看点、建议停留时长、与下一站衔接。",
-      "可引导用户进入 /checkin 完成打卡，或在 /scroll 记录旅行内容。",
-    ].join("\n");
-  }
-  if (pathname === "/scroll") {
-    return [
-      baseRules,
-      "当前是旅行记录场景。请输出可直接使用的文案/复盘结构（标题、亮点、情绪、结尾）。",
-      "如用户提到景点，可建议补充 /locations/<slug> 详情信息后再完善文案。",
-    ].join("\n");
-  }
-  if (pathname === "/checkin") {
-    return [
-      baseRules,
-      "当前是打卡场景。请优先给出打卡顺序、时间安排、实时轨迹和扫码打卡建议。",
-      "建议要便于用户立刻执行，并提醒必要的安全与时间成本。",
-    ].join("\n");
-  }
-  if (pathname === "/me") {
-    return [
-      baseRules,
-      "当前是个人中心场景。请聚焦历史记录复盘、偏好总结和下一次行程建议。",
-      "避免给出与当前账号状态无关的冗长解释。",
-    ].join("\n");
-  }
-  if (pathname === "/guide") {
-    return [
-      baseRules,
-      "当前是 AI 导览场景。请输出结构化行程建议：时间段、地点、停留时长、原因。",
-      "优先覆盖泸沽湖整体游览与摩梭文化体验。",
-    ].join("\n");
-  }
-  if (pathname === "/home") {
-    return [
-      baseRules,
-      "当前是首页场景。请从全局角度推荐玩法，串联 /lugu-lake、/mosuo-culture、/checkin、/scroll。",
-      "给出 1 个精简路线建议和 1 个备用方案。",
-    ].join("\n");
-  }
-  if (pathname === "/lugu-lake" || pathname === "/mosuo-culture") {
-    return [
-      baseRules,
-      "当前是专题页场景。请围绕专题内容给出理解要点、推荐体验和下一步可访问页面。",
-    ].join("\n");
-  }
-  // 默认提示词
-  return [
-    baseRules,
-    "当前是通用场景。请尽量把建议落地到本软件可访问页面。",
-  ].join("\n");
+  return baseRules;
 };
 
 const getSceneMetaByRoute = (pathname) => {
@@ -151,11 +266,17 @@ const getSceneMetaByRoute = (pathname) => {
 
 const getSceneContextByRoute = (pathname) => {
   const cleanedPath = typeof pathname === "string" ? pathname : "";
+  const pack = getScenePromptPackByRoute(cleanedPath);
   const scene = {
     pathname: cleanedPath,
     scene_type: "general",
     page_slug: null,
     location_ref: null,
+    scene_label: pack.sceneLabel,
+    capability_hints: pack.capabilityHints,
+    domain_hints: pack.domainHints,
+    recommended_links: pack.recommendedLinks,
+    answer_style: pack.answerStyle,
   };
 
   if (cleanedPath.startsWith("/locations/")) {
@@ -183,8 +304,12 @@ const getSceneContextByRoute = (pathname) => {
     return { ...scene, scene_type: "scroll" };
   }
 
-  if (cleanedPath === "/home" || cleanedPath === "/guide") {
+  if (cleanedPath === "/home") {
     return { ...scene, scene_type: "home" };
+  }
+
+  if (cleanedPath === "/guide") {
+    return { ...scene, scene_type: "guide" };
   }
 
   if (cleanedPath === "/me") {
@@ -446,8 +571,7 @@ export default function AIFloatingBall() {
   useEffect(() => {
     if (!visible) return;
 
-    const token = getUserToken();
-    if (!token) return;
+    const token = getUserToken() || "cookie-session";
 
     let cancelled = false;
     const loadChatHistory = async () => {
@@ -491,11 +615,7 @@ export default function AIFloatingBall() {
       setActiveConversationId(nextConversation.id);
     }
 
-    const token = getUserToken();
-    if (!token) {
-      Toast.show({ content: "请先登录游客账号" });
-      return;
-    }
+    const token = getUserToken() || "cookie-session";
 
     // 添加用户消息到对话记录
     const userMessageId = `${Date.now()}-user`;
@@ -588,14 +708,12 @@ export default function AIFloatingBall() {
       className: "ai-delete-confirm-dialog",
       content: "确定要删除当前选中的会话记录吗？",
       onConfirm: async () => {
-        const token = getUserToken();
-        if (token) {
-          try {
-            await deleteChatSession(activeConversation.id, token);
-          } catch (error) {
-            Toast.show({ content: error?.response?.data?.detail || "删除失败，请稍后重试" });
-            return;
-          }
+        const token = getUserToken() || "cookie-session";
+        try {
+          await deleteChatSession(activeConversation.id, token);
+        } catch (error) {
+          Toast.show({ content: error?.response?.data?.detail || "删除失败，请稍后重试" });
+          return;
         }
 
         const remainingConversations = conversations.filter((item) => item.id !== activeConversation.id);
@@ -885,7 +1003,6 @@ export default function AIFloatingBall() {
                   <div className="ai-chat-scene-title">{sceneMeta.title}</div>
                   <div className="ai-chat-scene-subtitle">当前会话：{activeConversation?.title || "新对话"}</div>
                   <div className="ai-chat-scene-subtitle">当前路径：{location.pathname}</div>
-                  <div className="ai-chat-scene-subtitle">提示：回答中的参考链接可直接跳转页面</div>
                 </div>
 
                 <div className="ai-messages-list" ref={messagesListRef}>

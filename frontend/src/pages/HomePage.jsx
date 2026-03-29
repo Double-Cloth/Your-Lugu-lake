@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Button, Card, DotLoading, Input, Popup, Toast } from "antd-mobile";
+import { Card, DotLoading, Popup, Toast } from "antd-mobile";
 import { ImmersivePage, CardComponent, ButtonComponent, ReadingGlassCard, GlassInput } from "../components/SharedUI";
 
 import {
@@ -14,13 +14,70 @@ import {
   generateRoute,
   getUserToken,
 } from "../api";
-import { clearUserSession } from "../auth";
+import { clearUserSession, withUserSessionPath } from "../auth";
 
 const LUGU_LAKE_BG_URL = "/images/lugu-hero.jpg";
 
+const CULTURE_DURATION_OPTIONS = [
+  { label: "半天", value: "half-day" },
+  { label: "一天", value: "one-day" },
+];
+
+const CULTURE_GROUP_OPTIONS = [
+  { label: "独行", value: "solo" },
+  { label: "朋友", value: "friends" },
+  { label: "亲子", value: "family" },
+  { label: "情侣", value: "couple" },
+];
+
+const CULTURE_FOCUS_OPTIONS = [
+  { label: "礼俗讲解", value: "culture" },
+  { label: "景观+文化", value: "mixed" },
+  { label: "轻松体验", value: "light" },
+];
+
+const CULTURE_PACE_OPTIONS = [
+  { label: "松弛", value: "relaxed" },
+  { label: "平衡", value: "balanced" },
+  { label: "高效", value: "intense" },
+];
+
+const CULTURE_TEMPLATES = [
+  {
+    id: "elder-halfday",
+    title: "老人半天",
+    hint: "舒缓节奏，重体验轻奔波",
+    need: "我带老人游玩半天，想多了解摩梭文化与核心礼俗。",
+    duration: "half-day",
+    groupType: "family",
+    preference: "culture",
+    pace: "relaxed",
+  },
+  {
+    id: "friends-oneday",
+    title: "朋友一天",
+    hint: "拍照与体验并重",
+    need: "我和朋友游玩一天，希望看人文景观并体验当地文化活动。",
+    duration: "one-day",
+    groupType: "friends",
+    preference: "mixed",
+    pace: "balanced",
+  },
+  {
+    id: "solo-halfday",
+    title: "独行沉浸",
+    hint: "深度讲解，节奏紧凑",
+    need: "我独自游玩半天，想高密度了解摩梭文化脉络并打卡重点点位。",
+    duration: "half-day",
+    groupType: "solo",
+    preference: "culture",
+    pace: "intense",
+  },
+];
+
 function IconSpark() {
   return (
-    <svg viewBox="0 0 24 24" className="feature-icon-svg" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="w-6 h-6 text-white drop-shadow-md" aria-hidden="true">
       <path d="M12 2l2.2 5.2L19 9.4l-4.8 2.2L12 17l-2.2-5.4L5 9.4l4.8-2.2L12 2z" fill="currentColor" />
     </svg>
   );
@@ -28,7 +85,7 @@ function IconSpark() {
 
 function IconRoute() {
   return (
-    <svg viewBox="0 0 24 24" className="feature-icon-svg" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="w-6 h-6 text-white drop-shadow-md" aria-hidden="true">
       <path d="M6 4a2 2 0 100 4 2 2 0 000-4zm12 12a2 2 0 100 4 2 2 0 000-4z" fill="currentColor" />
       <path d="M7.8 6h4.9c2.6 0 4.3 1.6 4.3 3.8 0 2.1-1.5 3.3-3.8 3.3H9.6c-1.2 0-1.9.5-1.9 1.3S8.4 16 9.5 16H16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
     </svg>
@@ -37,7 +94,7 @@ function IconRoute() {
 
 function IconGlobe() {
   return (
-    <svg viewBox="0 0 24 24" className="feature-icon-svg" aria-hidden="true">
+    <svg viewBox="0 0 24 24" className="w-6 h-6 text-white drop-shadow-md" aria-hidden="true">
       <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" />
       <path d="M3 12h18M12 3c2.8 2.6 2.8 15.4 0 18M12 3c-2.8 2.6-2.8 15.4 0 18" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
     </svg>
@@ -52,7 +109,20 @@ export default function HomePage() {
   const [activePanel, setActivePanel] = useState("");
   const [travelNeed, setTravelNeed] = useState("");
   const [routeLoading, setRouteLoading] = useState(false);
-  const [routePlan, setRoutePlan] = useState({ title: "", timeline: [] });
+  const [routePlan, setRoutePlan] = useState({
+    title: "",
+    timeline: [],
+    routeId: null,
+    generatedAt: "",
+    requirement: "",
+  });
+  const [cultureDraft, setCultureDraft] = useState({
+    duration: "one-day",
+    groupType: "friends",
+    preference: "culture",
+    pace: "balanced",
+  });
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [coverPhotoUrl, setCoverPhotoUrl] = useState("");
   const [heroBgUrl, setHeroBgUrl] = useState("");
   const [kbLocations, setKbLocations] = useState([]);
@@ -103,21 +173,16 @@ export default function HomePage() {
         const hotels = Array.isArray(hotelsList) ? hotelsList : [];
         setNearbyGuides({ spots, hotels });
 
-        const token = getUserToken();
-        if (token) {
-          try {
-            const footprints = await fetchMyFootprints(token);
-            const firstWithPhoto = Array.isArray(footprints)
-              ? footprints.find((item) => item.photo_url)
-              : null;
-            setCoverPhotoUrl(firstWithPhoto?.photo_url ? buildAssetUrl(firstWithPhoto.photo_url) : "");
-          } catch (error) {
-            if (error?.response?.status === 401) {
-              clearUserSession();
-            }
-            setCoverPhotoUrl("");
+        try {
+          const footprints = await fetchMyFootprints(getUserToken() || "cookie-session");
+          const firstWithPhoto = Array.isArray(footprints)
+            ? footprints.find((item) => item.photo_url)
+            : null;
+          setCoverPhotoUrl(firstWithPhoto?.photo_url ? buildAssetUrl(firstWithPhoto.photo_url) : "");
+        } catch (error) {
+          if (error?.response?.status === 401) {
+            clearUserSession();
           }
-        } else {
           setCoverPhotoUrl("");
         }
       } catch {
@@ -191,40 +256,69 @@ export default function HomePage() {
     setActivePanel("");
   }
 
-  async function createCulturePlan() {
-    const need = travelNeed.trim();
-    if (!need) {
-      Toast.show({ content: "请输入你的游览需求" });
-      return;
+  function updateCultureDraft(field, value) {
+    setCultureDraft((prev) => ({ ...prev, [field]: value }));
+  }
+
+  function applyCultureTemplate(template) {
+    setSelectedTemplateId(template.id);
+    setTravelNeed(template.need);
+    setCultureDraft({
+      duration: template.duration,
+      groupType: template.groupType,
+      preference: template.preference,
+      pace: template.pace,
+    });
+  }
+
+  function buildRequirementText() {
+    const manual = travelNeed.trim();
+    if (manual) {
+      return manual;
     }
 
+    const durationText = CULTURE_DURATION_OPTIONS.find((item) => item.value === cultureDraft.duration)?.label || "一天";
+    const groupText = CULTURE_GROUP_OPTIONS.find((item) => item.value === cultureDraft.groupType)?.label || "朋友";
+    const focusText = CULTURE_FOCUS_OPTIONS.find((item) => item.value === cultureDraft.preference)?.label || "礼俗讲解";
+    const paceText = CULTURE_PACE_OPTIONS.find((item) => item.value === cultureDraft.pace)?.label || "平衡";
+    return `我计划${durationText}出游，同行人群是${groupText}，希望以${focusText}为主，节奏偏${paceText}。`;
+  }
+
+  async function createCulturePlan() {
+    const need = buildRequirementText();
+
     setRouteLoading(true);
-    const token = getUserToken();
-
     try {
-      if (!token) {
-        Toast.show({ content: "请先登录后再生成路线" });
-        return;
-      }
-
+      const routePreference = cultureDraft.preference === "culture" ? "culture" : "mixed";
       const result = await generateRoute(
         {
-          duration: need.includes("半天") ? "half-day" : "one-day",
-          preference: need.includes("文化") ? "culture" : "mixed",
-          group_type: need.includes("老人") ? "family" : "friends",
+          duration: cultureDraft.duration,
+          preference: routePreference,
+          group_type: cultureDraft.groupType,
+          custom_need: need,
+          pace: cultureDraft.pace,
         },
-        token
+        getUserToken() || "cookie-session"
       );
 
       const timeline = Array.isArray(result.route?.timeline) ? result.route.timeline : [];
       setRoutePlan({
         title: result.route?.title || "AI 文化导览路线",
         timeline,
+        routeId: Number.isFinite(Number(result.route_id)) ? Number(result.route_id) : null,
+        generatedAt: new Date().toISOString(),
+        requirement: need,
       });
       if (timeline.length === 0) {
         Toast.show({ content: "接口返回为空，请稍后重试" });
+      } else if (result.saved) {
+        Toast.show({ content: "路线已保存到“我的”界面" });
       }
     } catch (error) {
+      if (error?.response?.status === 401) {
+        Toast.show({ content: "请先在“我的”页面登录游客账号" });
+        return;
+      }
       const detail = error?.response?.data?.detail;
       Toast.show({ content: detail || "路线生成失败" });
     } finally {
@@ -363,53 +457,111 @@ export default function HomePage() {
             <button className="text-[rgba(189,232,250,0.8)] active:text-white px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm backdrop-blur-sm transition-all shadow-sm" onClick={closePanel}>← 返回</button>
           </div>
           <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md">
-            <div className="text-sm text-white/80 mb-3">示例：我带老人游玩半天，想多了解摩梭文化。</div>
-            
-            <div className="mb-3">
-              <div className="text-xs text-white/50 mb-2">快速选项：</div>
+            <div className="text-sm text-white/90 leading-relaxed">
+              这版文化导览会先建立你的出行画像，再生成可执行的摩梭文化路线。生成后会直接保存到“我的路线”。
+            </div>
+            <div className="flex flex-wrap gap-2 mt-3">
+              <span className="px-2.5 py-1 text-xs rounded-full bg-cyan-400/20 border border-cyan-300/30 text-cyan-100">画像驱动生成</span>
+              <span className="px-2.5 py-1 text-xs rounded-full bg-amber-300/20 border border-amber-200/30 text-amber-100">自动保存到我的</span>
+            </div>
+          </Card>
+
+          <Card className="bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md">
+            <div className="text-sm font-semibold text-white/95">灵感模板</div>
+            <div className="grid grid-cols-1 gap-2 mt-3">
+              {CULTURE_TEMPLATES.map((template) => (
+                <button
+                  key={template.id}
+                  type="button"
+                  className={`text-left rounded-xl border px-3 py-2 transition ${selectedTemplateId === template.id ? "bg-cyan-300/25 border-cyan-200/40" : "bg-white/5 border-white/20 hover:bg-white/15"}`}
+                  onClick={() => applyCultureTemplate(template)}
+                >
+                  <div className="text-sm font-semibold text-white">{template.title}</div>
+                  <div className="text-xs text-white/65 mt-0.5">{template.hint}</div>
+                </button>
+              ))}
+            </div>
+          </Card>
+
+          <Card className="bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md">
+            <div className="text-sm font-semibold text-white/95">出行画像</div>
+
+            <div className="mt-3">
+              <div className="text-xs text-white/60 mb-2">游玩时长</div>
               <div className="flex flex-wrap gap-2">
-                <button 
-                  type="button"
-                  className="px-3 py-1.5 text-xs bg-white/10 text-white/90 rounded-lg border border-white/20 hover:bg-white/20 transition"
-                  onClick={() => setTravelNeed("我带老人游玩半天，想多了解摩梭文化")}
-                >
-                  老人半天
-                </button>
-                <button 
-                  type="button"
-                  className="px-3 py-1.5 text-xs bg-white/10 text-white/90 rounded-lg border border-white/20 hover:bg-white/20 transition"
-                  onClick={() => setTravelNeed("我和朋友游玩一天，想看遗留的摩梭文化景观")} 
-                >
-                  朋友一天
-                </button>
-                <button 
-                  type="button"
-                  className="px-3 py-1.5 text-xs bg-white/10 text-white/90 rounded-lg border border-white/20 hover:bg-white/20 transition"
-                  onClick={() => setTravelNeed("我和家人游玩一天，想深入了解摩梭女性文化")} 
-                >
-                  家人一天
-                </button>
-                <button 
-                  type="button"
-                  className="px-3 py-1.5 text-xs bg-white/10 text-white/90 rounded-lg border border-white/20 hover:bg-white/20 transition"
-                  onClick={() => setTravelNeed("我独自游玩半天，想体验最有特色的摩梭风情")}
-                >
-                  独自半天
-                </button>
+                {CULTURE_DURATION_OPTIONS.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    className={`px-3 py-1.5 text-xs rounded-lg border transition ${cultureDraft.duration === item.value ? "bg-cyan-300/25 border-cyan-200/40 text-white" : "bg-white/5 border-white/20 text-white/85 hover:bg-white/15"}`}
+                    onClick={() => updateCultureDraft("duration", item.value)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
               </div>
             </div>
-            
+
+            <div className="mt-3">
+              <div className="text-xs text-white/60 mb-2">同行人群</div>
+              <div className="flex flex-wrap gap-2">
+                {CULTURE_GROUP_OPTIONS.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    className={`px-3 py-1.5 text-xs rounded-lg border transition ${cultureDraft.groupType === item.value ? "bg-cyan-300/25 border-cyan-200/40 text-white" : "bg-white/5 border-white/20 text-white/85 hover:bg-white/15"}`}
+                    onClick={() => updateCultureDraft("groupType", item.value)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-3">
+              <div className="text-xs text-white/60 mb-2">内容重心</div>
+              <div className="flex flex-wrap gap-2">
+                {CULTURE_FOCUS_OPTIONS.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    className={`px-3 py-1.5 text-xs rounded-lg border transition ${cultureDraft.preference === item.value ? "bg-cyan-300/25 border-cyan-200/40 text-white" : "bg-white/5 border-white/20 text-white/85 hover:bg-white/15"}`}
+                    onClick={() => updateCultureDraft("preference", item.value)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-3">
+              <div className="text-xs text-white/60 mb-2">节奏偏好</div>
+              <div className="flex flex-wrap gap-2">
+                {CULTURE_PACE_OPTIONS.map((item) => (
+                  <button
+                    key={item.value}
+                    type="button"
+                    className={`px-3 py-1.5 text-xs rounded-lg border transition ${cultureDraft.pace === item.value ? "bg-cyan-300/25 border-cyan-200/40 text-white" : "bg-white/5 border-white/20 text-white/85 hover:bg-white/15"}`}
+                    onClick={() => updateCultureDraft("pace", item.value)}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <GlassInput
-              wrapperClassName="mt-2"
+              wrapperClassName="mt-4"
               value={travelNeed}
               onChange={setTravelNeed}
-              placeholder="输入自定义游览需求"
+              placeholder="补充你的个性诉求（可选）"
               clearable
             />
+            <div className="text-xs text-white/55 mt-2">示例：想多听母系家庭故事，避开高强度步行。</div>
+
             <ButtonComponent variant="primary" className="mt-4 w-full shadow-lg" loading={routeLoading} onClick={createCulturePlan}>
-              生成导览路线
+              生成文化路线
             </ButtonComponent>
-            <div className="text-xs text-white/50 mt-2">路线来自真实 AI 接口，失败会直接报错，不做虚拟回退。</div>
           </Card>
 
           <Card className="bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md">
@@ -428,7 +580,22 @@ export default function HomePage() {
 
           {routePlan.timeline.length > 0 && (
             <Card className="bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md mb-0">
-              <h3 className="m-0 text-white/95">{routePlan.title}</h3>
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="m-0 text-white/95">{routePlan.title}</h3>
+                {routePlan.routeId ? (
+                  <span className="shrink-0 px-2 py-1 rounded-full text-xs bg-emerald-300/25 border border-emerald-200/30 text-emerald-100">
+                    已保存 #{routePlan.routeId}
+                  </span>
+                ) : null}
+              </div>
+              {routePlan.generatedAt ? (
+                <div className="text-xs text-white/55 mt-1">生成时间：{new Date(routePlan.generatedAt).toLocaleString()}</div>
+              ) : null}
+              {routePlan.requirement ? (
+                <div className="text-xs text-white/70 mt-3 bg-white/5 border border-white/10 rounded-xl px-3 py-2">
+                  需求摘要：{routePlan.requirement}
+                </div>
+              ) : null}
               <div className="mt-3 space-y-3">
                 {routePlan.timeline.map((item, idx) => (
                   <div key={`${item.time}-${item.location}-${idx}`} className="timeline-item" style={{ animationDelay: `${idx * 90}ms` }}>
@@ -438,6 +605,24 @@ export default function HomePage() {
                     {item.highlight && <div className="text-xs text-white/50 mt-1">{item.highlight}</div>}
                   </div>
                 ))}
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                <ButtonComponent
+                  variant="secondary"
+                  className="w-full"
+                  onClick={() => navigate(withUserSessionPath("/me"))}
+                >
+                  去我的查看
+                </ButtonComponent>
+                <ButtonComponent
+                  variant="primary"
+                  className="w-full"
+                  onClick={createCulturePlan}
+                  loading={routeLoading}
+                >
+                  再生成一版
+                </ButtonComponent>
               </div>
             </Card>
           )}

@@ -6,10 +6,24 @@ class RouteGenerateRequest(BaseModel):
     duration: str
     preference: str
     group_type: str
+    custom_need: str | None = None
+    pace: str | None = None
 
 
 class RouteGenerateResponse(BaseModel):
     route: dict
+    route_id: int | None = None
+    saved: bool = False
+
+
+class SavedRouteItem(BaseModel):
+    id: int
+    created_at: datetime
+    route: dict
+
+
+class SavedRoutesResponse(BaseModel):
+    routes: list[SavedRouteItem]
 
 
 class SceneContext(BaseModel):
@@ -17,6 +31,11 @@ class SceneContext(BaseModel):
     scene_type: str | None = None
     page_slug: str | None = None
     location_ref: str | None = None
+    scene_label: str | None = None
+    capability_hints: list[str] | None = None
+    domain_hints: list[str] | None = None
+    recommended_links: list[str] | None = None
+    answer_style: str | None = None
 
 
 class ChatRequest(BaseModel):

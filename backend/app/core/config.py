@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     app_name: str = "Lugu Lake Guide API"
+    app_env: str = "development"
+    allowed_hosts: str = "*"
     database_url: str = ""
     db_host: str = "db"
     db_port: int = 5432
@@ -19,6 +21,19 @@ class Settings(BaseSettings):
     dashscope_model: str = "qwen-plus"
     upload_dir: str = "uploads"
     cors_origins: str = "*"
+    user_session_cookie_name: str = "lugu_user_session"
+    admin_session_cookie_name: str = "lugu_admin_session"
+    csrf_cookie_name: str = "lugu_csrf_token"
+    csrf_header_name: str = "x-csrf-token"
+    csrf_cookie_ttl_minutes: int = 60 * 24
+    enforce_csrf: bool = True
+    password_transport_encryption_enabled: bool = True
+    password_transport_public_key_pem: str = ""
+    password_transport_private_key_pem: str = ""
+    password_transport_allow_plaintext_fallback: bool = True
+    session_cookie_secure: bool = False
+    session_cookie_samesite: str = "lax"
+    session_cookie_domain: str = ""
 
     @property
     def resolved_database_url(self) -> str:

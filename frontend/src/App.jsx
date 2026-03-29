@@ -12,6 +12,7 @@ import MosuoCulturePage from "./pages/MosuoCulturePage";
 import ScrollPage from "./pages/ScrollPage";
 import AdminLoginPage from "./pages/admin/AdminLoginPage";
 import AdminDashboardPage from "./pages/admin/AdminDashboardPage";
+import { getUserSessionUsername, withUserSessionPath } from "./auth";
 
 const tabs = [
   { key: "/home", title: "首页", icon: <AppOutline /> },
@@ -22,6 +23,19 @@ const tabs = [
 function MobileShell() {
   const location = useLocation();
   const navigate = useNavigate();
+  const activeTab = location.pathname.startsWith("/me")
+    ? "/me"
+    : (location.pathname.startsWith("/checkin") ? "/checkin" : "/home");
+
+  function handleTabChange(key) {
+    if (key === "/me") {
+      const username = getUserSessionUsername();
+      const profilePath = username ? `/me/${encodeURIComponent(username)}` : "/me";
+      navigate(withUserSessionPath(profilePath));
+      return;
+    }
+    navigate(withUserSessionPath(key));
+  }
 
   return (
     <div className="app-mobile-shell w-full h-[100dvh] max-w-md sm:max-w-xl md:max-w-3xl landscape:max-w-screen-xl mx-auto relative overflow-hidden flex flex-col font-sans shadow-2xl bg-black">
@@ -31,6 +45,7 @@ function MobileShell() {
           <Route path="/guide" element={<Navigate to="/home" replace />} />
           <Route path="/checkin" element={<CheckinPage />} />
           <Route path="/me" element={<ProfilePage />} />
+          <Route path="/me/:username" element={<ProfilePage />} />
           <Route path="/scroll" element={<ScrollPage />} />
           <Route path="/lugu-lake" element={<LuguLakeOverviewPage />} />
           <Route path="/mosuo-culture" element={<MosuoCulturePage />} />
@@ -43,8 +58,8 @@ function MobileShell() {
       <div className="app-glass-footer-wrap" style={{ bottom: "max(14px, env(safe-area-inset-bottom))" }}>
         <nav className="app-glass-footer" aria-label="主导航">
           <TabBar safeArea={false} 
-            activeKey={location.pathname} 
-            onChange={(key) => navigate(key)}
+            activeKey={activeTab}
+            onChange={handleTabChange}
             className="app-glass-tabbar"
           >  
             {tabs.map((item) => (
@@ -66,6 +81,7 @@ export default function App() {
     <Routes>
       <Route path="/admin/login" element={<AdminLoginPage />} />
       <Route path="/admin" element={<AdminDashboardPage />} />
+      <Route path="/admin/:username" element={<AdminDashboardPage />} />
       <Route path="/*" element={<MobileShell />} />
     </Routes>
   );

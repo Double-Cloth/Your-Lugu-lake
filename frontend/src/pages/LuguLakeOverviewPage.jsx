@@ -3,6 +3,7 @@ import LucideIcon from "../components/LucideIcon";
 import { DotLoading } from "antd-mobile";
 import { useNavigate } from "react-router-dom";
 import { fetchKnowledgeBaseCommonPage } from "../api";
+import { ImmersivePage, CardComponent } from "../components/SharedUI";
 
 export default function LuguLakeOverviewPage() {
   const navigate = useNavigate();
@@ -27,17 +28,21 @@ export default function LuguLakeOverviewPage() {
 
   if (loading) {
     return (
-      <div className="card card-glass text-center">
-        <DotLoading color="primary" />
-      </div>
+      <ImmersivePage>
+        <div className="flex-1 flex justify-center items-center h-48">
+          <DotLoading color="white" />
+        </div>
+      </ImmersivePage>
     );
   }
 
   if (!data) {
     return (
-      <div className="card card-glass text-center">
-        <p>泸沽湖整体介绍加载失败</p>
-      </div>
+      <ImmersivePage>
+        <CardComponent variant="glass" className="text-center mt-6">
+          <p className="text-white/80">泸沽湖整体介绍加载失败</p>
+        </CardComponent>
+      </ImmersivePage>
     );
   }
 
@@ -46,66 +51,75 @@ export default function LuguLakeOverviewPage() {
   const highlights = Array.isArray(details.highlights) ? details.highlights : [];
 
   return (
-    <div className="page-fade-in">
-      <div className="card card-glass mb-3">
+    <ImmersivePage bgImage="/images/lugu-hero.jpg" className="page-fade-in pb-[env(safe-area-inset-bottom)]">
+      <div className="mb-4 pt-2 -mx-2">
         <button
           type="button"
-          className="home-popup-back"
+          className="px-2 py-1 inline-flex items-center text-sky-100/80 hover:text-white transition-colors"
           onClick={() => navigate("/home", { state: { openPanel: "overview" } })}
         >
-          ← 返回
+          <LucideIcon name="ChevronLeft" size={20} className="mr-1" /> 返回
         </button>
       </div>
 
-      <div className="hero-shell detail-hero mb-3">
-        <div className="hero-kicker detail-hero-kicker">Lugu Lake Overview</div>
-        <h1 className="page-title detail-hero-title m-0">{data.title || data.name}</h1>
+      <div className="mb-6">
+        <div className="text-cyan-200 text-sm font-bold tracking-wider uppercase mb-1 drop-shadow-md text-shadow-sm">Lugu Lake Overview</div>
+        <h1 className="text-3xl font-bold text-white drop-shadow-lg m-0 text-shadow">{data.title || data.name}</h1>
       </div>
 
-      <div className="card card-glass">
-        <p className="detail-description">{data.description || ""}</p>
-        {details.introduction ? (
-          <div className="mt-3 text-sm text-white/60 leading-relaxed">{details.introduction}</div>
-        ) : null}
-      </div>
+      <CardComponent variant="glass" className="mb-4">
+        <p className="text-white/90 text-justify mb-0 leading-relaxed">{data.description || ""}</p>
+        {details.introduction && (
+          <div className="mt-4 text-sm text-white/70 leading-relaxed border-t border-white/10 pt-3">
+            {details.introduction}
+          </div>
+        )}
+      </CardComponent>
 
-      {highlights.length > 0 ? (
-        <div className="card card-glass">
-          <div className="detail-section-title">{sections.highlightsTitle || "核心亮点"}</div>
+      {highlights.length > 0 && (
+        <CardComponent variant="glass" className="mb-4">
+          <h2 className="text-lg font-bold text-white mb-4 flex items-center">
+            <LucideIcon name="Sparkles" size={18} className="mr-2 text-amber-200" />
+            {sections.highlightsTitle || "核心亮点"}
+          </h2>
           <div className="flex flex-wrap gap-2">
             {highlights.map((item, idx) => (
-              <span key={`hl-${idx}`} className="px-3 py-1 bg-amber-100 text-amber-800 rounded-full text-sm">
-                <LucideIcon name="Sparkles" size={16} className="inline-block mr-1 text-yellow-500" /> {item}
+              <span key={`hl-${idx}`} className="px-3 py-1.5 bg-white/10 backdrop-blur border border-white/20 text-white rounded-full text-sm shadow-sm transition hover:bg-white/20">
+                {item}
               </span>
             ))}
           </div>
-        </div>
-      ) : null}
+        </CardComponent>
+      )}
 
-      <div className="card card-glass">
-        <div className="detail-section-title">{sections.tipsTitle || sections.visitTipsTitle || "游览建议"}</div>
-        <div className="space-y-2 text-sm">
-          {details.bestSeasonToVisit ? (
-            <div>
-              <span className="font-semibold">最佳季节：</span>
-              {details.bestSeasonToVisit}
-            </div>
-          ) : null}
-          {details.recommendedDuration ? (
-            <div>
-              <span className="font-semibold">推荐时长：</span>
-              {details.recommendedDuration}
-            </div>
-          ) : null}
-          {details.accommodationTips ? (
-            <div>
-              <span className="font-semibold">住宿建议：</span>
-              {details.accommodationTips}
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </div>
+      {(details.bestSeasonToVisit || details.recommendedDuration || details.accommodationTips) && (
+        <CardComponent variant="glass" className="mb-6">
+          <h2 className="text-lg font-bold text-white mb-4 flex items-center">
+            <LucideIcon name="Info" size={18} className="mr-2 text-cyan-200" />
+            {sections.tipsTitle || sections.visitTipsTitle || "游览建议"}
+          </h2>
+          <div className="space-y-3 text-sm text-white/80">
+            {details.bestSeasonToVisit && (
+              <div className="flex items-start">
+                <span className="font-semibold text-white min-w-[70px]">最佳季节：</span>
+                <span className="flex-1">{details.bestSeasonToVisit}</span>
+              </div>
+            )}
+            {details.recommendedDuration && (
+              <div className="flex items-start">
+                <span className="font-semibold text-white min-w-[70px]">推荐时长：</span>
+                <span className="flex-1">{details.recommendedDuration}</span>
+              </div>
+            )}
+            {details.accommodationTips && (
+              <div className="flex items-start">
+                <span className="font-semibold text-white min-w-[70px]">住宿建议：</span>
+                <span className="flex-1">{details.accommodationTips}</span>
+              </div>
+            )}
+          </div>
+        </CardComponent>
+      )}
+    </ImmersivePage>
   );
 }
-

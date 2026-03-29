@@ -5,7 +5,7 @@ import * as Icons from 'lucide-react';
  * Lucide React 图标包装器
  * 使用示例: <LucideIcon name="Home" size={24} />
  */
-const LucideIcon = ({ name, size = 24, color = '#1d2a33', className = '' }) => {
+const LucideIcon = ({ name, size = 24, color = 'currentColor', className = '' }) => {
   const IconComponent = Icons[name];
   
   if (!IconComponent) {

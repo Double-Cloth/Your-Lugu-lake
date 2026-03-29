@@ -2,18 +2,27 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import LucideIcon from "../components/LucideIcon";
 import { Popup, Toast } from "antd-mobile";
 import { UserOutline, LockOutline } from "antd-mobile-icons";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { ImmersivePage, CardComponent, ButtonComponent, GlassInput, SkeletonComponent, EmptyStateComponent } from "../components/SharedUI";
 import {
   fetchCurrentUser,
   fetchLocations,
   fetchMyFootprints,
+  fetchMyRoutes,
   getUserToken,
   loginUser,
+  logoutSession,
   registerUser,
   updateCurrentUser,
 } from "../api";
-import { clearUserSession, hasUserSession, setUserSession } from "../auth";
+import {
+  buildUserProfilePath,
+  clearUserSession,
+  getUserSessionUsername,
+  hasUserSession,
+  setUserSession,
+  withUserSessionPath,
+} from "../auth";
 
 function toRecordList(footprints, locationMap) {
   return footprints.map((item) => ({
@@ -26,6 +35,7 @@ function toRecordList(footprints, locationMap) {
 
 export default function ProfilePage() {
   const navigate = useNavigate();
+  const { username: usernameFromPath } = useParams();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -40,6 +50,8 @@ export default function ProfilePage() {
   
   const [records, setRecords] = useState([]);
   const [recordLoading, setRecordLoading] = useState(false);
+  const [savedRoutes, setSavedRoutes] = useState([]);
+  const [savedRoutesLoading, setSavedRoutesLoading] = useState(false);
   
   const [posterVisible, setPosterVisible] = useState(false);
   const canvasRef = useRef(null);
@@ -55,6 +67,10 @@ export default function ProfilePage() {
   }, [loggedIn]);
 
   useEffect(() => {
+    void restoreSessionFromCookie();
+  }, []);
+
+  useEffect(() => {
     setEditName(displayName);
   }, [displayName]);
 
@@ -62,6 +78,39 @@ export default function ProfilePage() {
     if (!posterVisible) return;
     drawPoster();
   }, [posterVisible, records, displayName]);
+
+  useEffect(() => {
+    if (loggedIn) {
+      const sessionUser = getUserSessionUsername();
+      if (!sessionUser) return;
+
+      const normalizedPathUser = typeof usernameFromPath === "string"
+        ? decodeURIComponent(usernameFromPath).trim()
+        : "";
+      if (normalizedPathUser === sessionUser) return;
+
+      navigate(buildUserProfilePath(), { replace: true });
+      return;
+    }
+
+    if (typeof usernameFromPath === "string") {
+      const normalizedPathUser = decodeURIComponent(usernameFromPath).trim();
+      if (normalizedPathUser) {
+        setUsername((prev) => (prev ? prev : normalizedPathUser));
+      }
+    }
+  }, [loggedIn, navigate, usernameFromPath]);
+
+  async function restoreSessionFromCookie() {
+    try {
+      const data = await fetchCurrentUser(getUserToken());
+      setUserSession("", data?.username || "");
+      setProfile(data);
+      setLoggedIn(true);
+    } catch {
+      setLoggedIn(false);
+    }
+  }
 
   async function handleRegister() {
     if (!username || !password) {
@@ -75,10 +124,11 @@ export default function ProfilePage() {
     setLoading(true);
     try {
       const data = await registerUser({ username, password });
-      setUserSession(data.access_token);
+      setUserSession("", data?.username || username);
       setLoggedIn(true);
       setPassword("");
       setConfirmPassword("");
+      navigate(buildUserProfilePath(), { replace: true });
       Toast.show({ content: "注册并登录成功" });
     } catch (error) {
       console.error("Register error:", error);
@@ -103,9 +153,10 @@ export default function ProfilePage() {
         Toast.show({ content: "请使用游客账号登录" });
         return;
       }
-      setUserSession(data.access_token);
+      setUserSession("", data?.username || username);
       setLoggedIn(true);
       setPassword("");
+      navigate(buildUserProfilePath(), { replace: true });
       Toast.show({ content: "登录成功" });
     } catch (error) {
       const status = error?.response?.status;
@@ -124,11 +175,14 @@ export default function ProfilePage() {
   }
 
   function handleLogout() {
+    void logoutSession().catch(() => null);
     clearUserSession();
     setLoggedIn(false);
     setProfile(null);
     setRecords([]);
+    setSavedRoutes([]);
     setEditName("");
+    navigate("/me", { replace: true });
     Toast.show({ content: "已退出游客登录" });
   }
 
@@ -138,6 +192,10 @@ export default function ProfilePage() {
     try {
       const data = await fetchCurrentUser(token);
       setProfile(data);
+
+      if (typeof data?.username === "string" && data.username.trim()) {
+        setUserSession(token, data.username);
+      }
     } catch {
       Toast.show({ content: "获取用户信息失败" });
     }
@@ -147,13 +205,16 @@ export default function ProfilePage() {
     const token = getUserToken();
     if (!token) {
       setRecords([]);
+      setSavedRoutes([]);
       return;
     }
     setRecordLoading(true);
+    setSavedRoutesLoading(true);
     try {
-      const [footprints, locations] = await Promise.all([
+      const [footprints, locations, routes] = await Promise.all([
         fetchMyFootprints(token),
         fetchLocations(),
+        fetchMyRoutes(token),
       ]);
       const locationMap = {};
       locations.forEach((item) => {
@@ -162,11 +223,14 @@ export default function ProfilePage() {
 
       const list = Array.isArray(footprints) ? toRecordList(footprints, locationMap) : [];
       setRecords(list);
+      setSavedRoutes(Array.isArray(routes) ? routes : []);
     } catch {
       setRecords([]);
-      Toast.show({ content: "加载游览记录失败" });
+      setSavedRoutes([]);
+      Toast.show({ content: "加载游览数据失败" });
     } finally {
       setRecordLoading(false);
+      setSavedRoutesLoading(false);
     }
   }
 
@@ -192,6 +256,8 @@ export default function ProfilePage() {
       };
       const data = await updateCurrentUser(payload, token);
       setProfile(data);
+      setUserSession("", data?.username || "");
+      navigate(buildUserProfilePath(), { replace: true });
       setEditMode(false);
       setEditPassword("");
       Toast.show({ content: "资料已更新" });
@@ -371,7 +437,7 @@ export default function ProfilePage() {
         </div>
       </CardComponent>
 
-      <div className="grid grid-cols-2 gap-4 mb-6">
+      <div className="grid grid-cols-3 gap-3 mb-6">
         <CardComponent variant="immersive" className="mb-0 flex flex-col items-center justify-center py-5">
           <div className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-white/60 mb-1">
             {records.length}
@@ -384,16 +450,22 @@ export default function ProfilePage() {
           </div>
           <div className="text-xs text-white/50 tracking-wider">探索景点</div>
         </CardComponent>
+        <CardComponent variant="immersive" className="mb-0 flex flex-col items-center justify-center py-5">
+          <div className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-white/60 mb-1">
+            {savedRoutes.length}
+          </div>
+          <div className="text-xs text-white/50 tracking-wider">我的路线</div>
+        </CardComponent>
       </div>
 
       <div className="grid grid-cols-4 gap-3 mb-6">
-        <button onClick={() => navigate("/checkin")} className="flex flex-col items-center gap-2 group">
+        <button onClick={() => navigate(withUserSessionPath("/checkin"))} className="flex flex-col items-center gap-2 group">
           <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-inner group-active:bg-white/10 transition-all">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-cyan-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-cyan-300" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
           </div>
           <span className="text-xs text-white/70">打卡</span>
         </button>
-        <button onClick={() => navigate("/scroll")} className="flex flex-col items-center gap-2 group">
+        <button onClick={() => navigate(withUserSessionPath("/scroll"))} className="flex flex-col items-center gap-2 group">
           <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-inner group-active:bg-white/10 transition-all">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-blue-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
           </div>
@@ -477,7 +549,7 @@ export default function ProfilePage() {
             <SkeletonComponent className="h-32 mb-0" />
           ) : records.length > 0 ? (
             <div className="relative border-l-2 border-white/10 ml-3 space-y-6">
-              {records.map((item, index) => (
+              {records.map((item) => (
                 <div key={item.id} className="relative pl-5">
                   <div className="absolute w-3 h-3 bg-cyan-400 rounded-full -left-[7px] top-1.5 shadow-[0_0_8px_rgba(34,211,238,0.5)] border-2 border-slate-900"></div>
                   <div className="text-xs text-white/50 font-mono tracking-wider">{item.time}</div>
@@ -491,6 +563,67 @@ export default function ProfilePage() {
               icon={<LucideIcon name="Map" size={48} className="text-white/40 mb-3 mx-auto" strokeWidth={1.5} />} 
               title="暂无足迹" 
               description="去景点打卡，记录你的专属旅程吧" 
+              className="border-none shadow-none bg-transparent mb-0 p-4"
+            />
+          )}
+        </CardComponent>
+      </div>
+
+      <div className="mb-6">
+        <h3 className="text-sm font-bold text-white/90 mb-3 px-1 flex items-center">
+          <span className="w-1 h-3.5 bg-amber-300 rounded-full mr-2"></span>
+          我的路线
+        </h3>
+        <CardComponent variant="immersive" className="p-5 overflow-visible">
+          {savedRoutesLoading ? (
+            <SkeletonComponent className="h-28 mb-0" />
+          ) : savedRoutes.length > 0 ? (
+            <div className="space-y-4">
+              {savedRoutes.map((item) => {
+                const timeline = Array.isArray(item?.route?.timeline) ? item.route.timeline : [];
+                const preview = timeline.slice(0, 3);
+                const routeTitle = item?.route?.title || `文化路线 #${item.id}`;
+                return (
+                  <div key={`route-${item.id}`} className="rounded-2xl border border-white/15 bg-white/5 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-white">{routeTitle}</div>
+                        <div className="text-xs text-white/55 mt-1">保存时间：{new Date(item.created_at).toLocaleString()}</div>
+                      </div>
+                      <span className="shrink-0 px-2 py-1 rounded-full text-[11px] bg-cyan-300/20 border border-cyan-200/30 text-cyan-100">
+                        {timeline.length} 站
+                      </span>
+                    </div>
+
+                    {preview.length > 0 ? (
+                      <div className="mt-3 space-y-2">
+                        {preview.map((stop, idx) => (
+                          <div key={`route-${item.id}-stop-${idx}`} className="flex items-center justify-between text-xs">
+                            <span className="text-cyan-100/90">{stop.time || `第 ${idx + 1} 站`}</span>
+                            <span className="text-white/80 max-w-[60%] truncate">{stop.location || "景点"}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-3 text-xs text-white/55">该路线暂未包含时间轴明细。</div>
+                    )}
+                  </div>
+                );
+              })}
+
+              <ButtonComponent
+                variant="secondary"
+                className="w-full"
+                onClick={() => navigate(withUserSessionPath("/home"), { state: { openPanel: "culture" } })}
+              >
+                继续优化文化路线
+              </ButtonComponent>
+            </div>
+          ) : (
+            <EmptyStateComponent
+              icon={<LucideIcon name="Compass" size={48} className="text-white/40 mb-3 mx-auto" strokeWidth={1.5} />}
+              title="暂无路线"
+              description="去首页-文化导览生成并自动保存你的专属路线"
               className="border-none shadow-none bg-transparent mb-0 p-4"
             />
           )}
