@@ -10,16 +10,49 @@ const api = axios.create({
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
 
+function parseJwtPayload(token) {
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) return null;
+    const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4 || 4)) % 4);
+    return JSON.parse(atob(padded));
+  } catch {
+    return null;
+  }
+}
+
+function readTokenFromStorage(key) {
+  const raw = localStorage.getItem(key);
+  if (!raw) return "";
+
+  const token = String(raw).trim();
+  if (!token || token === "null" || token === "undefined") {
+    localStorage.removeItem(key);
+    return "";
+  }
+
+  const payload = parseJwtPayload(token);
+  const exp = Number(payload?.exp);
+  if (Number.isFinite(exp) && Date.now() >= exp * 1000) {
+    localStorage.removeItem(key);
+    return "";
+  }
+
+  return token;
+}
+
 export function getUserToken() {
-  return localStorage.getItem("user_token") || "";
+  return readTokenFromStorage("user_token");
 }
 
 export function getAdminToken() {
-  return localStorage.getItem("admin_token") || "";
+  return readTokenFromStorage("admin_token");
 }
 
 function authHeader(token) {
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  const normalized = typeof token === "string" ? token.trim() : "";
+  return normalized ? { Authorization: `Bearer ${normalized}` } : {};
 }
 
 export function buildAssetUrl(path) {
@@ -396,12 +429,13 @@ export async function generateLocationQr(locationId, token) {
   return data;
 }
 
-export async function sceneChat(message, systemPrompt, token, sceneContext = null) {
+export async function sceneChat(message, systemPrompt, token, sceneContext = null, sessionKey = null) {
   const { data } = await api.post("/api/routes/chat", 
     {
       message,
       system_prompt: systemPrompt,
       scene_context: sceneContext,
+      session_key: sessionKey,
     },
     {
       headers: authHeader(token),
@@ -409,6 +443,19 @@ export async function sceneChat(message, systemPrompt, token, sceneContext = nul
     }
   );
   return data;
+}
+
+export async function fetchChatHistory(token) {
+  const { data } = await api.get("/api/routes/chat/history", {
+    headers: authHeader(token),
+  });
+  return data;
+}
+
+export async function deleteChatSession(sessionKey, token) {
+  await api.delete(`/api/routes/chat/history/${sessionKey}`, {
+    headers: authHeader(token),
+  });
 }
 
 export async function downloadQrcodeZip(token) {

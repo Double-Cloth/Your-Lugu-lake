@@ -14,6 +14,7 @@ import {
   generateRoute,
   getUserToken,
 } from "../api";
+import { clearUserSession } from "../auth";
 
 const LUGU_LAKE_BG_URL = "/images/lugu-hero.jpg";
 
@@ -59,12 +60,29 @@ export default function HomePage() {
   const [kbOverview, setKbOverview] = useState(null);
 
   useEffect(() => {
-    const panel = location.state?.openPanel;
-    if (panel === "overview" || panel === "global" || panel === "culture") {
-      setActivePanel(panel);
-      navigate(location.pathname, { replace: true, state: null });
+    const panelFromState = location.state?.openPanel;
+    const panelFromQuery = new URLSearchParams(location.search).get("openPanel");
+    const validPanels = new Set(["overview", "global", "culture"]);
+
+    const panel = validPanels.has(panelFromState)
+      ? panelFromState
+      : (validPanels.has(panelFromQuery) ? panelFromQuery : "");
+
+    if (!panel) {
+      return;
     }
-  }, [location.pathname, location.state, navigate]);
+
+    setActivePanel(panel);
+
+    if (validPanels.has(panelFromState)) {
+      navigate(location.pathname, { replace: true, state: null });
+      return;
+    }
+
+    if (validPanels.has(panelFromQuery)) {
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.pathname, location.search, location.state, navigate]);
 
   useEffect(() => {
     async function loadData() {
@@ -87,11 +105,18 @@ export default function HomePage() {
 
         const token = getUserToken();
         if (token) {
-          const footprints = await fetchMyFootprints(token);
-          const firstWithPhoto = Array.isArray(footprints)
-            ? footprints.find((item) => item.photo_url)
-            : null;
-          setCoverPhotoUrl(firstWithPhoto?.photo_url ? buildAssetUrl(firstWithPhoto.photo_url) : "");
+          try {
+            const footprints = await fetchMyFootprints(token);
+            const firstWithPhoto = Array.isArray(footprints)
+              ? footprints.find((item) => item.photo_url)
+              : null;
+            setCoverPhotoUrl(firstWithPhoto?.photo_url ? buildAssetUrl(firstWithPhoto.photo_url) : "");
+          } catch (error) {
+            if (error?.response?.status === 401) {
+              clearUserSession();
+            }
+            setCoverPhotoUrl("");
+          }
         } else {
           setCoverPhotoUrl("");
         }
@@ -208,9 +233,9 @@ export default function HomePage() {
   }
 
   return (
-    <ImmersivePage bgImage={heroBgUrl || LUGU_LAKE_BG_URL} className="page-fade-in pt-0 pb-0">
-      <div className="flex flex-col h-full mt-10">
-        <div className="text-center mb-10 mt-6 z-10 relative px-4 text-shadow-md">
+    <ImmersivePage bgImage={heroBgUrl || LUGU_LAKE_BG_URL} className="page-fade-in pt-0 pb-0 flex-1">
+      <div className="flex-1 flex flex-col justify-center items-center h-full w-full px-4" style={{ marginTop: "-40px" }}>
+        <div className="w-full max-w-xl text-center mb-6 z-10 relative text-shadow-md">
           <div className="inline-block bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-white/95 text-xs tracking-widest mb-4 border border-white/20 shadow-lg">
             欢迎来到泸沽湖景区
           </div>
@@ -222,7 +247,7 @@ export default function HomePage() {
           </p>
         </div>
 
-        <div className="space-y-4 px-4 z-10 relative flex-1">
+        <div className="w-full max-w-xl space-y-4 pb-4 z-10 relative">
           <CardComponent variant="immersive" onClick={() => openPanel("overview")} className="cursor-pointer active:scale-95">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white/90 shadow-inner">
@@ -265,16 +290,16 @@ export default function HomePage() {
       </div>
 
       <Popup visible={activePanel === "overview"} onMaskClick={closePanel} bodyStyle={{ minHeight: "75vh", width: "100%", maxWidth: "100%", overflowY: "auto", background: "transparent" }}>
-        <div className="backdrop-blur-xl bg-slate-900/80 p-5 min-h-[75vh] rounded-t-3xl border-t border-white/20 home-popup-scrollable">
+        <div className="app-glass-popup p-5 min-h-[75vh] home-popup-scrollable">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-2xl font-bold text-white">景区一览</h3>
-            <button className="text-white/80 active:text-white" onClick={closePanel}>← 返回</button>
+            <h3 className="text-2xl font-bold text-white tracking-wide">景区一览</h3>
+            <button className="text-[rgba(189,232,250,0.8)] active:text-white px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm backdrop-blur-sm transition-all shadow-sm" onClick={closePanel}>← 返回</button>
           </div>
           {loading ? (
             <div className="bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md text-center"><DotLoading color="primary" /></div>
           ) : (
             <>
-              <Card className="bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md overview-module-card">
+              <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md overview-module-card">
                 <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">{kbOverview?.lake?.title || "泸沽湖整体介绍"}</div>
                 {primaryLake ? (
                   <>
@@ -300,7 +325,7 @@ export default function HomePage() {
                 )}
               </Card>
 
-              <Card className="bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md overview-module-card">
+              <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md overview-module-card">
                 <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">{kbOverview?.culture?.title || "摩梭文化介绍"}</div>
                 <p className="text-sm text-white/80 mt-2 mb-2">
                   {kbOverview?.culture?.description || ""}
@@ -332,12 +357,12 @@ export default function HomePage() {
       </Popup>
 
       <Popup visible={activePanel === "culture"} onMaskClick={closePanel} bodyStyle={{ minHeight: "75vh", width: "100%", maxWidth: "100%", overflowY: "auto", background: "transparent" }}>
-        <div className="backdrop-blur-xl bg-slate-900/80 p-5 min-h-[75vh] rounded-t-3xl border-t border-white/20 home-popup-scrollable">
+        <div className="app-glass-popup p-5 min-h-[75vh] home-popup-scrollable">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-2xl font-bold text-white">文化导览</h3>
-            <button className="text-white/80 active:text-white" onClick={closePanel}>← 返回</button>
+            <h3 className="text-2xl font-bold text-white tracking-wide">文化导览</h3>
+            <button className="text-[rgba(189,232,250,0.8)] active:text-white px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm backdrop-blur-sm transition-all shadow-sm" onClick={closePanel}>← 返回</button>
           </div>
-          <Card className="bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md">
+          <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md">
             <div className="text-sm text-white/80 mb-3">示例：我带老人游玩半天，想多了解摩梭文化。</div>
             
             <div className="mb-3">
@@ -420,12 +445,12 @@ export default function HomePage() {
       </Popup>
 
       <Popup visible={activePanel === "global"} onMaskClick={closePanel} bodyStyle={{ minHeight: "75vh", width: "100%", maxWidth: "100%", overflowY: "auto", background: "transparent" }}>
-        <div className="backdrop-blur-xl bg-slate-900/80 p-5 min-h-[75vh] rounded-t-3xl border-t border-white/20 home-popup-scrollable">
+        <div className="app-glass-popup p-5 min-h-[75vh] home-popup-scrollable">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-2xl font-bold text-white">全域导览</h3>
-            <button className="text-white/80 active:text-white" onClick={closePanel}>← 返回</button>
+            <h3 className="text-2xl font-bold text-white tracking-wide">全域导览</h3>
+            <button className="text-[rgba(189,232,250,0.8)] active:text-white px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm backdrop-blur-sm transition-all shadow-sm" onClick={closePanel}>← 返回</button>
           </div>
-          <Card className="bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md global-section-card">
+          <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md global-section-card">
             <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">景点总览（知识库全量）</div>
             {kbLocations.length === 0 ? (
               <div className="text-sm text-white/50 mt-2">暂未读取到知识库景点，已保留数据库数据作为回退。</div>
@@ -452,7 +477,7 @@ export default function HomePage() {
             )}
           </Card>
 
-          <Card className="bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md global-section-card">
+          <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md global-section-card">
             <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">周围景点 / 酒店</div>
             <div className="grid grid-cols-2 gap-4 mt-2">
               <div>

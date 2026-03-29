@@ -37,6 +37,7 @@ body,
   margin: 0;
   padding: 0;
   overflow: hidden;
+  background-color: transparent;
 }
 
 .app-mobile-shell {
@@ -55,7 +56,7 @@ body,
   top: 0;
   z-index: 60;
   padding: 8px 12px 10px;
-  background: linear-gradient(180deg, rgba(7, 34, 47, 0.7), rgba(7, 34, 47, 0));
+  background: transparent;
   backdrop-filter: blur(10px);
 }
 
@@ -63,9 +64,7 @@ body,
   min-height: 52px;
   border-radius: 20px;
   border: 1px solid rgba(166, 221, 244, 0.26);
-  background:
-    radial-gradient(120% 100% at 12% 0%, rgba(255, 255, 255, 0.18), transparent 45%),
-    linear-gradient(130deg, rgba(18, 96, 123, 0.62), rgba(12, 66, 87, 0.68));
+  background: transparent;
   box-shadow: 0 12px 28px -18px rgba(4, 20, 30, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.16);
   display: flex;
   align-items: center;
@@ -133,12 +132,20 @@ body,
   pointer-events: auto;
   border-radius: 20px;
   border: 1px solid rgba(189, 232, 250, 0.48);
-  background:
-    radial-gradient(110% 120% at 50% 0%, rgba(255, 255, 255, 0.3), transparent 55%),
-    linear-gradient(145deg, rgba(97, 178, 209, 0.52), rgba(55, 135, 167, 0.58));
+  background: transparent;
   box-shadow: 0 14px 30px -18px rgba(5, 34, 48, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.22);
   backdrop-filter: blur(14px) saturate(112%);
   overflow: hidden;
+}
+
+.app-glass-popup {
+  border-top: 1px solid rgba(189, 232, 250, 0.48);
+  border-left: 1px solid rgba(189, 232, 250, 0.2);
+  border-right: 1px solid rgba(189, 232, 250, 0.2);
+  background: rgba(16, 38, 54, 0.65);
+  box-shadow: 0 -14px 30px -18px rgba(5, 34, 48, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  backdrop-filter: blur(16px) saturate(120%);
+  border-radius: 32px 32px 0 0;
 }
 
 .app-glass-tabbar.adm-tab-bar {
@@ -149,15 +156,21 @@ body,
   width: 100% !important;
   max-width: none !important;
   background: transparent !important;
+  background-color: transparent !important;
   border-top: none !important;
   box-shadow: none !important;
   z-index: auto;
+}
+
+.app-glass-tabbar .adm-safe-area {
+  display: none !important;
 }
 
 .app-glass-tabbar .adm-tab-bar-wrap {
   min-height: 56px;
   padding: 4px;
   gap: 2px;
+  background-color: transparent !important;
 }
 
 .app-glass-tabbar .adm-tab-bar-item {
@@ -819,7 +832,7 @@ body,
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
@@ -1098,6 +1111,10 @@ select {
   color: #0f3f51;
   transition: all 220ms ease;
   box-shadow: 0 2px 8px rgba(18, 149, 201, 0.05);
+}
+
+textarea{
+  padding: 2px 4px !important;
 }
 
 .adm-input:focus,
@@ -1716,7 +1733,7 @@ textarea::placeholder {
 /* ===== 输入框组件优化 ===== */
 .adm-input {
   border-radius: 12px !important;
-  padding: 12px 14px !important;
+  padding: 2px 4px !important;
 }
 
 .adm-input:focus-within {
@@ -1725,7 +1742,7 @@ textarea::placeholder {
 
 .adm-text-area textarea {
   border-radius: 12px !important;
-  padding: 12px 14px !important;
+  padding: 2px 4px !important;
 }
 
 /* ===== Selector 选择器优化 ===== */
@@ -2674,6 +2691,7 @@ textarea::placeholder {
 .ai-chat-panel-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
 }
 
@@ -2707,6 +2725,12 @@ textarea::placeholder {
 
 .ai-panel-btn-light:active {
   transform: translateY(0) scale(0.98);
+}
+
+.ai-panel-btn-light[disabled] {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .ai-panel-btn-light:focus-visible,
@@ -2758,6 +2782,10 @@ textarea::placeholder {
   background: transparent;
 }
 
+.ai-chat-container-collapsed {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 .ai-history-panel {
   border-right: 1px solid rgba(130, 193, 221, 0.3);
   background: rgba(255, 255, 255, 0.2);
@@ -2765,7 +2793,7 @@ textarea::placeholder {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 .ai-history-title {
@@ -2786,43 +2814,80 @@ textarea::placeholder {
 
 .ai-history-list {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-direction: row;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(94, 162, 193, 0.54) transparent;
+}
+
+.ai-history-list::-webkit-scrollbar {
+  height: 5px;
+}
+
+.ai-history-list::-webkit-scrollbar-thumb {
+  background-color: rgba(94, 162, 193, 0.54);
+  border-radius: 999px;
 }
 
 .ai-history-item {
   background: rgba(247, 253, 255, 0.52);
   border: 1px solid rgba(130, 193, 221, 0.3);
   border-radius: 8px;
-  padding: 10px;
+  padding: 11px;
   text-align: left;
   cursor: pointer;
   transition: all 0.2s;
+  min-width: 208px;
+  max-width: 224px;
+  flex: 0 0 auto;
+  scroll-snap-align: start;
 }
 
 .ai-history-item:hover {
   background: rgba(232, 246, 252, 0.86);
   border-color: rgba(79, 160, 195, 0.54);
-  transform: translateX(2px);
+  transform: translateY(-1px);
+}
+
+.ai-history-item-active {
+  background: rgba(220, 242, 251, 0.92);
+  border-color: rgba(69, 151, 186, 0.64);
+  box-shadow: inset 0 0 0 1px rgba(145, 211, 238, 0.55);
 }
 
 .ai-history-question {
   font-size: 13px;
+  line-height: 1.45;
   color: #124f67;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
 
 .ai-history-answer {
   font-size: 12px;
+  line-height: 1.4;
   color: rgba(28, 95, 119, 0.74);
-  display: block;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.ai-history-meta {
+  margin-top: 8px;
+  display: block;
+  font-size: 11px;
+  line-height: 1.4;
+  color: rgba(22, 87, 111, 0.62);
 }
 
 /* --- Chat Main Area --- */
@@ -2984,6 +3049,13 @@ textarea::placeholder {
 .ai-markdown-content a {
   color: #0b5f80;
   text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 2px;
+  font-weight: 600;
+}
+
+.ai-markdown-content a:hover {
+  color: #0a4d67;
 }
 
 .ai-markdown-content code {
@@ -3010,7 +3082,7 @@ textarea::placeholder {
 
 /* --- Input Area --- */
 .ai-input-area {
-  padding: 12px 16px;
+  padding: 8px 12px;
   background: rgba(255, 255, 255, 0.2);
   border-top: 1px solid rgba(130, 193, 221, 0.32);
   display: flex;
@@ -3023,11 +3095,11 @@ textarea::placeholder {
   background: rgba(255, 255, 255, 0.52);
   border: 1px solid rgba(130, 193, 221, 0.34);
   border-radius: 12px;
-  min-height: 30px;
+  min-height: 28px;
   transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
   display: flex;
-  align-items: stretch;
-  padding: 3px 0;
+  align-items: center;
+  padding: 0;
   border: none !important;
 }
 
@@ -3044,12 +3116,15 @@ textarea::placeholder {
   background: transparent;
   width: 100%;
   border: none !important;
+  display: flex !important;
+  align-items: center !important;
 }
 
 .ai-textarea .adm-text-area-element {
   color: #0f4f67;
-  line-height: 1.5;
-  padding: 6px 12px;
+  padding: 8px 15px !important; /* 上下 10px，左右 15px */
+  line-height: normal !important; /* 恢复默认或设为 1 */
+  height: auto !important;
   resize: none;
   border: none !important;
   box-shadow: none !important;
@@ -3063,15 +3138,15 @@ textarea::placeholder {
   background: linear-gradient(135deg, rgba(35, 156, 201, 0.92), rgba(23, 107, 137, 0.94));
   border: none !important;
   color: #fff !important;
-  border-radius: 10px !important;
-  padding: 8px 16px !important;
+  border-radius: 8px !important;
+  padding: 6px 14px !important;
   font-weight: 600 !important;
-  height: 38px !important;
+  height: 32px !important;
   flex-shrink: 0;
   cursor: pointer;
   transition: all 0.2s !important;
   margin-bottom: 2px;
-  box-shadow: 0 8px 18px rgba(7, 56, 77, 0.28);
+  box-shadow: 0 4px 12px rgba(7, 56, 77, 0.28);
 }
 
 .ai-send-btn:active {
@@ -3102,11 +3177,15 @@ textarea::placeholder {
     flex-direction: column;
   }
 
+  .ai-chat-container-collapsed {
+    display: flex;
+  }
+
   .ai-history-panel {
     border-right: none;
     border-bottom: 1px solid rgba(130, 193, 221, 0.34);
     padding: 10px 16px;
-    max-height: 140px;
+    max-height: 180px;
     flex-shrink: 0;
   }
 
@@ -3114,12 +3193,14 @@ textarea::placeholder {
     flex-direction: row;
     overflow-x: auto;
     overflow-y: hidden;
-    padding-bottom: 4px;
-    gap: 12px;
+    max-height: none;
+    padding-right: 0;
+    gap: 10px;
   }
 
   .ai-history-item {
-    min-width: 180px;
+    min-width: 220px;
+    max-width: 240px;
   }
 
   .ai-chat-overlay {
@@ -3199,4 +3280,60 @@ textarea::placeholder {
 input::-ms-reveal,
 input::-ms-clear {
   display: none !important;
+}
+
+/* 删除历史确认框 - 现代深色磨砂材质 */
+.ai-delete-confirm-dialog .adm-mask {
+  background: rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.ai-delete-confirm-dialog .adm-dialog {
+  border-radius: 20px !important;
+  background: #1e293b !important; /* 加深实体背景色，解决字看不清的问题 */
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.1) inset !important;
+  overflow: hidden;
+  position: relative;
+}
+
+.ai-delete-confirm-dialog .adm-dialog-title {
+  color: #f8fafc !important; /* 纯白偏亮，保证标题清晰度 */
+  font-weight: 600;
+  font-size: 1.15rem;
+  padding-top: 24px;
+}
+
+.ai-delete-confirm-dialog .adm-dialog-content {
+  background: #1e293b !important; /* 加深实体背景色，解决字看不清的问题 */
+  color: #cbd5e1 !important; /* 浅灰偏蓝，正文清晰且不刺眼 */
+  font-size: 0.95rem;
+  padding-bottom: 24px;
+  padding-top: 24px;
+  border-radius: 10px 10px 0 0 !important;
+}
+
+.ai-delete-confirm-dialog .adm-dialog-footer {
+  border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
+  background: rgba(15, 23, 42, 0.4);
+}
+
+.ai-delete-confirm-dialog .adm-dialog-button {
+  color: #94a3b8 !important;
+  font-weight: 500;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.ai-delete-confirm-dialog .adm-dialog-button:active {
+  background-color: rgba(255, 255, 255, 0.05) !important;
+}
+
+.ai-delete-confirm-dialog .adm-dialog-button:last-child {
+  color: #f87171 !important; /* 醒目的红色以标识删除警告 */
+  font-weight: 600;
+}
+
+.ai-delete-confirm-dialog .adm-dialog-button:last-child:active {
+  background-color: rgba(248, 113, 113, 0.1) !important;
 }

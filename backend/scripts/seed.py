@@ -1,6 +1,6 @@
 from app.core.security import get_password_hash
 from app.db.base import Base
-from app.db.session import SessionLocal, engine
+from app.db.session import SessionLocal, engine, wait_for_db
 from app.models.location import Location
 from app.models.user import User
 
@@ -73,6 +73,7 @@ REAL_LOCATIONS = [
 
 
 def run_seed() -> None:
+    wait_for_db(max_attempts=30, delay_seconds=2.0)
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
 

@@ -3,7 +3,7 @@ import { Button, Card, Toast } from "antd-mobile";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 
-import { fetchLocations, fetchMyFootprints, getUserToken } from "../api";
+import { buildAssetUrl, fetchLocations, fetchMyFootprints, getUserToken } from "../api";
 
 export default function ScrollPage() {
   const [loading, setLoading] = useState(false);
@@ -110,7 +110,7 @@ export default function ScrollPage() {
                 <div className="text-sm text-white/60">{item.mood_text || "无心情记录"}</div>
                 {item.photo_url && (
                   <img
-                    src={`${import.meta.env.VITE_API_BASE_URL || "http://localhost:8000"}${item.photo_url}`}
+                    src={buildAssetUrl(item.photo_url)}
                     alt="footprint"
                     className="mt-2 w-full rounded-lg"
                   />

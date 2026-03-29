@@ -3,9 +3,12 @@ import React, { forwardRef, useState } from 'react';
 /**
  * 沉浸式全局页面容器
  */
-export const ImmersivePage = ({ bgImage, children, className = '' }) => {
+export const ImmersivePage = ({ bgImage, children, className = '', style }) => {
+  const isFadeIn = className.includes('page-fade-in');
+  const rootClass = className.replace('page-fade-in', '').trim();
+  
   return (
-    <div className={`relative min-h-full flex flex-col p-4 overflow-x-hidden ${className}`}>
+    <div className={`relative min-h-full flex flex-col px-4 pb-4 pt-[max(10px,env(safe-area-inset-top))] overflow-x-hidden ${rootClass}`} style={style}>
       {bgImage && (
         <div 
           className="fixed inset-0 z-0 bg-cover bg-center bg-no-repeat"
@@ -14,7 +17,7 @@ export const ImmersivePage = ({ bgImage, children, className = '' }) => {
       )}
       <div className="fixed inset-0 z-0 bg-gradient-to-b from-slate-900/40 via-slate-900/60 to-slate-900/90 backdrop-blur-[2px]" />
       
-      <div className="relative z-10 w-full flex-1 flex flex-col">
+      <div className={`relative z-10 w-full flex-1 flex flex-col ${isFadeIn ? 'page-fade-in' : ''}`}>
         {children}
       </div>
     </div>

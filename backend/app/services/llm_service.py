@@ -4,7 +4,9 @@ import math
 import re
 import time
 from collections import Counter
+from dataclasses import dataclass
 from pathlib import Path
+from threading import Lock
 
 import requests
 
@@ -14,6 +16,27 @@ from app.core.config import settings
 PROJECT_ROOT = Path(__file__).resolve().parents[3]
 KNOWLEDGE_BASE_ROOT = PROJECT_ROOT / "knowledge-base"
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class _VectorChunk:
+    source_name: str
+    text: str
+    vector: dict[str, float]
+    norm: float
+
+
+@dataclass
+class _KnowledgeVectorStore:
+    signature: tuple[tuple[str, float, int], ...]
+    idf: dict[str, float]
+    default_idf: float
+    chunks_by_source: dict[str, list[_VectorChunk]]
+    all_chunks: list[_VectorChunk]
+
+
+_VECTOR_STORE_LOCK = Lock()
+_VECTOR_STORE_CACHE: _KnowledgeVectorStore | None = None
 
 
 def _read_json_file(path: Path) -> dict | list | None:
@@ -85,22 +108,6 @@ def _tokenize(text: str) -> list[str]:
     return tokens
 
 
-def _cosine_similarity(a: Counter, b: Counter) -> float:
-    if not a or not b:
-        return 0.0
-
-    dot = sum(a[token] * b.get(token, 0) for token in a)
-    if dot <= 0:
-        return 0.0
-
-    norm_a = math.sqrt(sum(v * v for v in a.values()))
-    norm_b = math.sqrt(sum(v * v for v in b.values()))
-    if norm_a == 0 or norm_b == 0:
-        return 0.0
-
-    return dot / (norm_a * norm_b)
-
-
 def _resolve_location_slug(location_ref: str | None) -> str | None:
     if not location_ref:
         return None
@@ -158,9 +165,91 @@ def _knowledge_targets(scene_context: dict | None) -> list[tuple[str, Path]]:
     return unique
 
 
-def _build_knowledge_context(question: str, scene_context: dict | None, top_k: int = 4) -> str:
-    docs: list[tuple[str, str]] = []
-    for source_name, path in _knowledge_targets(scene_context):
+def _all_knowledge_targets() -> list[tuple[str, Path]]:
+    targets: list[tuple[str, Path]] = [
+        ("common:overview", KNOWLEDGE_BASE_ROOT / "common" / "overview.json"),
+        ("locations:index", KNOWLEDGE_BASE_ROOT / "locations" / "index.json"),
+        ("nearby:index", KNOWLEDGE_BASE_ROOT / "nearby-spots" / "index.json"),
+        ("hotels:index", KNOWLEDGE_BASE_ROOT / "hotels" / "index.json"),
+    ]
+
+    pages_dir = KNOWLEDGE_BASE_ROOT / "common" / "pages"
+    if pages_dir.exists():
+        for path in sorted(pages_dir.glob("*.json")):
+            if path.name == "index.json":
+                continue
+            targets.append((f"page:{path.stem}", path))
+
+    locations_dir = KNOWLEDGE_BASE_ROOT / "locations"
+    if locations_dir.exists():
+        for path in sorted(locations_dir.glob("*/info.json")):
+            targets.append((f"location:{path.parent.name}", path))
+
+    unique: list[tuple[str, Path]] = []
+    seen: set[str] = set()
+    for name, path in targets:
+        key = f"{name}:{path.as_posix()}"
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append((name, path))
+    return unique
+
+
+def _build_knowledge_signature(targets: list[tuple[str, Path]]) -> tuple[tuple[str, float, int], ...]:
+    items: list[tuple[str, float, int]] = []
+    for _, path in targets:
+        if not path.exists() or not path.is_file():
+            continue
+        stat = path.stat()
+        items.append((path.as_posix(), stat.st_mtime, stat.st_size))
+    items.sort(key=lambda item: item[0])
+    return tuple(items)
+
+
+def _build_tfidf_vector(tokens: list[str], idf: dict[str, float], default_idf: float) -> tuple[dict[str, float], float]:
+    if not tokens:
+        return {}, 0.0
+
+    counts = Counter(tokens)
+    total = sum(counts.values())
+    if total <= 0:
+        return {}, 0.0
+
+    vector: dict[str, float] = {}
+    for token, count in counts.items():
+        tf = count / total
+        weight = tf * idf.get(token, default_idf)
+        if weight > 0:
+            vector[token] = weight
+
+    if not vector:
+        return {}, 0.0
+
+    norm = math.sqrt(sum(weight * weight for weight in vector.values()))
+    return vector, norm
+
+
+def _sparse_cosine_similarity(query_vector: dict[str, float], query_norm: float, chunk: _VectorChunk) -> float:
+    if query_norm <= 0 or chunk.norm <= 0:
+        return 0.0
+
+    dot = 0.0
+    for token, weight in query_vector.items():
+        dot += weight * chunk.vector.get(token, 0.0)
+
+    if dot <= 0:
+        return 0.0
+
+    return dot / (query_norm * chunk.norm)
+
+
+def _build_vector_store(
+    targets: list[tuple[str, Path]],
+    signature: tuple[tuple[str, float, int], ...],
+) -> _KnowledgeVectorStore:
+    docs: list[tuple[str, str, list[str]]] = []
+    for source_name, path in targets:
         data = _read_json_file(path)
         if data is None:
             continue
@@ -168,27 +257,250 @@ def _build_knowledge_context(question: str, scene_context: dict | None, top_k: i
         if not plain_text:
             continue
         for chunk in _chunk_text(plain_text):
-            docs.append((source_name, chunk))
+            tokens = _tokenize(chunk)
+            if not tokens:
+                continue
+            docs.append((source_name, chunk, tokens))
 
     if not docs:
-        return ""
+        return _KnowledgeVectorStore(
+            signature=signature,
+            idf={},
+            default_idf=1.0,
+            chunks_by_source={},
+            all_chunks=[],
+        )
 
-    query_tokens = Counter(_tokenize(question))
+    total_docs = len(docs)
+    document_frequency: Counter = Counter()
+    for _, _, tokens in docs:
+        for token in set(tokens):
+            document_frequency[token] += 1
+
+    idf: dict[str, float] = {
+        token: math.log((total_docs + 1) / (freq + 1)) + 1.0 for token, freq in document_frequency.items()
+    }
+    default_idf = math.log(total_docs + 1) + 1.0
+
+    chunks_by_source: dict[str, list[_VectorChunk]] = {}
+    all_chunks: list[_VectorChunk] = []
+    for source_name, chunk_text, tokens in docs:
+        vector, norm = _build_tfidf_vector(tokens, idf, default_idf)
+        if norm <= 0:
+            continue
+        chunk = _VectorChunk(source_name=source_name, text=chunk_text, vector=vector, norm=norm)
+        chunks_by_source.setdefault(source_name, []).append(chunk)
+        all_chunks.append(chunk)
+
+    return _KnowledgeVectorStore(
+        signature=signature,
+        idf=idf,
+        default_idf=default_idf,
+        chunks_by_source=chunks_by_source,
+        all_chunks=all_chunks,
+    )
+
+
+def _get_vector_store(force_rebuild: bool = False) -> _KnowledgeVectorStore:
+    global _VECTOR_STORE_CACHE
+
+    targets = _all_knowledge_targets()
+    signature = _build_knowledge_signature(targets)
+
+    with _VECTOR_STORE_LOCK:
+        if not force_rebuild and _VECTOR_STORE_CACHE and _VECTOR_STORE_CACHE.signature == signature:
+            return _VECTOR_STORE_CACHE
+
+        _VECTOR_STORE_CACHE = _build_vector_store(targets, signature)
+        logger.info(
+            "Knowledge vector store rebuilt: %s chunks, %s sources",
+            len(_VECTOR_STORE_CACHE.all_chunks),
+            len(_VECTOR_STORE_CACHE.chunks_by_source),
+        )
+        return _VECTOR_STORE_CACHE
+
+
+def warmup_knowledge_vector_store() -> None:
+    _get_vector_store(force_rebuild=True)
+
+
+def _retrieve_knowledge_chunks(
+    question: str,
+    scene_context: dict | None,
+    top_k: int = 4,
+) -> list[tuple[float, str, str]]:
+    store = _get_vector_store()
+    if not store.all_chunks:
+        return []
+
+    target_names = {name for name, _ in _knowledge_targets(scene_context)}
+    candidates: list[_VectorChunk] = []
+    for name in target_names:
+        candidates.extend(store.chunks_by_source.get(name, []))
+    if not candidates:
+        candidates = store.all_chunks
+
+    query_tokens = _tokenize(question)
+    query_vector, query_norm = _build_tfidf_vector(query_tokens, store.idf, store.default_idf)
+
     scored: list[tuple[float, str, str]] = []
-    for source_name, chunk in docs:
-        score = _cosine_similarity(query_tokens, Counter(_tokenize(chunk)))
-        scored.append((score, source_name, chunk))
+    for chunk in candidates:
+        score = _sparse_cosine_similarity(query_vector, query_norm, chunk)
+        scored.append((score, chunk.source_name, chunk.text))
 
     scored.sort(key=lambda item: item[0], reverse=True)
     selected = [item for item in scored if item[0] > 0][:top_k]
     if not selected:
         selected = scored[: min(2, len(scored))]
+    return selected
+
+
+def _source_title_from_location_slug(slug: str) -> str:
+    info = _read_json_file(KNOWLEDGE_BASE_ROOT / "locations" / slug / "info.json")
+    if isinstance(info, dict):
+        name = str(info.get("name") or "").strip()
+        if name:
+            return name
+    return f"景点：{slug}"
+
+
+def _source_title_from_page_slug(slug: str) -> str:
+    page = _read_json_file(KNOWLEDGE_BASE_ROOT / "common" / "pages" / f"{slug}.json")
+    if isinstance(page, dict):
+        title = str(page.get("title") or page.get("name") or "").strip()
+        if title:
+            return title
+    return f"专题：{slug}"
+
+
+def _build_source_reference(source_name: str) -> dict | None:
+    source_name = str(source_name or "").strip()
+    if not source_name:
+        return None
+
+    if source_name.startswith("location:"):
+        slug = source_name.split(":", 1)[1].strip()
+        if not slug:
+            return None
+        return {
+            "source_key": source_name,
+            "title": _source_title_from_location_slug(slug),
+            "path": f"/locations/{slug}",
+            "kb_file": f"locations/{slug}/info.json",
+        }
+
+    if source_name.startswith("page:"):
+        slug = source_name.split(":", 1)[1].strip()
+        if not slug:
+            return None
+        page_path = f"/{slug}" if slug in {"lugu-lake", "mosuo-culture"} else "/home"
+        return {
+            "source_key": source_name,
+            "title": _source_title_from_page_slug(slug),
+            "path": page_path,
+            "kb_file": f"common/pages/{slug}.json",
+        }
+
+    static_mapping = {
+        "common:overview": ("景区一览", "/home?openPanel=overview", "common/overview.json"),
+        "locations:index": ("景点索引", "/home?openPanel=global", "locations/index.json"),
+        "nearby:index": ("周边推荐", "/home?openPanel=global", "nearby-spots/index.json"),
+        "hotels:index": ("住宿推荐", "/home?openPanel=global", "hotels/index.json"),
+    }
+    hit = static_mapping.get(source_name)
+    if not hit:
+        return None
+
+    title, path, kb_file = hit
+    return {
+        "source_key": source_name,
+        "title": title,
+        "path": path,
+        "kb_file": kb_file,
+    }
+
+
+def _build_knowledge_context(question: str, scene_context: dict | None, top_k: int = 4) -> tuple[str, list[dict]]:
+    selected = _retrieve_knowledge_chunks(question, scene_context, top_k=top_k)
+    if not selected:
+        return "", []
 
     lines = []
     for idx, (_, source_name, chunk) in enumerate(selected, start=1):
         lines.append(f"[{idx}] 来源={source_name} 内容={chunk}")
 
-    return "\n".join(lines)
+    references: list[dict] = []
+    seen_source_keys: set[str] = set()
+    for _, source_name, _ in selected:
+        if source_name in seen_source_keys:
+            continue
+        seen_source_keys.add(source_name)
+        reference = _build_source_reference(source_name)
+        if reference:
+            references.append(reference)
+
+    return "\n".join(lines), references
+
+
+def _build_reference_markdown(references: list[dict]) -> str:
+    if not references:
+        return ""
+
+    lines: list[str] = []
+    seen_paths: set[str] = set()
+    for ref in references:
+        path = str(ref.get("path") or "").strip()
+        if not path.startswith("/") or path in seen_paths:
+            continue
+        seen_paths.add(path)
+        title = str(ref.get("title") or "参考页面").strip() or "参考页面"
+        lines.append(f"- [{title}]({path})")
+
+    if not lines:
+        return ""
+
+    return "参考链接：\n" + "\n".join(lines)
+
+
+def _append_references_to_reply(reply: str, references: list[dict]) -> str:
+    base = (reply or "").strip() or "抱歉，未获得回复，请稍后重试"
+    reference_markdown = _build_reference_markdown(references)
+    if not reference_markdown:
+        return base
+    if "参考链接：" in base:
+        return base
+    return f"{base}\n\n{reference_markdown}"
+
+
+def _build_product_prompt(scene_context: dict | None) -> str:
+    pathname = str((scene_context or {}).get("pathname") or "").strip() or "/home"
+    scene_type = str((scene_context or {}).get("scene_type") or "general").strip() or "general"
+
+    scene_guides = {
+        "location-detail": "当前是景点详情语境，优先讲清这个景点的看点、停留时长、下一站衔接，并结合 /checkin 与 /scroll 的可操作建议。",
+        "checkin": "当前是打卡语境，优先给出打卡顺序、扫码和实时轨迹使用建议，必要时引导去 /locations/<slug> 查看细节。",
+        "scroll": "当前是旅行记录语境，优先给出可直接发布或整理的文案结构，并提醒用户在当前模块沉淀足迹内容。",
+        "profile": "当前是个人中心语境，优先给出账号、历史行程和偏好总结相关建议，语言简洁。",
+        "home": "当前是首页导览语境，优先给全局路线建议，并串联 /lugu-lake、/mosuo-culture、/checkin。",
+        "guide": "当前是导览语境，优先输出结构化行程建议与执行顺序。",
+        "general": "当前是通用语境，优先给可执行建议并尽量关联平台内可达页面。",
+    }
+    scene_note = scene_guides.get(scene_type, scene_guides["general"])
+
+    return (
+        "你是“泸沽湖智慧文旅平台”内嵌 AI 助手，回答必须与当前软件功能深度结合。\n"
+        "回答规则：\n"
+        "1) 先给结论，再给 2-4 条可执行建议。\n"
+        "2) 能在本软件内完成的操作，明确指出可进入的页面路径（如 /home、/checkin、/scroll、/lugu-lake、/mosuo-culture、/locations/<slug>）。\n"
+        "3) 优先依据知识库；知识库不足时要明确说明“知识库暂无明确信息”，再给通用建议。\n"
+        "4) 不编造不存在的数据与页面；涉及价格/时效请提醒“以现场与官方最新信息为准”。\n"
+        "5) 不要输出虚构链接或外站链接；参考链接由系统统一追加。\n"
+        "6) 若用户目标不清晰，先给一个最小可执行方案，再补 1 个澄清问题。\n"
+        "7) 语言精炼、友好、中文输出。\n"
+        f"当前页面路径：{pathname}\n"
+        f"当前场景类型：{scene_type}\n"
+        f"场景补充要求：{scene_note}"
+    )
 
 
 def _extract_dashscope_text(data: dict) -> str:
@@ -379,17 +691,24 @@ def generate_route(requirement: dict, locations: list) -> dict:
         raise ValueError("路线生成失败") from exc
 
 
-def chat(message: str, system_prompt: str | None = None, scene_context: dict | None = None) -> str:
+def chat(
+    message: str,
+    system_prompt: str | None = None,
+    scene_context: dict | None = None,
+    history: list[dict] | None = None,
+) -> tuple[str, list[dict]]:
     """通用AI对话接口"""
-    knowledge_context = _build_knowledge_context(message, scene_context)
+    knowledge_context, references = _build_knowledge_context(message, scene_context)
 
     if not settings.dashscope_api_key:
-        return _build_chat_fallback_reply(message, knowledge_context, scene_context)
+        fallback_reply = _build_chat_fallback_reply(message, knowledge_context, scene_context)
+        return _append_references_to_reply(fallback_reply, references), references
 
     messages = []
     prompt_parts = []
     if system_prompt:
         prompt_parts.append(system_prompt)
+    prompt_parts.append(_build_product_prompt(scene_context))
     prompt_parts.append("请优先依据知识库内容回答；若知识库没有相关信息，请明确说明并给出通用建议。")
     if knowledge_context:
         prompt_parts.append(f"知识库检索片段：\n{knowledge_context}")
@@ -401,6 +720,13 @@ def chat(message: str, system_prompt: str | None = None, scene_context: dict | N
             "role": "system",
             "content": [{"text": final_system_prompt}]
         })
+        
+    if history:
+        for msg in history:
+            messages.append({
+                "role": msg["role"],
+                "content": [{"text": msg["content"]}]
+            })
     
     messages.append({
         "role": "user",
@@ -430,7 +756,8 @@ def chat(message: str, system_prompt: str | None = None, scene_context: dict | N
             resp.raise_for_status()
             data = resp.json()
             text = _extract_dashscope_text(data)
-            return text if text else "抱歉，未获得回复，请稍后重试"
+            final_reply = text if text else "抱歉，未获得回复，请稍后重试"
+            return _append_references_to_reply(final_reply, references), references
         except Exception as exc:
             if isinstance(exc, requests.HTTPError) and exc.response is not None:
                 try:
@@ -456,17 +783,20 @@ def chat(message: str, system_prompt: str | None = None, scene_context: dict | N
 
             if last_error_code == "Arrearage":
                 logger.warning("DashScope account arrearage: %s", last_error_message)
-                return (
+                arrearage_reply = (
                     "当前云端 AI 服务暂不可用：DashScope 账户欠费或不可用。"
                     "请充值/检查账户状态后重试；当前先为你提供本地知识库参考。\n"
                     + _build_chat_fallback_reply(message, knowledge_context, scene_context)
                 )
+                return _append_references_to_reply(arrearage_reply, references), references
 
             if attempt == 0:
                 logger.warning("DashScope chat attempt 1 failed: %s", exc)
                 time.sleep(0.8)
                 continue
             logger.warning("DashScope chat fallback after retries: %s", exc)
-            return _build_chat_fallback_reply(message, knowledge_context, scene_context)
+            fallback_reply = _build_chat_fallback_reply(message, knowledge_context, scene_context)
+            return _append_references_to_reply(fallback_reply, references), references
 
-    return _build_chat_fallback_reply(message, knowledge_context, scene_context)
+    fallback_reply = _build_chat_fallback_reply(message, knowledge_context, scene_context)
+    return _append_references_to_reply(fallback_reply, references), references

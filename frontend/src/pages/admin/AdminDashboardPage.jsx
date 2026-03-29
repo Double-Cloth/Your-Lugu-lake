@@ -3,6 +3,7 @@ import { Button, Card, DotLoading, Input, Popup, Selector, Toast } from "antd-mo
 import { useNavigate } from "react-router-dom";
 
 import {
+  buildAssetUrl,
   createAdminLocation,
   deleteAdminLocation,
   downloadQrcodeZip,
@@ -247,8 +248,7 @@ export default function AdminDashboardPage() {
       Toast.show({ content: "请先生成二维码" });
       return;
     }
-    const base = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
-    window.open(`${base}${location.qr_code_url}`, "_blank");
+    window.open(buildAssetUrl(location.qr_code_url), "_blank");
   }
 
   async function handleDownloadZip() {
