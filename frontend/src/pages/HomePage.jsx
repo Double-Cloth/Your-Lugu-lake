@@ -375,7 +375,7 @@ export default function HomePage() {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-white mb-1">全域导览</h3>
-                <p className="text-xs text-white/70">查看所有景点周边及指引</p>
+                <p className="text-xs text-white/70">景点/交通/餐饮/住宿一览</p>
               </div>
               <div className="text-white/40 text-2xl">›</div>
             </div>
