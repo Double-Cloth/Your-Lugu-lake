@@ -66,7 +66,7 @@ export default defineConfig({
     host: '0.0.0.0', // 显式设置为 0.0.0.0 确保 Docker 外可访问
     port: 5173,
     // 删除了多余的逗号，并建议暂时改用 'all' 进行调试
-    allowedHosts: 'all', 
+    strictPort: false,
     proxy: {
       '/api': {
         // 重要：如果你后端在宿主机，请尝试使用 'http://host.docker.internal:8000'
