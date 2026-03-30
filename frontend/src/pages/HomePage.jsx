@@ -174,11 +174,16 @@ export default function HomePage() {
         setNearbyGuides({ spots, hotels });
 
         try {
-          const footprints = await fetchMyFootprints(getUserToken() || "cookie-session");
-          const firstWithPhoto = Array.isArray(footprints)
-            ? footprints.find((item) => item.photo_url)
-            : null;
-          setCoverPhotoUrl(firstWithPhoto?.photo_url ? buildAssetUrl(firstWithPhoto.photo_url) : "");
+          const userToken = getUserToken();
+          if (!userToken) {
+            setCoverPhotoUrl("");
+          } else {
+            const footprints = await fetchMyFootprints(userToken);
+            const firstWithPhoto = Array.isArray(footprints)
+              ? footprints.find((item) => item.photo_url)
+              : null;
+            setCoverPhotoUrl(firstWithPhoto?.photo_url ? buildAssetUrl(firstWithPhoto.photo_url) : "");
+          }
         } catch (error) {
           if (error?.response?.status === 401) {
             clearUserSession();
@@ -375,7 +380,7 @@ export default function HomePage() {
               </div>
               <div className="flex-1">
                 <h3 className="text-lg font-bold text-white mb-1">全域导览</h3>
-                <p className="text-xs text-white/70">景点/交通/餐饮/住宿一览</p>
+                <p className="text-xs text-white/70">景点/交通/餐饮/住宿规划</p>
               </div>
               <div className="text-white/40 text-2xl">›</div>
             </div>
