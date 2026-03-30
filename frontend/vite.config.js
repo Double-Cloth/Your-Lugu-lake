@@ -63,11 +63,13 @@ function knowledgeBaseStaticPlugin() {
 export default defineConfig({
   plugins: [react(), knowledgeBaseStaticPlugin()],
   server: {
-    host: true,
+    host: '0.0.0.0', // 显式设置为 0.0.0.0 确保 Docker 外可访问
     port: 5173,
-    allowedHosts: ["your-lugu-lake.duckdns.org"],,
+    // 删除了多余的逗号，并建议暂时改用 'all' 进行调试
+    allowedHosts: 'all', 
     proxy: {
       '/api': {
+        // 重要：如果你后端在宿主机，请尝试使用 'http://host.docker.internal:8000'
         target: process.env.VITE_PROXY_TARGET || 'http://127.0.0.1:8000',
         changeOrigin: true
       },
