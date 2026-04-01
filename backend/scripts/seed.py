@@ -1,3 +1,4 @@
+from app.core.config import settings
 from app.core.security import get_password_hash
 from app.db.base import Base
 from app.db.session import SessionLocal, engine, wait_for_db
@@ -78,15 +79,32 @@ def run_seed() -> None:
     db = SessionLocal()
 
     try:
-        admin = db.query(User).filter(User.username == "admin").first()
+        admin_username = str(settings.seed_admin_username or "admin").strip() or "admin"
+        admin_password = str(settings.seed_admin_password or "admin123")
+
+        admin = db.query(User).filter(User.username == admin_username).first()
         if not admin:
             db.add(
                 User(
-                    username="admin",
-                    password_hash=get_password_hash("admin123"),
+                    username=admin_username,
+                    password_hash=get_password_hash(admin_password),
                     role="admin",
                 )
             )
+        else:
+            # Keep legacy databases usable: normalize admin role/hash format.
+            changed = False
+            if admin.role != "admin":
+                admin.role = "admin"
+                changed = True
+
+            current_hash = str(admin.password_hash or "")
+            if not current_hash.startswith("$pbkdf2-sha256$"):
+                admin.password_hash = get_password_hash(admin_password)
+                changed = True
+
+            if changed:
+                db.add(admin)
 
         for item in REAL_LOCATIONS:
             exists = db.query(Location).filter(Location.name == item["name"]).first()

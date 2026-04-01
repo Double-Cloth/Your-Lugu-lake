@@ -136,8 +136,8 @@ Windows PowerShell：
 访问地址：
 
 - 前端：http://localhost:5173
-- 后端 API 文档：http://localhost:8000/docs
-- 健康检查：http://localhost:8000/health
+- 后端 API 文档：http://localhost:18000/docs
+- 健康检查：http://localhost:18000/health
 
 ## 8. 本地开发模式
 
@@ -168,6 +168,7 @@ Windows PowerShell：
 - ALLOWED_HOSTS：允许访问的 Host 白名单
 - CORS_ORIGINS：允许跨域来源列表
 - BACKEND_PORT、FRONTEND_PORT：服务端口
+- BACKEND_BIND_HOST、FRONTEND_BIND_HOST：服务绑定地址（生产建议后端绑定 127.0.0.1）
 
 ### 9.2 数据库配置
 
@@ -252,10 +253,10 @@ Windows PowerShell：
 
 容器启动命令会自动执行 seed 脚本，初始化管理员账号与基础景点数据。
 
-- 默认管理员用户名：admin
-- 默认管理员密码：admin123
+- 默认管理员用户名：由 `SEED_ADMIN_USERNAME` 控制（默认 `admin`）
+- 默认管理员密码：由 `SEED_ADMIN_PASSWORD` 控制（默认 `admin123`）
 
-生产环境应在首次部署后立即变更默认口令。
+生产环境应在首次部署前设置强口令（建议在 `.env` 中配置 `SEED_ADMIN_PASSWORD`）。
 
 ### 12.2 知识库维护规范
 
@@ -289,8 +290,8 @@ Windows PowerShell：
 
 ### 13.2 启动后验证清单
 
-	curl http://localhost:8000/health
-	curl http://localhost:8000/docs
+	curl http://localhost:18000/health
+	curl http://localhost:18000/docs
 
 同时检查：
 

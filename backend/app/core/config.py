@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     session_cookie_secure: bool = False
     session_cookie_samesite: str = "lax"
     session_cookie_domain: str = ""
+    seed_admin_username: str = "admin"
+    seed_admin_password: str = "admin123"
 
     @property
     def resolved_database_url(self) -> str:

@@ -22,9 +22,17 @@ const categoryOptions = [
 ];
 
 function isValidCoordinatePair(lat, lon) {
+  // 检查是否为空或空字符串
+  if (!lat || !lon || lat === "" || lon === "") {
+    return false;
+  }
   const latitude = Number(lat);
   const longitude = Number(lon);
   if (Number.isNaN(latitude) || Number.isNaN(longitude)) {
+    return false;
+  }
+  // 排除 0,0（这通常表示空输入或无效坐标）
+  if (latitude === 0 && longitude === 0) {
     return false;
   }
   return latitude >= -90 && latitude <= 90 && longitude >= -180 && longitude <= 180;
@@ -48,6 +56,8 @@ export default function AdminDashboardPage() {
   const [locations, setLocations] = useState([]);
   const [editVisible, setEditVisible] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [createMapError, setCreateMapError] = useState(false);
+  const [editMapError, setEditMapError] = useState(false);
   const [editForm, setEditForm] = useState({
     name: "",
     description: "",
@@ -127,10 +137,11 @@ export default function AdminDashboardPage() {
   function logout() {
     void logoutSession().catch(() => null);
     clearAdminSession();
-    navigate("/admin/login", { replace: true });
+    navigate("/me", { replace: true });
   }
 
   async function handleCreateLocation() {
+    setCreateMapError(false);
     const token = getAdminToken();
     if (!token) return;
 
@@ -188,12 +199,14 @@ export default function AdminDashboardPage() {
       category: location.category || "culture",
       qr_code_url: location.qr_code_url || "",
     });
+    setEditMapError(false);
     setEditVisible(true);
   }
 
   function cancelEditLocation() {
     setEditingId(null);
     setEditVisible(false);
+    setEditMapError(false);
   }
 
   async function saveEditLocation(locationId) {
@@ -343,12 +356,26 @@ export default function AdminDashboardPage() {
               <div className="rounded-xl bg-slate-50 p-2">
                 <div className="text-xs text-white/50 mb-2">坐标地图预览</div>
                 {createMap.staticMapUrl ? (
-                  <>
-                    <img src={createMap.staticMapUrl} alt="地图预览" className="w-full rounded-lg border" />
-                    <Button size="small" className="mt-2" onClick={() => window.open(createMap.webMapUrl, "_blank")}>
-                      在地图中打开
-                    </Button>
-                  </>
+                  createMapError ? (
+                    <div className="w-full rounded-lg border bg-slate-200 p-3 text-center text-xs text-slate-600">
+                      <div>地图预览加载失败</div>
+                      <Button size="small" className="mt-2" onClick={() => window.open(createMap.webMapUrl, "_blank")}>
+                        在OpenStreetMap中打开
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <img
+                        src={createMap.staticMapUrl}
+                        alt="地图预览"
+                        className="w-full rounded-lg border"
+                        onError={() => setCreateMapError(true)}
+                      />
+                      <Button size="small" className="mt-2" onClick={() => window.open(createMap.webMapUrl, "_blank")}>
+                        在地图中打开
+                      </Button>
+                    </>
+                  )
                 ) : (
                   <div className="text-xs text-slate-400">请输入合法经纬度后可预览</div>
                 )}
@@ -419,12 +446,26 @@ export default function AdminDashboardPage() {
               <div className="rounded-xl bg-slate-50 p-2">
                 <div className="text-xs text-white/50 mb-2">坐标地图预览</div>
                 {editMap.staticMapUrl ? (
-                  <>
-                    <img src={editMap.staticMapUrl} alt="地图预览" className="w-full rounded-lg border" />
-                    <Button size="small" className="mt-2" onClick={() => window.open(editMap.webMapUrl, "_blank")}>
-                      在地图中打开
-                    </Button>
-                  </>
+                  editMapError ? (
+                    <div className="w-full rounded-lg border bg-slate-200 p-3 text-center text-xs text-slate-600">
+                      <div>地图预览加载失败</div>
+                      <Button size="small" className="mt-2" onClick={() => window.open(editMap.webMapUrl, "_blank")}>
+                        在OpenStreetMap中打开
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <img
+                        src={editMap.staticMapUrl}
+                        alt="地图预览"
+                        className="w-full rounded-lg border"
+                        onError={() => setEditMapError(true)}
+                      />
+                      <Button size="small" className="mt-2" onClick={() => window.open(editMap.webMapUrl, "_blank")}>
+                        在地图中打开
+                      </Button>
+                    </>
+                  )
                 ) : (
                   <div className="text-xs text-slate-400">请输入合法经纬度后可预览</div>
                 )}

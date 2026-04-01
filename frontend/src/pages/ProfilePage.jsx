@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import LucideIcon from "../components/LucideIcon";
-import { Popup, Toast } from "antd-mobile";
+import { Dialog, Popup, Toast } from "antd-mobile";
 import { UserOutline, LockOutline } from "antd-mobile-icons";
 import { useNavigate, useParams } from "react-router-dom";
 import { ImmersivePage, CardComponent, ButtonComponent, GlassInput, SkeletonComponent, EmptyStateComponent } from "../components/SharedUI";
 import {
+  deleteRoute,
   fetchCurrentUser,
   fetchLocations,
   fetchMyFootprints,
@@ -17,10 +18,12 @@ import {
 } from "../api";
 import {
   buildUserProfilePath,
+  buildAdminDashboardPath,
   clearUserSession,
   getUserSessionUsername,
   hasUserSession,
   setUserSession,
+  setAdminSession,
   withUserSessionPath,
 } from "../auth";
 
@@ -31,6 +34,38 @@ function toRecordList(footprints, locationMap) {
     time: new Date(item.check_in_time).toLocaleString(),
     mood: item.mood_text || "完成打卡",
   }));
+}
+
+function formatTravelProfile(profile) {
+  if (!profile || typeof profile !== "object") return "";
+
+  const durationMap = {
+    "half-day": "半天",
+    "one-day": "一天",
+  };
+  const groupMap = {
+    solo: "独行",
+    friends: "朋友",
+    family: "亲子",
+    couple: "情侣",
+  };
+  const focusMap = {
+    culture: "礼俗讲解",
+    mixed: "景观+文化",
+    light: "轻松体验",
+  };
+  const paceMap = {
+    relaxed: "松弛",
+    balanced: "平衡",
+    intense: "高效",
+  };
+
+  const duration = durationMap[profile.duration] || profile.duration || "";
+  const group = groupMap[profile.group_type] || profile.group_type || "";
+  const focus = focusMap[profile.preference] || profile.preference || "";
+  const pace = paceMap[profile.pace] || profile.pace || "";
+
+  return [duration, group, focus, pace].filter(Boolean).join(" · ");
 }
 
 export default function ProfilePage() {
@@ -52,6 +87,7 @@ export default function ProfilePage() {
   const [recordLoading, setRecordLoading] = useState(false);
   const [savedRoutes, setSavedRoutes] = useState([]);
   const [savedRoutesLoading, setSavedRoutesLoading] = useState(false);
+  const [deletingRouteId, setDeletingRouteId] = useState(null);
   
   const [posterVisible, setPosterVisible] = useState(false);
   const canvasRef = useRef(null);
@@ -102,12 +138,22 @@ export default function ProfilePage() {
   }, [loggedIn, navigate, usernameFromPath]);
 
   async function restoreSessionFromCookie() {
+    if (!hasUserSession()) {
+      setLoggedIn(false);
+      return;
+    }
     try {
       const data = await fetchCurrentUser(getUserToken());
+      if (!data) {
+        clearUserSession();
+        setLoggedIn(false);
+        return;
+      }
       setUserSession("", data?.username || "");
       setProfile(data);
       setLoggedIn(true);
     } catch {
+      clearUserSession();
       setLoggedIn(false);
     }
   }
@@ -149,19 +195,24 @@ export default function ProfilePage() {
     setLoading(true);
     try {
       const data = await loginUser({ username, password });
-      if (data.role !== "user") {
-        Toast.show({ content: "请使用游客账号登录" });
-        return;
+      // Auto-detect role and route accordingly
+      if (data.role === "admin") {
+        setAdminSession("", data?.username || username);
+        navigate(buildAdminDashboardPath(), { replace: true });
+        Toast.show({ content: "登录成功" });
+      } else if (data.role === "user") {
+        setUserSession("", data?.username || username);
+        setLoggedIn(true);
+        setPassword("");
+        navigate(buildUserProfilePath(), { replace: true });
+        Toast.show({ content: "登录成功" });
+      } else {
+        Toast.show({ content: "账号角色不明确，登录失败" });
       }
-      setUserSession("", data?.username || username);
-      setLoggedIn(true);
-      setPassword("");
-      navigate(buildUserProfilePath(), { replace: true });
-      Toast.show({ content: "登录成功" });
     } catch (error) {
       const status = error?.response?.status;
       if (status === 401) {
-        Toast.show({ content: "账号或密码错误；若未注册请先点击“注册新账号”" });
+        Toast.show({ content: "账号或密码错误" });
       } else {
         const errorMsg =
           typeof error?.message === "string"
@@ -173,6 +224,7 @@ export default function ProfilePage() {
       setLoading(false);
     }
   }
+
 
   function handleLogout() {
     void logoutSession().catch(() => null);
@@ -191,6 +243,11 @@ export default function ProfilePage() {
     if (!token) return;
     try {
       const data = await fetchCurrentUser(token);
+      if (!data) {
+        setLoggedIn(false);
+        setProfile(null);
+        return;
+      }
       setProfile(data);
 
       if (typeof data?.username === "string" && data.username.trim()) {
@@ -265,6 +322,39 @@ export default function ProfilePage() {
       const detail = error?.response?.data?.detail;
       Toast.show({ content: detail || "更新失败" });
     }
+  }
+
+  async function handleDeleteRoute(routeId) {
+    const token = getUserToken();
+    if (!token) {
+      Toast.show({ content: "请先登录" });
+      return;
+    }
+
+    if (deletingRouteId !== null) {
+      return;
+    }
+
+    Dialog.confirm({
+      className: "route-delete-confirm-dialog",
+      title: "删除路线",
+      content: "确认删除这条路线吗？删除后不可恢复。",
+      confirmText: "确认删除",
+      cancelText: "取消",
+      onConfirm: async () => {
+        setDeletingRouteId(routeId);
+        try {
+          await deleteRoute(routeId, token);
+          setSavedRoutes((prev) => prev.filter((item) => item.id !== routeId));
+          Toast.show({ content: "路线已删除" });
+        } catch (error) {
+          const detail = error?.response?.data?.detail;
+          Toast.show({ content: detail || "删除失败，请稍后重试" });
+        } finally {
+          setDeletingRouteId(null);
+        }
+      },
+    });
   }
 
   function drawPoster() {
@@ -580,24 +670,42 @@ export default function ProfilePage() {
           ) : savedRoutes.length > 0 ? (
             <div className="space-y-4">
               {savedRoutes.map((item) => {
-                const timeline = Array.isArray(item?.route?.timeline) ? item.route.timeline : [];
-                const preview = timeline.slice(0, 3);
-                const routeTitle = item?.route?.title || `文化路线 #${item.id}`;
+                const route = item?.route && typeof item.route === "object" ? item.route : {};
+                const timeline = Array.isArray(route.timeline) ? route.timeline : [];
+                const routeTitle = route.title || `文化路线 #${item.id}`;
+                const routeRequirement = typeof route.requirement === "string" ? route.requirement : "";
+                const templateTitle = route?.inspiration_template?.title || "";
+                const profileSummary = formatTravelProfile(route.travel_profile);
                 return (
                   <div key={`route-${item.id}`} className="rounded-2xl border border-white/15 bg-white/5 p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div>
                         <div className="text-sm font-semibold text-white">{routeTitle}</div>
                         <div className="text-xs text-white/55 mt-1">保存时间：{new Date(item.created_at).toLocaleString()}</div>
+                        {templateTitle ? (
+                          <div className="mt-1 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] bg-amber-300/20 border border-amber-200/30 text-amber-100">
+                            {templateTitle}
+                          </div>
+                        ) : null}
                       </div>
                       <span className="shrink-0 px-2 py-1 rounded-full text-[11px] bg-cyan-300/20 border border-cyan-200/30 text-cyan-100">
                         {timeline.length} 站
                       </span>
                     </div>
 
-                    {preview.length > 0 ? (
+                    {profileSummary ? (
+                      <div className="mt-2 text-xs text-white/70">画像：{profileSummary}</div>
+                    ) : null}
+
+                    {routeRequirement ? (
+                      <div className="mt-2 text-xs text-white/70 bg-white/5 border border-white/10 rounded-lg px-2.5 py-2">
+                        需求：{routeRequirement}
+                      </div>
+                    ) : null}
+
+                    {timeline.length > 0 ? (
                       <div className="mt-3 space-y-2">
-                        {preview.map((stop, idx) => (
+                        {timeline.map((stop, idx) => (
                           <div key={`route-${item.id}-stop-${idx}`} className="flex items-center justify-between text-xs">
                             <span className="text-cyan-100/90">{stop.time || `第 ${idx + 1} 站`}</span>
                             <span className="text-white/80 max-w-[60%] truncate">{stop.location || "景点"}</span>
@@ -607,6 +715,33 @@ export default function ProfilePage() {
                     ) : (
                       <div className="mt-3 text-xs text-white/55">该路线暂未包含时间轴明细。</div>
                     )}
+
+                    <ButtonComponent
+                      variant="secondary"
+                      className="w-full mt-3"
+                      onClick={() => navigate(withUserSessionPath("/home"), {
+                        state: {
+                          openPanel: "culture",
+                          cultureSeed: {
+                            route_id: item.id,
+                            created_at: item.created_at,
+                            route,
+                          },
+                        },
+                      })}
+                    >
+                      基于此路线继续优化
+                    </ButtonComponent>
+
+                    <ButtonComponent
+                      variant="danger"
+                      className="w-full mt-2"
+                      loading={deletingRouteId === item.id}
+                      disabled={deletingRouteId !== null && deletingRouteId !== item.id}
+                      onClick={() => void handleDeleteRoute(item.id)}
+                    >
+                      删除路线
+                    </ButtonComponent>
                   </div>
                 );
               })}

@@ -7,7 +7,7 @@ import { buildAdminDashboardPath, setAdminSession } from "../../auth";
 
 export default function AdminLoginPage() {
   const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("admin123");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
@@ -21,8 +21,13 @@ export default function AdminLoginPage() {
       }
       setAdminSession("", data?.username || username);
       navigate(buildAdminDashboardPath(), { replace: true });
-    } catch {
-      Toast.show({ content: "登录失败，请检查账号密码" });
+    } catch (error) {
+      const detail = error?.response?.data?.detail;
+      if (detail) {
+        Toast.show({ content: String(detail) });
+      } else {
+        Toast.show({ content: "登录失败，请检查账号密码" });
+      }
     } finally {
       setLoading(false);
     }

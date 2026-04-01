@@ -33,6 +33,53 @@ def _build_chat_title(text: str) -> str:
     return f"{normalized[:18]}..." if len(normalized) > 18 else normalized
 
 
+def _normalize_route_json(route_json: dict | None, requirement: dict | None, created_at: datetime | None) -> dict:
+    base = route_json if isinstance(route_json, dict) else {}
+    timeline = base.get("timeline") if isinstance(base.get("timeline"), list) else []
+
+    requirement_payload = requirement if isinstance(requirement, dict) else {}
+    requirement_text = (
+        requirement_payload.get("requirement_text")
+        or base.get("requirement")
+        or requirement_payload.get("custom_need")
+        or ""
+    )
+
+    travel_profile = base.get("travel_profile") if isinstance(base.get("travel_profile"), dict) else {}
+    if requirement_payload:
+        travel_profile = {
+            "duration": requirement_payload.get("duration"),
+            "group_type": requirement_payload.get("group_type"),
+            "preference": requirement_payload.get("preference"),
+            "pace": requirement_payload.get("pace"),
+        }
+
+    inspiration_template = base.get("inspiration_template") if isinstance(base.get("inspiration_template"), dict) else {}
+    if requirement_payload:
+        inspiration_template = {
+            "id": requirement_payload.get("template_id"),
+            "title": requirement_payload.get("template_title"),
+        }
+
+    generated_at = (
+        base.get("generated_at")
+        if isinstance(base.get("generated_at"), str) and base.get("generated_at")
+        else (created_at.isoformat() if created_at else datetime.utcnow().isoformat())
+    )
+
+    return {
+        **base,
+        "title": base.get("title") or "AI 文化导览路线",
+        "preference": base.get("preference") or requirement_payload.get("preference") or "",
+        "timeline": timeline,
+        "requirement": requirement_text,
+        "custom_need": requirement_payload.get("custom_need") or base.get("custom_need") or "",
+        "travel_profile": travel_profile,
+        "inspiration_template": inspiration_template,
+        "generated_at": generated_at,
+    }
+
+
 @router.post("/generate", response_model=RouteGenerateResponse)
 def generate_route(
     payload: RouteGenerateRequest,
@@ -40,17 +87,21 @@ def generate_route(
     user: User = Depends(get_current_user),
 ):
     locations = db.query(Location).all()
+    request_payload = payload.model_dump()
     try:
-        route_json = generate_route_via_llm(payload.model_dump(), locations)
+        route_json = generate_route_via_llm(request_payload, locations)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
-    record = AIRoute(user_id=user.id, route_json=route_json, created_at=datetime.utcnow())
+    generated_at = datetime.utcnow()
+    persisted_route = _normalize_route_json(route_json, request_payload, generated_at)
+
+    record = AIRoute(user_id=user.id, route_json=persisted_route, created_at=generated_at)
     db.add(record)
     db.commit()
     db.refresh(record)
 
-    return RouteGenerateResponse(route=route_json, route_id=record.id, saved=True)
+    return RouteGenerateResponse(route=persisted_route, route_id=record.id, saved=True)
 
 
 @router.get("/my", response_model=SavedRoutesResponse)
@@ -68,10 +119,32 @@ def list_my_routes(
 
     return SavedRoutesResponse(
         routes=[
-            SavedRouteItem(id=row.id, created_at=row.created_at, route=row.route_json)
+            SavedRouteItem(
+                id=row.id,
+                created_at=row.created_at,
+                route=_normalize_route_json(row.route_json, None, row.created_at),
+            )
             for row in rows
         ]
     )
+
+
+@router.delete("/{route_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_my_route(
+    route_id: int,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    row = (
+        db.query(AIRoute)
+        .filter(AIRoute.id == route_id, AIRoute.user_id == user.id)
+        .first()
+    )
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="路线不存在")
+
+    db.delete(row)
+    db.commit()
 
 
 @router.post("/chat", response_model=ChatResponse)

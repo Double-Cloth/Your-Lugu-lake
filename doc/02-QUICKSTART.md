@@ -21,8 +21,8 @@ docker compose up --build
 
 启动后访问：
 - 前端：http://localhost:5173
-- 后端文档：http://localhost:8000/docs
-- 健康检查：http://localhost:8000/health
+- 后端文档：http://localhost:18000/docs
+- 健康检查：http://localhost:18000/health
 
 ## 3. 核心功能体验
 
@@ -37,11 +37,11 @@ docker compose up --build
 ### 认证
 
 ```bash
-curl -X POST http://localhost:8000/api/auth/register \
+curl -X POST http://localhost:18000/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"username":"demo_user","password":"123456"}'
 
-curl -X POST http://localhost:8000/api/auth/login \
+curl -X POST http://localhost:18000/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"demo_user","password":"123456"}'
 ```
@@ -49,15 +49,15 @@ curl -X POST http://localhost:8000/api/auth/login \
 ### 景点
 
 ```bash
-curl http://localhost:8000/api/locations
-curl http://localhost:8000/api/locations/1
-curl http://localhost:8000/api/locations/knowledge-base/lugu-lake
+curl http://localhost:18000/api/locations
+curl http://localhost:18000/api/locations/1
+curl http://localhost:18000/api/locations/knowledge-base/lugu-lake
 ```
 
 ### 打卡（需 token）
 
 ```bash
-curl -X POST http://localhost:8000/api/footprints \
+curl -X POST http://localhost:18000/api/footprints \
   -H "Authorization: Bearer <TOKEN>" \
   -F "location_id=1" \
   -F "gps_lat=27.6931" \

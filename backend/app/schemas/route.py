@@ -8,6 +8,9 @@ class RouteGenerateRequest(BaseModel):
     group_type: str
     custom_need: str | None = None
     pace: str | None = None
+    template_id: str | None = None
+    template_title: str | None = None
+    requirement_text: str | None = None
 
 
 class RouteGenerateResponse(BaseModel):

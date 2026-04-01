@@ -47,8 +47,8 @@ docker compose down -v
 
 关键项：
 - `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
-- `DB_HOST`, `DB_PORT`, `POSTGRES_HOST_PORT`
-- `BACKEND_PORT`, `FRONTEND_PORT`
+- `DB_HOST`, `DB_PORT`, `POSTGRES_HOST_PORT`, `DB_BIND_HOST`
+- `BACKEND_PORT`, `FRONTEND_PORT`, `BACKEND_BIND_HOST`, `FRONTEND_BIND_HOST`
 - `SECRET_KEY`, `ACCESS_TOKEN_EXPIRE_MINUTES`
 - `ALLOWED_HOSTS`, `APP_ENV`
 - `PASSWORD_TRANSPORT_ENCRYPTION_ENABLED`, `PASSWORD_TRANSPORT_PRIVATE_KEY_PEM`
@@ -63,6 +63,8 @@ docker compose down -v
 服务器部署建议：
 - `DB_HOST=db`，`DB_PORT=5432`
 - `POSTGRES_HOST_PORT` 仅用于宿主机映射（冲突时可改成 15432 等）
+- `BACKEND_PORT` 建议使用非冲突端口（默认 18000）
+- `BACKEND_BIND_HOST=127.0.0.1`，通过反向代理对外暴露 80/443
 - `VITE_API_BASE_URL` 建议留空，走同源 `/api` 与 `/uploads`（由反向代理或 Vite 代理转发）
 - `CORS_ORIGINS` 填写你的真实前端域名（例如 `https://your-domain.com`），不要写 `localhost`
 - `APP_ENV=production`
@@ -74,8 +76,8 @@ docker compose down -v
 ## 启动后检查
 
 ```bash
-curl http://localhost:8000/health
-curl http://localhost:8000/docs
+curl http://localhost:18000/health
+curl http://localhost:18000/docs
 ```
 
 浏览器访问：

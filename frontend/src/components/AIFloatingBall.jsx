@@ -571,7 +571,16 @@ export default function AIFloatingBall() {
   useEffect(() => {
     if (!visible) return;
 
-    const token = getUserToken() || "cookie-session";
+    const token = getUserToken();
+    if (!token) {
+      setConversations((prev) => {
+        if (prev.length > 0) return prev;
+        const nextConversation = createConversation();
+        setActiveConversationId(nextConversation.id);
+        return [nextConversation];
+      });
+      return;
+    }
 
     let cancelled = false;
     const loadChatHistory = async () => {
@@ -592,7 +601,9 @@ export default function AIFloatingBall() {
         const stillExists = normalized.some((item) => item.id === activeConversationId);
         setActiveConversationId(stillExists ? activeConversationId : normalized[0].id);
       } catch (error) {
-        console.warn("load chat history failed", error);
+        if (error?.response?.status !== 401) {
+          console.warn("load chat history failed", error);
+        }
       }
     };
 
@@ -615,7 +626,11 @@ export default function AIFloatingBall() {
       setActiveConversationId(nextConversation.id);
     }
 
-    const token = getUserToken() || "cookie-session";
+    const token = getUserToken();
+    if (!token) {
+      Toast.show({ content: "请先在“我的”页面登录游客账号" });
+      return;
+    }
 
     // 添加用户消息到对话记录
     const userMessageId = `${Date.now()}-user`;
@@ -708,7 +723,11 @@ export default function AIFloatingBall() {
       className: "ai-delete-confirm-dialog",
       content: "确定要删除当前选中的会话记录吗？",
       onConfirm: async () => {
-        const token = getUserToken() || "cookie-session";
+        const token = getUserToken();
+        if (!token) {
+          Toast.show({ content: "请先在“我的”页面登录游客账号" });
+          return;
+        }
         try {
           await deleteChatSession(activeConversation.id, token);
         } catch (error) {

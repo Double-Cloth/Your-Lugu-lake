@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-lugu}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lugu123}
     ports:
-      - "${POSTGRES_HOST_PORT:-5432}:5432"
+      - "${DB_BIND_HOST:-127.0.0.1}:${POSTGRES_HOST_PORT:-15432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -31,7 +31,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-lugu}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-lugu123}
     ports:
-      - "${BACKEND_PORT:-8000}:8000"
+      - "${BACKEND_BIND_HOST:-127.0.0.1}:${BACKEND_PORT:-18000}:8000"
     volumes:
       - ./backend:/app
       - ./knowledge-base:/knowledge-base:ro
@@ -49,7 +49,7 @@ services:
     env_file:
       - .env.example
     ports:
-      - "${FRONTEND_PORT:-5173}:5173"
+      - "${FRONTEND_BIND_HOST:-0.0.0.0}:${FRONTEND_PORT:-5173}:5173"
     volumes:
       - ./frontend:/app
       - ./knowledge-base:/knowledge-base

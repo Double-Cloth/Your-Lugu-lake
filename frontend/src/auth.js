@@ -1,3 +1,5 @@
+const USER_SESSION_MARKER_KEY = "lugu_user_session_active";
+
 let userSessionActive = false;
 let userNameMemory = "";
 let adminSessionActive = false;
@@ -12,6 +14,30 @@ function normalizeText(value) {
   const next = value.trim();
   if (!next || next === "null" || next === "undefined") return "";
   return next;
+}
+
+function readStorageFlag(key) {
+  const win = getWindow();
+  if (!win?.localStorage) return false;
+  try {
+    return win.localStorage.getItem(key) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function writeStorageFlag(key, active) {
+  const win = getWindow();
+  if (!win?.localStorage) return;
+  try {
+    if (active) {
+      win.localStorage.setItem(key, "1");
+      return;
+    }
+    win.localStorage.removeItem(key);
+  } catch {
+    // ignore storage exceptions
+  }
 }
 
 function decodeUriSafe(value) {
@@ -56,6 +82,7 @@ function sessionMarker(active) {
 
 export function setUserSession(_token, username) {
   userSessionActive = true;
+  writeStorageFlag(USER_SESSION_MARKER_KEY, true);
   const normalizedUsername = normalizeText(username);
   if (normalizedUsername) {
     userNameMemory = normalizedUsername;
@@ -70,14 +97,18 @@ export function setUserSession(_token, username) {
 export function clearUserSession() {
   userSessionActive = false;
   userNameMemory = "";
+  writeStorageFlag(USER_SESSION_MARKER_KEY, false);
 }
 
 export function hasUserSession() {
-  return userSessionActive;
+  if (userSessionActive) return true;
+  const restored = readStorageFlag(USER_SESSION_MARKER_KEY);
+  userSessionActive = restored;
+  return restored;
 }
 
 export function getUserSessionToken() {
-  return sessionMarker(userSessionActive || isUserSessionPath());
+  return sessionMarker(hasUserSession());
 }
 
 export function getUserSessionUsername() {

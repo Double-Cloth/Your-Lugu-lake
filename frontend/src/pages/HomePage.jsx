@@ -101,6 +101,22 @@ function IconGlobe() {
   );
 }
 
+function resolveOptionLabel(options, value, fallback) {
+  return options.find((item) => item.value === value)?.label || fallback;
+}
+
+function pickAllowedValue(options, value, fallback) {
+  return options.some((item) => item.value === value) ? value : fallback;
+}
+
+function buildNeedFromDraft(draft) {
+  const durationText = resolveOptionLabel(CULTURE_DURATION_OPTIONS, draft.duration, "一天");
+  const groupText = resolveOptionLabel(CULTURE_GROUP_OPTIONS, draft.groupType, "朋友");
+  const focusText = resolveOptionLabel(CULTURE_FOCUS_OPTIONS, draft.preference, "礼俗讲解");
+  const paceText = resolveOptionLabel(CULTURE_PACE_OPTIONS, draft.pace, "平衡");
+  return `我计划${durationText}出游，同行人群是${groupText}，希望以${focusText}为主，节奏偏${paceText}。`;
+}
+
 export default function HomePage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -131,6 +147,7 @@ export default function HomePage() {
 
   useEffect(() => {
     const panelFromState = location.state?.openPanel;
+    const cultureSeedFromState = location.state?.cultureSeed;
     const panelFromQuery = new URLSearchParams(location.search).get("openPanel");
     const validPanels = new Set(["overview", "global", "culture"]);
 
@@ -140,6 +157,39 @@ export default function HomePage() {
 
     if (!panel) {
       return;
+    }
+
+    if (panel === "culture" && cultureSeedFromState && typeof cultureSeedFromState === "object") {
+      const route = cultureSeedFromState.route && typeof cultureSeedFromState.route === "object"
+        ? cultureSeedFromState.route
+        : {};
+      const profile = route.travel_profile && typeof route.travel_profile === "object"
+        ? route.travel_profile
+        : {};
+      const templateId = typeof route?.inspiration_template?.id === "string"
+        ? route.inspiration_template.id
+        : "";
+
+      setCultureDraft({
+        duration: pickAllowedValue(CULTURE_DURATION_OPTIONS, profile.duration, "one-day"),
+        groupType: pickAllowedValue(CULTURE_GROUP_OPTIONS, profile.group_type, "friends"),
+        preference: pickAllowedValue(CULTURE_FOCUS_OPTIONS, profile.preference, "culture"),
+        pace: pickAllowedValue(CULTURE_PACE_OPTIONS, profile.pace, "balanced"),
+      });
+      setTravelNeed(typeof route.custom_need === "string" ? route.custom_need : "");
+      setSelectedTemplateId(
+        CULTURE_TEMPLATES.some((item) => item.id === templateId) ? templateId : ""
+      );
+      setRoutePlan({
+        title: route.title || "AI 文化导览路线",
+        timeline: Array.isArray(route.timeline) ? route.timeline : [],
+        routeId: Number.isFinite(Number(cultureSeedFromState.route_id))
+          ? Number(cultureSeedFromState.route_id)
+          : null,
+        generatedAt: route.generated_at || (cultureSeedFromState.created_at || ""),
+        requirement: typeof route.requirement === "string" ? route.requirement : "",
+      });
+      Toast.show({ content: "已载入历史路线画像，可继续优化" });
     }
 
     setActivePanel(panel);
@@ -262,7 +312,12 @@ export default function HomePage() {
   }
 
   function updateCultureDraft(field, value) {
-    setCultureDraft((prev) => ({ ...prev, [field]: value }));
+    setCultureDraft((prev) => {
+      const nextDraft = { ...prev, [field]: value };
+      setTravelNeed(buildNeedFromDraft(nextDraft));
+      return nextDraft;
+    });
+    setSelectedTemplateId("");
   }
 
   function applyCultureTemplate(template) {
@@ -277,32 +332,51 @@ export default function HomePage() {
   }
 
   function buildRequirementText() {
-    const manual = travelNeed.trim();
-    if (manual) {
-      return manual;
-    }
+    const currentTemplate = CULTURE_TEMPLATES.find((item) => item.id === selectedTemplateId) || null;
+    const durationText = resolveOptionLabel(CULTURE_DURATION_OPTIONS, cultureDraft.duration, "一天");
+    const groupText = resolveOptionLabel(CULTURE_GROUP_OPTIONS, cultureDraft.groupType, "朋友");
+    const focusText = resolveOptionLabel(CULTURE_FOCUS_OPTIONS, cultureDraft.preference, "礼俗讲解");
+    const paceText = resolveOptionLabel(CULTURE_PACE_OPTIONS, cultureDraft.pace, "平衡");
 
-    const durationText = CULTURE_DURATION_OPTIONS.find((item) => item.value === cultureDraft.duration)?.label || "一天";
-    const groupText = CULTURE_GROUP_OPTIONS.find((item) => item.value === cultureDraft.groupType)?.label || "朋友";
-    const focusText = CULTURE_FOCUS_OPTIONS.find((item) => item.value === cultureDraft.preference)?.label || "礼俗讲解";
-    const paceText = CULTURE_PACE_OPTIONS.find((item) => item.value === cultureDraft.pace)?.label || "平衡";
-    return `我计划${durationText}出游，同行人群是${groupText}，希望以${focusText}为主，节奏偏${paceText}。`;
+    const manual = travelNeed.trim();
+    const profileSummary = `出行画像：${durationText}，${groupText}同行，内容重心${focusText}，节奏${paceText}。`;
+    const templateSummary = currentTemplate
+      ? `灵感模板：${currentTemplate.title}（${currentTemplate.hint}）。`
+      : "";
+    const manualSummary = manual ? `个性诉求：${manual}` : "";
+
+    return [templateSummary, profileSummary, manualSummary].filter(Boolean).join(" ");
+  }
+
+  function handleTravelNeedChange(value) {
+    setTravelNeed(value);
+  }
+
+  function buildRoutePayload() {
+    const requirementText = buildRequirementText();
+    const currentTemplate = CULTURE_TEMPLATES.find((item) => item.id === selectedTemplateId) || null;
+    return {
+      requirementText,
+      payload: {
+        duration: cultureDraft.duration,
+        preference: cultureDraft.preference,
+        group_type: cultureDraft.groupType,
+        custom_need: travelNeed.trim() || null,
+        pace: cultureDraft.pace,
+        template_id: currentTemplate?.id || null,
+        template_title: currentTemplate?.title || null,
+        requirement_text: requirementText,
+      },
+    };
   }
 
   async function createCulturePlan() {
-    const need = buildRequirementText();
+    const { requirementText, payload } = buildRoutePayload();
 
     setRouteLoading(true);
     try {
-      const routePreference = cultureDraft.preference === "culture" ? "culture" : "mixed";
       const result = await generateRoute(
-        {
-          duration: cultureDraft.duration,
-          preference: routePreference,
-          group_type: cultureDraft.groupType,
-          custom_need: need,
-          pace: cultureDraft.pace,
-        },
+        payload,
         getUserToken() || "cookie-session"
       );
 
@@ -311,8 +385,8 @@ export default function HomePage() {
         title: result.route?.title || "AI 文化导览路线",
         timeline,
         routeId: Number.isFinite(Number(result.route_id)) ? Number(result.route_id) : null,
-        generatedAt: new Date().toISOString(),
-        requirement: need,
+        generatedAt: result.route?.generated_at || new Date().toISOString(),
+        requirement: result.route?.requirement || requirementText,
       });
       if (timeline.length === 0) {
         Toast.show({ content: "接口返回为空，请稍后重试" });
@@ -486,6 +560,11 @@ export default function HomePage() {
                 </button>
               ))}
             </div>
+            {selectedTemplateId ? (
+              <div className="text-xs text-cyan-100/80 mt-3">
+                已将灵感模板同步到出行画像，你仍可继续微调画像选项。
+              </div>
+            ) : null}
           </Card>
 
           <Card className="bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md">
@@ -558,7 +637,7 @@ export default function HomePage() {
             <GlassInput
               wrapperClassName="mt-4"
               value={travelNeed}
-              onChange={setTravelNeed}
+              onChange={handleTravelNeedChange}
               placeholder="补充你的个性诉求（可选）"
               clearable
             />

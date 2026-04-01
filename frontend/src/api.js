@@ -447,10 +447,17 @@ function extractErrorMessage(error) {
 }
 
 export async function fetchCurrentUser(token) {
-  const { data } = await api.get("/api/auth/me", {
-    headers: authHeader(token),
-  });
-  return data;
+  try {
+    const { data } = await api.get("/api/auth/me", {
+      headers: authHeader(token),
+    });
+    return data;
+  } catch (error) {
+    if (error?.response?.status === 401) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 export async function updateCurrentUser(payload, token) {
@@ -494,6 +501,12 @@ export async function fetchMyRoutes(token) {
     headers: authHeader(token),
   });
   return Array.isArray(data?.routes) ? data.routes : [];
+}
+
+export async function deleteRoute(routeId, token) {
+  await api.delete(`/api/routes/${routeId}`, {
+    headers: authHeader(token),
+  });
 }
 
 export async function fetchAdminStats(token) {
@@ -548,10 +561,17 @@ export async function sceneChat(message, systemPrompt, token, sceneContext = nul
 }
 
 export async function fetchChatHistory(token) {
-  const { data } = await api.get("/api/routes/chat/history", {
-    headers: authHeader(token),
-  });
-  return data;
+  try {
+    const { data } = await api.get("/api/routes/chat/history", {
+      headers: authHeader(token),
+    });
+    return data;
+  } catch (error) {
+    if (error?.response?.status === 401) {
+      return { sessions: [] };
+    }
+    throw error;
+  }
 }
 
 export async function deleteChatSession(sessionKey, token) {

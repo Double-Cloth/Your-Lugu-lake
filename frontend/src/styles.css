@@ -3337,3 +3337,54 @@ input::-ms-clear {
 .ai-delete-confirm-dialog .adm-dialog-button:last-child:active {
   background-color: rgba(248, 113, 113, 0.1) !important;
 }
+
+/* 我的路线删除确认框 - 提升对比度与可读性 */
+.route-delete-confirm-dialog .adm-mask {
+  background: rgba(2, 6, 23, 0.62) !important;
+  backdrop-filter: blur(7px);
+  -webkit-backdrop-filter: blur(7px);
+}
+
+.route-delete-confirm-dialog .adm-dialog {
+  border-radius: 18px !important;
+  background: #0f172a !important;
+  border: 1px solid rgba(148, 163, 184, 0.28) !important;
+  box-shadow: 0 22px 46px rgba(2, 6, 23, 0.6) !important;
+  overflow: hidden;
+}
+
+.route-delete-confirm-dialog .adm-dialog-title {
+  color: #f8fafc !important;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.route-delete-confirm-dialog .adm-dialog-content {
+  color: #e2e8f0 !important;
+  font-size: 14px;
+  line-height: 1.65;
+}
+
+.route-delete-confirm-dialog .adm-dialog-footer {
+  border-top: 1px solid rgba(148, 163, 184, 0.24) !important;
+  background: rgba(15, 23, 42, 0.94);
+}
+
+.route-delete-confirm-dialog .adm-dialog-button {
+  color: #cbd5e1 !important;
+  font-weight: 600;
+}
+
+.route-delete-confirm-dialog .adm-dialog-button:active {
+  background: rgba(148, 163, 184, 0.18) !important;
+}
+
+.route-delete-confirm-dialog .adm-dialog-button:last-child {
+  color: #fda4af !important;
+  background: rgba(127, 29, 29, 0.32);
+}
+
+.route-delete-confirm-dialog .adm-dialog-button:last-child:active {
+  background: rgba(185, 28, 28, 0.42) !important;
+}

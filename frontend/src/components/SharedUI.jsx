@@ -164,7 +164,7 @@ export const GlassInput = forwardRef(({
         onChange={handleChange}
         className={`flex-1 bg-transparent text-[16px] text-white leading-normal caret-cyan-400 placeholder:text-white/50 outline-none border-none focus:ring-0 px-0 min-w-0 ${className}`}
         style={{
-          "--color": "white",
+          color: "white",
           "--placeholder-color": "rgba(255,255,255,0.5)",
           ...style
         }}

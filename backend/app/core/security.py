@@ -6,6 +6,7 @@ from typing import Optional
 
 from jose import JWTError, jwt
 from passlib.context import CryptContext
+from passlib.exc import UnknownHashError
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPublicKey
@@ -13,6 +14,7 @@ from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey, RSAPubl
 from app.core.config import settings
 
 pwd_context = CryptContext(schemes=["pbkdf2_sha256"], deprecated="auto")
+legacy_pwd_context = CryptContext(schemes=["bcrypt", "bcrypt_sha256"], deprecated="auto")
 PASSWORD_CIPHER_PREFIX = "enc:rsa_oaep_sha256:"
 
 
@@ -92,7 +94,16 @@ def decrypt_transport_password(value: str) -> str:
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except UnknownHashError:
+        # Backward compatibility for historical bcrypt hashes.
+        try:
+            return legacy_pwd_context.verify(plain_password, hashed_password)
+        except Exception:
+            return False
+    except Exception:
+        return False
 
 
 def get_password_hash(password: str) -> str:
