@@ -1,16 +1,91 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2026-03-26",
+  "lastUpdated": "2026-04-08",
   "locations": [
     {
-      "slug": "lugu-lake",
-      "id": 1,
-      "name": "泸沽湖"
+      "slug": "zouhun-bridge",
+      "id": 3,
+      "name": "走婚桥"
     },
     {
-      "slug": "dapeng-island",
-      "id": 2,
-      "name": "大鹏岛"
+      "slug": "caohai-wetland",
+      "id": 4,
+      "name": "草海"
+    },
+    {
+      "slug": "nvshen-bay",
+      "id": 5,
+      "name": "女神湾"
+    },
+    {
+      "slug": "wangfei-island",
+      "id": 6,
+      "name": "王妃岛"
+    },
+    {
+      "slug": "mosuo-museum",
+      "id": 7,
+      "name": "摩梭博物馆"
+    },
+    {
+      "slug": "luowa-peninsula",
+      "id": 8,
+      "name": "洛洼半岛"
+    },
+    {
+      "slug": "lovers-beach",
+      "id": 9,
+      "name": "情人滩"
+    },
+    {
+      "slug": "luyuan-cliff",
+      "id": 10,
+      "name": "泸源崖"
+    },
+    {
+      "slug": "jishen-platform",
+      "id": 11,
+      "name": "祭神台"
+    },
+    {
+      "slug": "houlong-mountain",
+      "id": 12,
+      "name": "后龙山"
+    },
+    {
+      "slug": "liwubi-island",
+      "id": 13,
+      "name": "里务比岛"
+    },
+    {
+      "slug": "heiwae-island",
+      "id": 14,
+      "name": "黑瓦俄岛"
+    },
+    {
+      "slug": "axia-valley",
+      "id": 15,
+      "name": "阿夏幽谷"
+    },
+    {
+      "slug": "xiaoluoshui-village",
+      "id": 16,
+      "name": "小落水村"
+    },
+    {
+      "slug": "daluoshui-village",
+      "id": 17,
+      "name": "大落水村"
+    },
+    {
+      "slug": "lige-peninsula",
+      "id": 18,
+      "name": "里格半岛"
+    },
+    {
+      "slug": "gemu-goddess-mountain",
+      "id": 19,
+      "name": "格姆女神山"
     }
   ]
 }

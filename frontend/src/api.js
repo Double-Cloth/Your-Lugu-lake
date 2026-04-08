@@ -553,8 +553,9 @@ export async function updateAdminLocation(locationId, payload, token) {
   return data;
 }
 
-export async function deleteAdminLocation(locationId, token) {
+export async function deleteAdminLocation(locationId, token, kbSlug = "") {
   const { data } = await api.delete(`/api/admin/locations/${locationId}`, {
+    params: kbSlug ? { kb_slug: kbSlug } : undefined,
     headers: authHeader(token),
   });
   return data;
@@ -641,6 +642,20 @@ export async function deleteAdminUser(userId, token) {
   return data;
 }
 
+export async function updateAdminUser(userId, payload, token) {
+  const { data } = await api.put(`/api/admin/users/${userId}`, payload, {
+    headers: authHeader(token),
+  });
+  return data;
+}
+
+export async function resetAdminUserPassword(userId, payload, token) {
+  const { data } = await api.post(`/api/admin/users/${userId}/reset-password`, payload, {
+    headers: authHeader(token),
+  });
+  return data;
+}
+
 // ==================== 打卡记录 ====================
 export async function fetchAdminFootprints(token, page = 1, perPage = 20, filters = {}) {
   const { data } = await api.get("/api/admin/footprints", {
@@ -702,6 +717,22 @@ export async function fetchKnowledgeBaseNearbySpots() {
     console.warn("Failed to load knowledge base nearby spots", error);
     return [];
   }
+}
+
+export async function importLocationsFromFile(file, token) {
+  const formData = new FormData();
+  formData.append("file", file);
+  
+  const response = await api.post("/api/admin/locations/import-from-file", formData, {
+    headers: {
+      "X-CSRF-Token": readCookieValue(CSRF_COOKIE_NAME) || "",
+      "Authorization": `Bearer ${token}`,
+      "Content-Type": "multipart/form-data",
+    },
+    timeout: 60000,
+  });
+  
+  return response.data;
 }
 
 export default api;

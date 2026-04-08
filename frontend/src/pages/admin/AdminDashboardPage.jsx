@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Button, Card, DotLoading, Input, Popup, Selector, Toast, Tabs, List } from "antd-mobile";
 import { useNavigate } from "react-router-dom";
 
@@ -6,8 +6,10 @@ import {
   buildAssetUrl,
   createAdminLocation,
   deleteAdminLocation,
+  deleteAdminUser,
   downloadQrcodeZip,
   fetchAdminStats,
+  fetchAdminUserDetail,
   fetchLocations,
   fetchKnowledgeBaseLocationsIndex,
   getAdminToken,
@@ -15,10 +17,13 @@ import {
   generateQrcodesFromKnowledgeBase,
   logoutSession,
   updateAdminLocation,
+  updateAdminUser,
+  resetAdminUserPassword,
   fetchAdminUsers,
   fetchAdminFootprints,
   fetchFootprintStats,
   fetchAdminQrcodes,
+  importLocationsFromFile,
 } from "../../api";
 import { clearAdminSession } from "../../auth";
 
@@ -44,15 +49,37 @@ function isValidCoordinatePair(lat, lon) {
 
 function getMapLinks(lat, lon) {
   if (!isValidCoordinatePair(lat, lon)) {
-    return { staticMapUrl: "", webMapUrl: "" };
+    return { staticMapUrl: "", webMapUrl: "", tileUrl: "" };
   }
 
   const latitude = Number(lat);
   const longitude = Number(lon);
+  
+  // 使用 tile.openstreetmap.fr 提供的静态地图（国内相对稳定）
+  // 参数：center=lon,lat&zoom=13&size=600x260
+  const staticUrl = `https://tile.openstreetmap.fr/hot/13/4393/2681.png`;
+  
+  // 使用 tile 构造一个查询地图链接（纯粹的查询，不依赖图像）
+  const mapTileUrl = `https://tile.openstreetmap.org/13/${getOsmTileX(longitude, 13)}/${getOsmTileY(latitude, 13)}.png`;
+  
+  // OpenStreetMap网页链接（最可靠）
+  const webMapUrl = `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=13/${latitude}/${longitude}`;
+  
   return {
-    staticMapUrl: `https://staticmap.openstreetmap.de/staticmap.php?center=${latitude},${longitude}&zoom=14&size=600x260&markers=${latitude},${longitude},red-pushpin`,
-    webMapUrl: `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=14/${latitude}/${longitude}`,
+    staticMapUrl: staticUrl,
+    webMapUrl: webMapUrl,
+    tileUrl: mapTileUrl,
   };
+}
+
+// 计算OSM Web Mercator瓦片坐标
+function getOsmTileX(lon, zoom) {
+  return Math.floor(((lon + 180) / 360) * Math.pow(2, zoom));
+}
+
+function getOsmTileY(lat, zoom) {
+  const latRad = (lat * Math.PI) / 180;
+  return Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * Math.pow(2, zoom));
 }
 
 export default function AdminDashboardPage() {
@@ -61,15 +88,22 @@ export default function AdminDashboardPage() {
   const [knowledgeBaseLocations, setKnowledgeBaseLocations] = useState([]);
   const [editVisible, setEditVisible] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [createMapError, setCreateMapError] = useState(false);
-  const [editMapError, setEditMapError] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const [users, setUsers] = useState([]);
+  const [userSearch, setUserSearch] = useState("");
+  const [userDetailVisible, setUserDetailVisible] = useState(false);
+  const [selectedUserDetail, setSelectedUserDetail] = useState(null);
+  const [selectedUserForOps, setSelectedUserForOps] = useState(null);
+  const [newPasswordInput, setNewPasswordInput] = useState("");
+  const [generatedPassword, setGeneratedPassword] = useState("");
   const [footprints, setFootprints] = useState([]);
   const [qrcodes, setQrcodes] = useState([]);
   const [loading, setLoading] = useState(false);
   const [footprintStats, setFootprintStats] = useState(null);
   const [selectedCreateKbSlug, setSelectedCreateKbSlug] = useState("");
+  const [importingFile, setImportingFile] = useState(false);
+  const [importResults, setImportResults] = useState(null);
+    const fileInputRef = useRef(null);
   
   const [editForm, setEditForm] = useState({
     name: "",
@@ -159,6 +193,11 @@ export default function AdminDashboardPage() {
     }
   }
 
+  async function reloadUsers(token) {
+    const userRes = await fetchAdminUsers(token, 1, 50, userSearch);
+    setUsers(userRes?.data || []);
+  }
+
   useEffect(() => {
     const token = getAdminToken();
     if (!token) {
@@ -175,8 +214,80 @@ export default function AdminDashboardPage() {
     navigate("/me", { replace: true });
   }
 
+  async function handleSearchUsers() {
+    const token = getAdminToken();
+    if (!token) return;
+    try {
+      await reloadUsers(token);
+      Toast.show({ content: "已刷新游客列表" });
+    } catch {
+      Toast.show({ content: "加载游客失败" });
+    }
+  }
+
+  async function handleViewUserDetail(user) {
+    const token = getAdminToken();
+    if (!token) return;
+    try {
+      const detail = await fetchAdminUserDetail(user.id, token);
+      setSelectedUserDetail(detail);
+      setSelectedUserForOps(user);
+      setGeneratedPassword("");
+      setNewPasswordInput("");
+      setUserDetailVisible(true);
+    } catch {
+      Toast.show({ content: "加载游客详情失败" });
+    }
+  }
+
+  async function handleToggleUserRole(user) {
+    const token = getAdminToken();
+    if (!token) return;
+    const nextRole = user.role === "admin" ? "user" : "admin";
+    try {
+      await updateAdminUser(user.id, { role: nextRole }, token);
+      Toast.show({ content: `角色已更新为 ${nextRole}` });
+      await reloadUsers(token);
+      if (selectedUserDetail && selectedUserDetail.id === user.id) {
+        const detail = await fetchAdminUserDetail(user.id, token);
+        setSelectedUserDetail(detail);
+      }
+    } catch (error) {
+      Toast.show({ content: error?.response?.data?.detail || "更新角色失败" });
+    }
+  }
+
+  async function handleResetUserPassword(user) {
+    const token = getAdminToken();
+    if (!token) return;
+    try {
+      const payload = newPasswordInput.trim() ? { new_password: newPasswordInput.trim() } : {};
+      const result = await resetAdminUserPassword(user.id, payload, token);
+      setGeneratedPassword(result.temporary_password || "");
+      setNewPasswordInput("");
+      Toast.show({ content: "密码已重置" });
+    } catch (error) {
+      Toast.show({ content: error?.response?.data?.detail || "重置密码失败" });
+    }
+  }
+
+  async function handleDeleteUser(user) {
+    const token = getAdminToken();
+    if (!token) return;
+    try {
+      await deleteAdminUser(user.id, token);
+      Toast.show({ content: "游客账号已删除" });
+      await reloadUsers(token);
+      if (selectedUserDetail && selectedUserDetail.id === user.id) {
+        setUserDetailVisible(false);
+        setSelectedUserDetail(null);
+      }
+    } catch (error) {
+      Toast.show({ content: error?.response?.data?.detail || "删除游客失败" });
+    }
+  }
+
   async function handleCreateLocation() {
-    setCreateMapError(false);
     const token = getAdminToken();
     if (!token) return;
 
@@ -206,11 +317,11 @@ export default function AdminDashboardPage() {
     }
   }
 
-  async function handleDeleteLocation(locationId) {
+  async function handleDeleteLocation(locationId, kbSlug = "") {
     const token = getAdminToken();
     if (!token) return;
     try {
-      await deleteAdminLocation(locationId, token);
+      await deleteAdminLocation(locationId, token, kbSlug);
       Toast.show({ content: "已删除" });
       await loadDashboard(token);
     } catch {
@@ -229,14 +340,12 @@ export default function AdminDashboardPage() {
       category: location.category || "culture",
       qr_code_url: location.qr_code_url || "",
     });
-    setEditMapError(false);
     setEditVisible(true);
   }
 
   function cancelEditLocation() {
     setEditingId(null);
     setEditVisible(false);
-    setEditMapError(false);
   }
 
   async function saveEditLocation(locationId) {
@@ -333,6 +442,43 @@ export default function AdminDashboardPage() {
     }
   }
 
+  async function handleImportFromFile(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const token = getAdminToken();
+    if (!token) return;
+
+    setImportingFile(true);
+    setImportResults(null);
+
+    try {
+      const result = await importLocationsFromFile(file, token);
+      if (result.ok) {
+        setImportResults(result);
+        Toast.show({
+          content: `已导入 ${result.total} 个景点`,
+        });
+        const token2 = getAdminToken();
+        if (token2) await loadDashboard(token2);
+      }
+    } catch (error) {
+      Toast.show({
+        content: error.response?.data?.detail || "导入失败，请检查文件格式",
+      });
+      setImportResults(null);
+    } finally {
+      setImportingFile(false);
+      e.target.value = "";
+    }
+  }
+
+  function handleClickFileInput() {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  }
+
   const dbLocationById = new Map(
     (Array.isArray(locations) ? locations : []).map((item) => [Number(item.id), item])
   );
@@ -412,6 +558,15 @@ export default function AdminDashboardPage() {
 
           <Tabs.Tab title="游客管理" key="users">
             <Card className="card card-glass mb-3">
+              <div className="flex gap-2 mb-3">
+                <Input
+                  value={userSearch}
+                  onChange={setUserSearch}
+                  placeholder="按用户名搜索游客"
+                  clearable
+                />
+                <Button size="small" onClick={handleSearchUsers}>搜索</Button>
+              </div>
               <h3>游客列表 ({users.length})</h3>
               {users.length === 0 ? (
                 <div className="text-center text-sm text-white/50 py-4">暂无游客</div>
@@ -426,7 +581,15 @@ export default function AdminDashboardPage() {
                       description={
                         <div className="text-xs text-white/60">
                           <div>打卡: {user.total_footprints} | 景点: {user.total_locations_visited}</div>
+                          <div>近7天打卡: {user.checkins_last_7_days || 0} | 角色: {user.role}</div>
                           <div>注册: {new Date(user.created_at).toLocaleDateString()}</div>
+                        </div>
+                      }
+                      extra={
+                        <div className="flex gap-1">
+                          <Button size="mini" onClick={() => handleViewUserDetail(user)}>详情</Button>
+                          <Button size="mini" onClick={() => handleToggleUserRole(user)}>改角色</Button>
+                          <Button size="mini" color="danger" onClick={() => handleDeleteUser(user)}>删除</Button>
                         </div>
                       }
                     />
@@ -438,7 +601,51 @@ export default function AdminDashboardPage() {
 
           <Tabs.Tab title="景点管理" key="locations">
             <Card className="card card-glass mb-3">
-              <h3 className="m-0 mb-3">新增景点（严格 knowledge-base）</h3>
+              <h3 className="m-0 mb-3">💾 上传文件导入景点</h3>
+              <div className="space-y-2">
+                <div className="bg-blue-500/20 border border-blue-400 rounded-xl p-3 text-sm text-white mb-3">
+                  <div className="font-semibold mb-1">📋 支持的文件格式：</div>
+                  <div className="text-xs opacity-80">文本文件（.txt, .md）、PDF 文档（.pdf）、Word 文档（.docx）</div>
+                  <div className="text-xs opacity-80 mt-1">AI 将自动分析文件内容，严格按 knowledge-base 规范生成景点信息</div>
+                </div>
+
+                <div className="relative">
+                  <input
+                    type="file"
+                                        ref={fileInputRef}
+                    accept=".txt,.md,.pdf,.docx"
+                    onChange={handleImportFromFile}
+                    disabled={importingFile}
+                    className="hidden"
+                    id="file-input"
+                  />
+                  <Button
+                      color="primary"
+                      block
+                                          onClick={handleClickFileInput}
+                      disabled={importingFile}
+                    >
+                      {importingFile ? "正在处理中..." : "📁 选择文件并上传"}
+                  </Button>
+                </div>
+
+                {importResults && (
+                  <div className="bg-green-500/10 border border-green-400 rounded-xl p-3 text-sm">
+                    <div className="font-semibold text-green-300 mb-2">✅ 导入成功</div>
+                    <div className="space-y-1 text-xs">
+                      {importResults.results?.map((res, idx) => (
+                        <div key={idx} className={res.success ? "text-green-200" : "text-red-200"}>
+                          {res.success ? "✓" : "✗"} {res.name} - {res.message}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            <Card className="card card-glass mb-3">
+              <h3 className="m-0 mb-3">新增景点（选择 knowledge-base 中已有的）</h3>
               <div className="space-y-2">
                 <div>
                   <div className="text-xs text-white/50 mb-1">从知识库选择景点</div>
@@ -456,28 +663,27 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <div className="rounded-xl bg-slate-50 p-2">
-                  <div className="text-xs text-slate-600 mb-2">坐标地图预览</div>
-                  {createKbMap.staticMapUrl ? (
-                    createMapError ? (
-                      <div className="w-full rounded-lg border bg-slate-200 p-3 text-center text-xs text-slate-600">
-                        <div>地图预览加载失败</div>
-                        <Button size="small" className="mt-2" onClick={() => window.open(createKbMap.webMapUrl, "_blank")}>
-                          在OpenStreetMap中打开
-                        </Button>
+                  <div className="text-xs text-slate-600 mb-2">📍 坐标信息 & 地图链接</div>
+                  {createKbMap.webMapUrl ? (
+                    <div className="space-y-2">
+                      <div className="text-xs text-slate-700">
+                        <div className="font-semibold">纬度/经度：</div>
+                        <div className="font-mono text-slate-600">
+                          {selectedCreateKbLocation?.latitude}, {selectedCreateKbLocation?.longitude}
+                        </div>
                       </div>
-                    ) : (
-                      <>
-                        <img
-                          src={createKbMap.staticMapUrl}
-                          alt="地图预览"
-                          className="w-full rounded-lg border"
-                          onError={() => setCreateMapError(true)}
-                        />
-                        <Button size="small" className="mt-2" onClick={() => window.open(createKbMap.webMapUrl, "_blank")}>
-                          在地图中打开
-                        </Button>
-                      </>
-                    )
+                      <Button 
+                        size="small" 
+                        fill="outline"
+                        block
+                        onClick={() => window.open(createKbMap.webMapUrl, "_blank")}
+                      >
+                        🗺️ 在 OpenStreetMap 中打开（完整地图）
+                      </Button>
+                      <div className="text-xs text-slate-500">
+                        💡 点击按钮打开完整交互地图，可查看周边&设施
+                      </div>
+                    </div>
                   ) : (
                     <div className="text-xs text-slate-400">请选择 knowledge-base 景点后可预览</div>
                   )}
@@ -497,7 +703,7 @@ export default function AdminDashboardPage() {
               </div>
               <div className="space-y-2">
                 {displayLocations.map((loc) => (
-                  <div key={loc.id ?? `kb-${loc.kb_id || loc.slug || loc.name}`} className="border rounded-xl p-3">
+                  <div key={`${loc.id ?? "kb"}-${loc.slug || loc.kb_id || loc.name || "unknown"}`} className="border rounded-xl p-3">
                     <div className="font-medium">{loc.name}</div>
                     <div className="text-xs text-white/50">{loc.category} | {loc.latitude}, {loc.longitude}</div>
                     {!loc.id && (
@@ -508,7 +714,7 @@ export default function AdminDashboardPage() {
                       <Button size="mini" disabled={!loc.id} onClick={() => handleQuickUpdateCategory(loc)}>切换类别</Button>
                       <Button size="mini" disabled={!loc.id} onClick={() => handleGenerateQrcode(loc.id)}>生成二维码</Button>
                       <Button size="mini" onClick={() => handleDownloadSingleQr(loc)}>下载二维码</Button>
-                      <Button size="mini" color="danger" disabled={!loc.id} onClick={() => handleDeleteLocation(loc.id)}>删除</Button>
+                      <Button size="mini" color="danger" disabled={!loc.id} onClick={() => handleDeleteLocation(loc.id, loc.slug || "")}>删除</Button>
                     </div>
                     {loc.qr_code_url && <div className="text-xs text-white/95 mt-2">{loc.qr_code_url}</div>}
                   </div>
@@ -609,28 +815,27 @@ export default function AdminDashboardPage() {
           />
 
           <div className="rounded-xl bg-slate-50 p-2">
-            <div className="text-xs text-slate-600 mb-2">坐标地图预览</div>
-            {editMap.staticMapUrl ? (
-              editMapError ? (
-                <div className="w-full rounded-lg border bg-slate-200 p-3 text-center text-xs text-slate-600">
-                  <div>地图预览加载失败</div>
-                  <Button size="small" className="mt-2" onClick={() => window.open(editMap.webMapUrl, "_blank")}>
-                    在OpenStreetMap中打开
-                  </Button>
+            <div className="text-xs text-slate-600 mb-2">📍 坐标信息 & 地图链接</div>
+            {editMap.webMapUrl ? (
+              <div className="space-y-2">
+                <div className="text-xs text-slate-700">
+                  <div className="font-semibold">纬度/经度：</div>
+                  <div className="font-mono text-slate-600">
+                    {editForm.latitude}, {editForm.longitude}
+                  </div>
                 </div>
-              ) : (
-                <>
-                  <img
-                    src={editMap.staticMapUrl}
-                    alt="地图预览"
-                    className="w-full rounded-lg border"
-                    onError={() => setEditMapError(true)}
-                  />
-                  <Button size="small" className="mt-2" onClick={() => window.open(editMap.webMapUrl, "_blank")}>
-                    在地图中打开
-                  </Button>
-                </>
-              )
+                <Button 
+                  size="small" 
+                  fill="outline"
+                  block
+                  onClick={() => window.open(editMap.webMapUrl, "_blank")}
+                >
+                  🗺️ 在 OpenStreetMap 中打开（完整地图）
+                </Button>
+                <div className="text-xs text-slate-500">
+                  💡 点击按钮打开完整交互地图，可查看周边&设施
+                </div>
+              </div>
             ) : (
               <div className="text-xs text-slate-400">请输入合法经纬度后可预览</div>
             )}
@@ -644,6 +849,65 @@ export default function AdminDashboardPage() {
             <Button block onClick={cancelEditLocation}>取消</Button>
           </div>
         </div>
+      </Popup>
+
+      <Popup
+        visible={userDetailVisible}
+        onMaskClick={() => setUserDetailVisible(false)}
+        bodyStyle={{ borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, maxHeight: "78vh", overflowY: "auto" }}
+      >
+        <h3 className="m-0 mb-3">游客账号详情</h3>
+        {selectedUserDetail ? (
+          <div className="space-y-2 text-sm">
+            <div>用户名: {selectedUserDetail.username}</div>
+            <div>角色: {selectedUserDetail.role}</div>
+            <div>注册时间: {new Date(selectedUserDetail.created_at).toLocaleString()}</div>
+            <div>总打卡: {selectedUserDetail.total_footprints}</div>
+            <div>近7天打卡: {selectedUserDetail.checkins_last_7_days || 0}</div>
+            <div>近30天打卡: {selectedUserDetail.checkins_last_30_days || 0}</div>
+            <div>覆盖景点: {selectedUserDetail.total_locations_visited}</div>
+
+            <div className="pt-2 border-t border-white/20">
+              <div className="text-xs text-white/70 mb-1">重置密码（可选填新密码，不填则自动生成）</div>
+              <div className="flex gap-2">
+                <Input
+                  value={newPasswordInput}
+                  onChange={setNewPasswordInput}
+                  placeholder="输入新密码（可留空自动生成）"
+                  clearable
+                />
+                <Button
+                  size="small"
+                  onClick={() => selectedUserForOps && handleResetUserPassword(selectedUserForOps)}
+                >
+                  重置密码
+                </Button>
+              </div>
+              {generatedPassword ? (
+                <div className="mt-2 text-xs text-amber-300">临时密码: {generatedPassword}</div>
+              ) : null}
+            </div>
+
+            <div className="pt-2 border-t border-white/20">
+              <div className="font-medium mb-1">最近打卡记录</div>
+              {Array.isArray(selectedUserDetail.footprints) && selectedUserDetail.footprints.length > 0 ? (
+                <div className="space-y-1 text-xs text-white/75">
+                  {selectedUserDetail.footprints.slice(0, 10).map((fp) => (
+                    <div key={fp.id} className="rounded-lg border border-white/15 p-2">
+                      <div>#{fp.id} 景点: {fp.location_name || `#${fp.location_id}`}</div>
+                      <div>时间: {new Date(fp.check_in_time).toLocaleString()}</div>
+                      <div>坐标: {Number(fp.gps_lat).toFixed(4)}, {Number(fp.gps_lon).toFixed(4)}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-xs text-white/50">暂无打卡记录</div>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="text-sm text-white/60">正在加载...</div>
+        )}
       </Popup>
         </div>
       </div>

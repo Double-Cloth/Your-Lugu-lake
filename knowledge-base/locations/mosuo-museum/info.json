@@ -1,0 +1,72 @@
+{
+  "id": 7,
+  "name": "摩梭博物馆",
+  "slug": "mosuo-museum",
+  "category": "culture",
+  "latitude": 27.705,
+  "longitude": 100.792,
+  "description": "摩梭博物馆景点信息基于根目录“泸沽湖”文档整理，建议后续按实地资料继续完善。",
+  "details": {
+    "introduction": "摩梭博物馆景点信息基于根目录“泸沽湖”文档整理，建议后续按实地资料继续完善。",
+    "highlights": [
+      "文档资料导入",
+      "泸沽湖片区",
+      "可继续扩展"
+    ],
+    "bestSeasonToVisit": "全年",
+    "recommendedDuration": "1-2小时",
+    "accommodationTips": "建议结合大落水或里格片区住宿安排"
+  },
+  "sections": {
+    "highlightsTitle": "景点亮点",
+    "galleryTitle": "景点图片",
+    "visitInfoTitle": "游览信息",
+    "locationTitle": "位置信息",
+    "transportationTitle": "交通方式",
+    "facilitiesTitle": "设施服务",
+    "ticketTitle": "票价信息"
+  },
+  "location": {
+    "province": "四川省",
+    "city": "凉山彝族自治州",
+    "district": "盐源县",
+    "address": "泸沽湖镇"
+  },
+  "transportation": {
+    "byAir": "可从丽江三义机场转车前往泸沽湖",
+    "byTrain": "可从丽江站转乘客运前往",
+    "byBus": "泸沽湖景区有环湖线路可接驳"
+  },
+  "facilities": {
+    "parking": true,
+    "restroom": true,
+    "foodAndDrink": true,
+    "accommodation": true,
+    "medicalService": false
+  },
+  "ticketInfo": {
+    "price": 0,
+    "currency": "CNY",
+    "validDays": 1,
+    "remark": "具体票价以景区公示为准"
+  },
+  "contact": {
+    "phone": "",
+    "website": ""
+  },
+  "tags": [
+    "泸沽湖",
+    "文档导入",
+    "culture"
+  ],
+  "images": {
+    "count": 2,
+    "basePath": "images/",
+    "files": [
+      "1.png",
+      "2.jpeg"
+    ]
+  },
+  "audioUrl": "",
+  "lastUpdated": "2026-04-08"
+}

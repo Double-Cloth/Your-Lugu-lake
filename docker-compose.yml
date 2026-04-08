@@ -34,7 +34,7 @@ services:
       - "${BACKEND_BIND_HOST:-127.0.0.1}:${BACKEND_PORT:-18000}:8000"
     volumes:
       - ./backend:/app
-      - ./knowledge-base:/knowledge-base:ro
+      - ./knowledge-base:/knowledge-base
       - backend_uploads:/app/uploads
     depends_on:
       db:

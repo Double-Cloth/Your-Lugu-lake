@@ -1,25 +1,47 @@
+import errno
 import io
 import json
+import logging
+import re
+import secrets
+import string
 import zipfile
+import hashlib
+import requests
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
+from urllib.parse import quote
 
 import qrcode
+import PyPDF2
 from PIL import Image, ImageDraw, ImageFont
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import and_, desc, func
 from sqlalchemy.orm import Session
 
 from app.api.deps import csrf_protect, get_current_user, require_admin
 from app.core.config import settings
+from app.core.security import get_password_hash
 from app.db.session import get_db
 from app.models.ai_route import AIRoute
 from app.models.footprint import Footprint
 from app.models.location import Location
 from app.models.qrcode import QrCode
 from app.models.user import User
-from app.schemas.admin import AdminDashboardStats, UserDetailOut, FootprintDetailOut, UserOut, QrCodeOut
+from app.schemas.admin import (
+    AdminDashboardStats,
+    AdminUserResetPasswordIn,
+    AdminUserUpdateIn,
+    UserDetailOut,
+    FootprintDetailOut,
+    UserOut,
+    QrCodeOut,
+)
+from app.services.llm_service import chat
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(
     prefix="/api/admin",
@@ -258,15 +280,25 @@ def dashboard_stats(db: Session = Depends(get_db)):
 
 
 # ==================== 游客管理 ====================
+def _build_temporary_password(length: int = 12) -> str:
+    alphabet = string.ascii_letters + string.digits
+    return "".join(secrets.choice(alphabet) for _ in range(length))
+
+
 @router.get("/users")
 def list_users(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     search: str = Query(""),
+    role: str = Query("user"),
     db: Session = Depends(get_db),
 ):
     """获取游客列表（分页、搜索）"""
     query = db.query(User)
+
+    normalized_role = str(role or "").strip().lower()
+    if normalized_role in {"user", "admin"}:
+        query = query.filter(User.role == normalized_role)
     
     if search:
         query = query.filter(User.username.ilike(f"%{search}%"))
@@ -287,8 +319,12 @@ def list_users(
                 "total_footprints": db.query(func.count(Footprint.id)).filter(Footprint.user_id == u.id).scalar() or 0,
                 "total_locations_visited": db.query(func.count(func.distinct(Footprint.location_id))).filter(Footprint.user_id == u.id).scalar() or 0,
                 "last_checkin": (
-                    db.query(desc(Footprint.check_in_time)).filter(Footprint.user_id == u.id).first()
-                )
+                    db.query(func.max(Footprint.check_in_time)).filter(Footprint.user_id == u.id).scalar()
+                ),
+                "checkins_last_7_days": db.query(func.count(Footprint.id)).filter(
+                    Footprint.user_id == u.id,
+                    Footprint.check_in_time >= datetime.utcnow() - timedelta(days=7),
+                ).scalar() or 0,
             }
             for u in users
         ],
@@ -302,7 +338,12 @@ def get_user_detail(user_id: int, db: Session = Depends(get_db)):
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    footprints = db.query(Footprint).filter(Footprint.user_id == user_id).all()
+    footprints = (
+        db.query(Footprint)
+        .filter(Footprint.user_id == user_id)
+        .order_by(desc(Footprint.check_in_time))
+        .all()
+    )
     locations_visited = db.query(func.count(func.distinct(Footprint.location_id))).filter(
         Footprint.user_id == user_id
     ).scalar() or 0
@@ -319,10 +360,19 @@ def get_user_detail(user_id: int, db: Session = Depends(get_db)):
         "total_footprints": len(footprints),
         "total_locations_visited": locations_visited,
         "last_checkin": last_checkin_record.check_in_time.isoformat() if last_checkin_record else None,
+        "checkins_last_7_days": db.query(func.count(Footprint.id)).filter(
+            Footprint.user_id == user_id,
+            Footprint.check_in_time >= datetime.utcnow() - timedelta(days=7),
+        ).scalar() or 0,
+        "checkins_last_30_days": db.query(func.count(Footprint.id)).filter(
+            Footprint.user_id == user_id,
+            Footprint.check_in_time >= datetime.utcnow() - timedelta(days=30),
+        ).scalar() or 0,
         "footprints": [
             {
                 "id": fp.id,
                 "location_id": fp.location_id,
+                "location_name": (db.query(Location.name).filter(Location.id == fp.location_id).scalar() or ""),
                 "check_in_time": fp.check_in_time.isoformat(),
                 "gps_lat": fp.gps_lat,
                 "gps_lon": fp.gps_lon,
@@ -334,12 +384,78 @@ def get_user_detail(user_id: int, db: Session = Depends(get_db)):
     }
 
 
+@router.put("/users/{user_id}")
+def update_user(user_id: int, payload: AdminUserUpdateIn, db: Session = Depends(get_db), current_admin: User = Depends(get_current_user)):
+    """更新用户账号（角色）"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if payload.role is not None:
+        next_role = str(payload.role or "").strip().lower()
+        if next_role not in {"user", "admin"}:
+            raise HTTPException(status_code=400, detail="role must be user or admin")
+        if user.id == current_admin.id and next_role != "admin":
+            raise HTTPException(status_code=400, detail="不能将当前登录管理员降级")
+        user.role = next_role
+
+    db.commit()
+    db.refresh(user)
+    return {
+        "ok": True,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "role": user.role,
+            "created_at": user.created_at.isoformat(),
+        },
+    }
+
+
+@router.post("/users/{user_id}/reset-password")
+def reset_user_password(
+    user_id: int,
+    payload: AdminUserResetPasswordIn,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_user),
+):
+    """管理员重置游客密码。未传 new_password 时自动生成临时密码。"""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    if user.id == current_admin.id:
+        raise HTTPException(status_code=400, detail="不能重置当前登录管理员自己的密码")
+
+    raw_password = str(payload.new_password or "").strip()
+    if not raw_password:
+        raw_password = _build_temporary_password()
+
+    if len(raw_password) < 6 or len(raw_password) > 128:
+        raise HTTPException(status_code=400, detail="password length must be 6~128")
+
+    user.password_hash = get_password_hash(raw_password)
+    db.commit()
+    return {
+        "ok": True,
+        "user_id": user.id,
+        "username": user.username,
+        "temporary_password": raw_password,
+    }
+
+
 @router.delete("/users/{user_id}")
-def delete_user(user_id: int, db: Session = Depends(get_db)):
+def delete_user(user_id: int, db: Session = Depends(get_db), current_admin: User = Depends(get_current_user)):
     """删除用户和其关联的打卡记录"""
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
+
+    if user.id == current_admin.id:
+        raise HTTPException(status_code=400, detail="不能删除当前登录管理员")
+
+    if user.role == "admin":
+        raise HTTPException(status_code=400, detail="不能在游客管理中删除管理员账号")
     
     # 删除用户的打卡记录
     db.query(Footprint).filter(Footprint.user_id == user_id).delete()
@@ -662,3 +778,735 @@ def delete_footprint(footprint_id: int, db: Session = Depends(get_db)):
     db.commit()
     
     return {"ok": True, "message": "Footprint deleted"}
+
+
+def _generate_slug_from_name(name: str) -> str:
+    """从景点名称生成slug"""
+    # 简单的slug生成：转换为拼音或英文，用-连接
+    name = str(name or "").strip()
+    if not name:
+        return "location"
+    
+    # 移除特殊字符，保留中文、数字、字母
+    slug = re.sub(r'[^\w\u4e00-\u9fff]', '-', name)
+    slug = re.sub(r'-+', '-', slug).strip('-').lower()
+    
+    # 直接用中文拼音的首字母或英文
+    # 如果包含中文，则使用transliterate的简单方式
+    # 这里我们使用一个映射表
+    if any('\u4e00' <= c <= '\u9fff' for c in slug):
+        # 简化处理：直接转换为拼音缩写或代码
+        result = ""
+        for c in slug:
+            if '\u4e00' <= c <= '\u9fff':
+                # 中文字符 - 使用简单的pinyin近似
+                result += c  # 保留中文
+            elif c.isalnum() or c == '-':
+                result += c
+        slug = result
+    
+    if not slug or slug == '-':
+        slug = 'location'
+    
+    return slug[:50]  # 限制长度
+
+
+def _extract_json_candidates(raw_text: str) -> list[Any]:
+    text = str(raw_text or "").strip()
+    if not text:
+        return []
+
+    candidates: list[str] = [text]
+    fenced = re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", text, flags=re.IGNORECASE)
+    candidates.extend([item.strip() for item in fenced if item.strip()])
+
+    array_match = re.search(r"\[[\s\S]*\]", text)
+    if array_match:
+        candidates.append(array_match.group(0).strip())
+
+    # Attempt to wrap separated objects in an array if not present
+    if "{" in text and "}" in text and not array_match:
+        # find all separate JSON objects and wrap them properly
+        objects = re.findall(r"\{[\s\S]*?\}", text)
+        if objects:
+            candidates.append("[" + ",".join(objects) + "]")
+
+    object_match = re.search(r"\{[\s\S]*\}", text)
+    if object_match:
+        candidates.append(object_match.group(0).strip())
+
+    parsed_results: list[Any] = []
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+            parsed_results.append(parsed)
+        except Exception:
+            continue
+    return parsed_results
+
+
+def _split_text_for_ai(file_content: str, max_chars: int = 9000) -> list[str]:
+    text = str(file_content or "").strip()
+    if not text:
+        return []
+    if len(text) <= max_chars:
+        return [text]
+
+    parts = re.split(r"\n\s*\n+", text)
+    chunks: list[str] = []
+    current = ""
+    for part in parts:
+        block = part.strip()
+        if not block:
+            continue
+        candidate = f"{current}\n\n{block}".strip() if current else block
+        if len(candidate) <= max_chars:
+            current = candidate
+            continue
+
+        if current:
+            chunks.append(current)
+            current = ""
+
+        while len(block) > max_chars:
+            chunks.append(block[:max_chars])
+            block = block[max_chars:]
+        current = block
+
+    if current:
+        chunks.append(current)
+    return chunks
+
+
+def _split_dense_text_for_ai(file_content: str, max_chars: int = 1800, min_chunk_chars: int = 300) -> list[str]:
+    """针对连续长文（缺少空行）进行二次切分，提升多景点识别率。"""
+    text = str(file_content or "").strip()
+    if not text:
+        return []
+    if len(text) <= max_chars:
+        return [text]
+
+    # 先按常见句读切分，再按长度聚合。
+    units = [u.strip() for u in re.split(r"[。！？!?；;\n]+", text) if u.strip()]
+    if not units:
+        return _split_text_for_ai(text, max_chars=max_chars)
+
+    chunks: list[str] = []
+    current = ""
+    for unit in units:
+        candidate = f"{current}。{unit}" if current else unit
+        if len(candidate) <= max_chars:
+            current = candidate
+            continue
+
+        if current:
+            chunks.append(current)
+        current = unit
+
+        # 单句过长时硬切，避免整段被截断遗漏。
+        while len(current) > max_chars:
+            chunks.append(current[:max_chars])
+            current = current[max_chars:]
+
+    if current:
+        chunks.append(current)
+
+    # 过短片段向前合并，避免上下文不足导致抽取不稳定。
+    merged: list[str] = []
+    for chunk in chunks:
+        if merged and len(chunk) < min_chunk_chars and len(merged[-1]) + len(chunk) + 1 <= max_chars:
+            merged[-1] = f"{merged[-1]}。{chunk}"
+        else:
+            merged.append(chunk)
+    return merged
+
+
+def _guess_category_from_text(*values: str) -> str:
+    text = " ".join([str(v or "") for v in values]).lower()
+    nature_keywords = [
+        "湖", "山", "岛", "峡谷", "瀑布", "湿地", "森林", "草海", "自然", "日出", "日落", "徒步", "风景", "shore", "lake", "mountain", "island", "nature", "scenic",
+    ]
+    culture_keywords = [
+        "文化", "博物馆", "古镇", "寺", "庙", "遗址", "历史", "民俗", "非遗", "摩梭", "展览", "人文", "architecture", "museum", "culture", "history", "heritage", "temple",
+    ]
+    nature_score = sum(1 for kw in nature_keywords if kw in text)
+    culture_score = sum(1 for kw in culture_keywords if kw in text)
+    return "nature" if nature_score > culture_score else "culture"
+
+
+def _normalize_ai_location_item(item: Any) -> dict | None:
+    if not isinstance(item, dict):
+        return None
+
+    name = str(item.get("name") or "").strip()
+    if not name:
+        return None
+
+    description = str(item.get("description") or name).strip()
+    introduction = str(item.get("introduction") or description).strip()
+    tags = item.get("tags") if isinstance(item.get("tags"), list) else []
+    highlights = item.get("highlights") if isinstance(item.get("highlights"), list) else []
+
+    category_raw = str(item.get("category") or "").strip().lower()
+    if category_raw not in {"nature", "culture"}:
+        category_raw = _guess_category_from_text(name, description, introduction, " ".join([str(t) for t in tags]))
+
+    try:
+        latitude = float(item.get("latitude"))
+    except Exception:
+        latitude = 27.7248
+
+    try:
+        longitude = float(item.get("longitude"))
+    except Exception:
+        longitude = 100.7752
+
+    return {
+        "name": name,
+        "slug": str(item.get("slug") or _generate_slug_from_name(name)).strip() or _generate_slug_from_name(name),
+        "category": category_raw,
+        "latitude": latitude,
+        "longitude": longitude,
+        "description": description,
+        "introduction": introduction,
+        "highlights": [str(x).strip() for x in highlights if str(x).strip()][:5],
+        "bestSeasonToVisit": str(item.get("bestSeasonToVisit") or "全年").strip() or "全年",
+        "recommendedDuration": str(item.get("recommendedDuration") or "1-2天").strip() or "1-2天",
+        "accommodationTips": str(item.get("accommodationTips") or "").strip(),
+        "province": str(item.get("province") or "").strip(),
+        "city": str(item.get("city") or "").strip(),
+        "district": str(item.get("district") or "").strip(),
+        "address": str(item.get("address") or name).strip(),
+        "ticketPrice": int(item.get("ticketPrice") or 0),
+        "tags": [str(x).strip() for x in tags if str(x).strip()][:8],
+    }
+
+
+def _call_dashscope_for_locations(chunk_text: str, known_names: list[str]) -> list[dict]:
+    if not settings.dashscope_api_key:
+        return []
+
+    prompt = (
+        "你是旅游数据结构化助手。请从输入文本中识别全部景点，可能有多个，必须完整提取。\n"
+        "输出只能是 JSON 数组，不要 markdown、不要解释。\n"
+        "每项包含必须字段：name, slug, category(nature/culture), latitude, longitude, description, introduction, highlights, "
+        "bestSeasonToVisit, recommendedDuration, accommodationTips, province, city, district, address, ticketPrice, tags。\n"
+        "非常重要：不能只提取部分内容！若坐标、地址、交通、推荐时长、高亮点等某些字段在文本中缺失，请根据你的知识库常识自动补全（默认泸沽湖周边等），绝不可留空、写未知或省略该字段。\n"
+        f"已识别过的景点名（避免重复）: {json.dumps(known_names, ensure_ascii=False)}。\n"
+        "输入文本：\n"
+        f"{chunk_text}"
+    )
+
+    request_payload = {
+        "model": settings.dashscope_model,
+        "input": {
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [{"text": prompt}],
+                }
+            ]
+        },
+        "parameters": {"result_format": "message"},
+    }
+
+    for _ in range(2):
+        try:
+            resp = requests.post(
+                "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation",
+                headers={
+                    "Authorization": f"Bearer {settings.dashscope_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=request_payload,
+                timeout=60,
+            )
+            resp.raise_for_status()
+            payload = resp.json()
+            text = (
+                payload.get("output", {})
+                .get("choices", [{}])[0]
+                .get("message", {})
+                .get("content", "")
+            )
+
+            normalized: list[dict] = []
+            for parsed in _extract_json_candidates(text):
+                if isinstance(parsed, dict):
+                    parsed = [parsed]
+                if not isinstance(parsed, list):
+                    continue
+                for item in parsed:
+                    normalized_item = _normalize_ai_location_item(item)
+                    if normalized_item:
+                        normalized.append(normalized_item)
+                if normalized:
+                    return normalized
+            continue
+        except Exception as exc:
+            error_code = ""
+            error_message = ""
+            if isinstance(exc, requests.HTTPError) and exc.response is not None:
+                try:
+                    err = exc.response.json()
+                    if isinstance(err, dict):
+                        error_code = str(err.get("code") or "")
+                        error_message = str(err.get("message") or "")
+                except Exception:
+                    pass
+
+            if (
+                error_code == "InvalidParameter"
+                and "url error" in error_message.lower()
+                and request_payload.get("model") != "qwen-plus"
+            ):
+                request_payload["model"] = "qwen-plus"
+                continue
+
+            logger.error("DashScope 景点抽取失败: %s", exc)
+            return []
+
+    return []
+
+
+def _parse_locations_from_file_with_ai(file_content: str) -> list[dict]:
+    """使用AI解析文件内容并提取景点信息"""
+
+    try:
+        chunks = _split_text_for_ai(file_content)
+        if not chunks:
+            return []
+
+        merged: list[dict] = []
+        seen_names: set[str] = set()
+
+        def _merge_items(items: list[dict]) -> None:
+            for item in items:
+                normalized = _normalize_ai_location_item(item)
+                if not normalized:
+                    continue
+                name_key = normalized["name"].strip().lower()
+                if not name_key or name_key in seen_names:
+                    continue
+                seen_names.add(name_key)
+                merged.append(normalized)
+
+        for chunk in chunks:
+            extracted = _call_dashscope_for_locations(chunk, sorted(seen_names))
+            _merge_items(extracted)
+
+            # 若大块只抽到 0/1 个，通常是模型漏提，执行细粒度二次抽取。
+            if len(extracted) <= 1 and len(chunk) > 600:
+                sub_chunks = _split_dense_text_for_ai(chunk)
+                if len(sub_chunks) > 1:
+                    for sub_chunk in sub_chunks:
+                        sub_extracted = _call_dashscope_for_locations(sub_chunk, sorted(seen_names))
+                        _merge_items(sub_extracted)
+
+        return merged
+    except Exception as e:
+        logger.error(f"AI解析文件失败: {e}")
+        return []
+
+
+def _clean_location_name(raw_name: str) -> str:
+    name = re.sub(r"\s+", " ", str(raw_name or "").strip())
+    name = re.sub(r"^[\-\*•#\d\s\.、\)\(]+", "", name)
+    name = re.sub(r"[：:].*$", "", name).strip()
+    return name
+
+
+def _extract_candidate_location_names_from_text(file_text: str, max_count: int = 50) -> list[str]:
+    text = str(file_text or "")
+    if not text.strip():
+        return []
+
+    stop_words = {
+        "景点", "景点介绍", "景点列表", "路线", "行程", "交通", "住宿", "美食", "注意事项", "总结", "推荐", "参考", "目录"
+    }
+    candidates: list[str] = []
+
+    patterns = [
+        r"(?m)^\s*#{1,6}\s*([^\n#]{2,40})$",
+        r"(?m)^\s*(?:\d+[\.|、|\)]|[一二三四五六七八九十]+[、\.])\s*([^\n]{2,40})$",
+        r"(?m)^\s*(?:[-*•])\s*([^\n]{2,40})$",
+        r"(?m)^\s*【([^】]{2,40})】\s*$",
+    ]
+
+    for pattern in patterns:
+        for match in re.findall(pattern, text):
+            name = _clean_location_name(match)
+            if len(name) < 2 or len(name) > 30:
+                continue
+            if name in stop_words:
+                continue
+            if any(token in name for token in ["http://", "https://", "@", "。", "；", ","]):
+                continue
+            candidates.append(name)
+
+    # 当文本是“景点A、景点B、景点C”这类逗号分隔写法时，补充一次行内提取。
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or len(line) > 120:
+            continue
+        if "、" not in line:
+            continue
+        parts = [p.strip() for p in re.split(r"[、/|,，]", line) if p.strip()]
+        if 2 <= len(parts) <= 8:
+            for part in parts:
+                name = _clean_location_name(part)
+                if 2 <= len(name) <= 20 and name not in stop_words:
+                    candidates.append(name)
+
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for name in candidates:
+        key = name.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(name)
+        if len(deduped) >= max_count:
+            break
+    return deduped
+
+
+def _build_locations_from_text_fallback(file_text: str, file_name: str = "") -> list[dict]:
+    names = _extract_candidate_location_names_from_text(file_text)
+    if not names:
+        return []
+
+    base_text = str(file_text or "")
+    items: list[dict] = []
+    for name in names:
+        snippet = ""
+        idx = base_text.find(name)
+        if idx >= 0:
+            start = max(0, idx - 80)
+            end = min(len(base_text), idx + 220)
+            snippet = re.sub(r"\s+", " ", base_text[start:end]).strip()
+
+        description = snippet or f"从文件 {file_name or '未知文件'} 识别到景点：{name}"
+        category = _guess_category_from_text(name, description)
+        items.append(
+            {
+                "name": name,
+                "slug": _generate_slug_from_name(name),
+                "category": category,
+                "latitude": 27.7248,
+                "longitude": 100.7752,
+                "description": description,
+                "introduction": description,
+                "highlights": ["由文本规则识别，建议后续补充详情"],
+                "bestSeasonToVisit": "全年",
+                "recommendedDuration": "1-2小时",
+                "accommodationTips": "建议根据行程选择周边住宿",
+                "province": "云南省",
+                "city": "丽江市",
+                "district": "宁蒗县",
+                "address": name,
+                "ticketPrice": 0,
+                "tags": ["文件导入", "规则识别"],
+            }
+        )
+    return items
+
+def _generate_next_location_id(db: Session, offset: int = 0) -> int:
+    """生成下一个景点ID"""
+    db_max_id = db.query(func.max(Location.id)).scalar() or 0
+
+    kb_max_id = 0
+    index_path = KB_PATH / "locations" / "index.json"
+    if index_path.exists():
+        try:
+            with index_path.open("r", encoding="utf-8") as f:
+                index_data = json.load(f)
+            entries = index_data.get("locations", []) if isinstance(index_data, dict) else []
+            for item in entries:
+                try:
+                    kb_max_id = max(kb_max_id, int((item or {}).get("id") or 0))
+                except Exception:
+                    continue
+        except Exception:
+            pass
+
+    return max(db_max_id, kb_max_id) + 1 + offset
+
+
+def _write_location_to_kb(location_data: dict, db: Session, extracted_images: list[bytes] | None = None, offset: int = 0) -> tuple[bool, str]:
+    """将景点信息写入知识库"""
+    try:
+        name = location_data.get("name", "").strip()
+        if not name:
+            return False, "景点名称不能为空"
+        
+        # 生成ID和slug
+        next_id = _generate_next_location_id(db, offset)
+        slug = location_data.get("slug", _generate_slug_from_name(name))
+        
+        # 创建景点目录
+        location_dir = KB_PATH / "locations" / slug
+        location_dir.mkdir(parents=True, exist_ok=True)
+
+        # 创建/复用 images 目录，尽量保留既有图片
+        images_dir = location_dir / "images"
+        images_dir.mkdir(exist_ok=True)
+
+        # 将 PDF 抽取到的图片导入为 webp，按内容哈希去重
+        imported_image_count = 0
+        for image_bytes in extracted_images or []:
+            try:
+                with Image.open(io.BytesIO(image_bytes)) as source_image:
+                    normalized = source_image.convert("RGB")
+                    image_buffer = io.BytesIO()
+                    normalized.save(image_buffer, format="WEBP", quality=90)
+                normalized_bytes = image_buffer.getvalue()
+            except Exception:
+                continue
+
+            digest = hashlib.sha1(normalized_bytes).hexdigest()[:16]
+            image_name = f"imported-{digest}.webp"
+            image_path = images_dir / image_name
+            if image_path.exists():
+                continue
+
+            with image_path.open("wb") as image_file:
+                image_file.write(normalized_bytes)
+            imported_image_count += 1
+
+        image_files = sorted(
+            [
+                p.name
+                for p in images_dir.iterdir()
+                if p.is_file() and p.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp"}
+            ]
+        )
+        
+        # 生成完整的景点信息JSON
+        info_json = {
+            "id": next_id,
+            "name": name,
+            "slug": slug,
+            "category": _normalize_category(location_data.get("category", "culture")),
+            "latitude": float(location_data.get("latitude", 0)),
+            "longitude": float(location_data.get("longitude", 0)),
+            "description": location_data.get("description", name),
+            "details": {
+                "introduction": location_data.get("introduction", location_data.get("description", name)),
+                "highlights": location_data.get("highlights", []),
+                "bestSeasonToVisit": location_data.get("bestSeasonToVisit", "全年"),
+                "recommendedDuration": location_data.get("recommendedDuration", "1-2天"),
+                "accommodationTips": location_data.get("accommodationTips", ""),
+            },
+            "sections": {
+                "highlightsTitle": "景点亮点",
+                "galleryTitle": "景点图片",
+                "visitInfoTitle": "游览信息",
+                "locationTitle": "位置信息",
+                "transportationTitle": "交通方式",
+                "facilitiesTitle": "设施服务",
+                "ticketTitle": "票价信息"
+            },
+            "location": {
+                "province": location_data.get("province", ""),
+                "city": location_data.get("city", ""),
+                "district": location_data.get("district", ""),
+                "address": location_data.get("address", name),
+            },
+            "transportation": {
+                "byAir": "",
+                "byTrain": "",
+                "byBus": "",
+            },
+            "facilities": {
+                "parking": True,
+                "restroom": True,
+                "foodAndDrink": True,
+                "accommodation": True,
+                "medicalService": False,
+            },
+            "ticketInfo": {
+                "price": int(location_data.get("ticketPrice", 0)),
+                "currency": "CNY",
+                "validDays": 1,
+                "remark": "票价可能根据季节或政策调整"
+            },
+            "contact": {
+                "phone": "",
+                "website": ""
+            },
+            "tags": location_data.get("tags", []),
+            "images": {
+                "count": len(image_files),
+                "basePath": "images/",
+                "files": image_files
+            },
+            "audioUrl": "",
+            "lastUpdated": datetime.now().strftime("%Y-%m-%d")
+        }
+        
+        # 写入info.json
+        info_path = location_dir / "info.json"
+        with info_path.open("w", encoding="utf-8") as f:
+            json.dump(info_json, f, ensure_ascii=False, indent=2)
+        
+        # 更新locations/index.json
+        index_path = KB_PATH / "locations" / "index.json"
+        try:
+            with index_path.open("r", encoding="utf-8") as f:
+                index_data = json.load(f)
+        except Exception:
+            index_data = {"version": "1.0.0", "locations": []}
+        
+        # 检查是否已存在
+        if not any(item.get("slug") == slug for item in index_data.get("locations", [])):
+            if "locations" not in index_data:
+                index_data["locations"] = []
+            index_data["locations"].append({
+                "slug": slug,
+                "id": next_id,
+                "name": name
+            })
+        
+        index_data["lastUpdated"] = datetime.now().strftime("%Y-%m-%d")
+        
+        with index_path.open("w", encoding="utf-8") as f:
+            json.dump(index_data, f, ensure_ascii=False, indent=2)
+        
+        if imported_image_count > 0:
+            return True, f"景点 '{name}' (ID: {next_id}) 已添加到知识库，并导入 {imported_image_count} 张图片"
+        return True, f"景点 '{name}' (ID: {next_id}) 已添加到知识库"
+        
+    except Exception as e:
+        if isinstance(e, OSError) and getattr(e, "errno", None) == errno.EROFS:
+            logger.error("写入知识库失败（只读文件系统）: %s", e)
+            return False, "写入知识库失败：knowledge-base 当前为只读挂载，请将后端容器的 /knowledge-base 挂载改为可写"
+        logger.error(f"写入知识库失败: {e}")
+        return False, f"写入知识库失败: {str(e)}"
+
+
+def _extract_text_and_images_from_pdf(file_bytes: bytes) -> tuple[str, list[bytes]]:
+    """从 PDF 文件中提取文本和内嵌图片"""
+    try:
+        pdf_reader = PyPDF2.PdfReader(io.BytesIO(file_bytes))
+        text_parts = []
+        image_parts: list[bytes] = []
+        seen_hashes: set[str] = set()
+
+        for page_num in range(len(pdf_reader.pages)):
+            page = pdf_reader.pages[page_num]
+            text = page.extract_text()
+            if text:
+                text_parts.append(text)
+
+            page_images = getattr(page, "images", None) or []
+            for image_file in page_images:
+                raw_image_bytes = getattr(image_file, "data", None)
+                if not raw_image_bytes:
+                    continue
+
+                image_hash = hashlib.sha1(raw_image_bytes).hexdigest()
+                if image_hash in seen_hashes:
+                    continue
+                seen_hashes.add(image_hash)
+                image_parts.append(raw_image_bytes)
+
+        return "\n".join(text_parts), image_parts
+    except Exception as e:
+        logger.error(f"PDF 内容提取失败: {e}")
+        return "", []
+
+@router.post("/locations/import-from-file")
+async def import_locations_from_file(
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db)
+):
+    """
+    上传文件并使用AI自动解析并生成景点信息写入知识库
+    
+    支持文本格式：txt, md, pdf等
+    返回：生成的景点列表和结果
+    """
+    try:
+        # 读取文件内容
+        content = await file.read()
+        extracted_images: list[bytes] = []
+        # 根据文件类型提取文本
+        file_name = file.filename or ""
+        if file_name.lower().endswith(".pdf"):
+            # PDF 文件处理（文本 + 内嵌图片）
+            file_text, extracted_images = _extract_text_and_images_from_pdf(content)
+            # 图片型PDF可能没有可提取文本：只要图片存在也允许继续导入流程。
+            if not file_text.strip() and not extracted_images:
+                raise HTTPException(status_code=400, detail="PDF 文件无法提取文本，请确保是有效的 PDF 文件")
+        else:
+            # 文本文件处理
+            try:
+                file_text = content.decode("utf-8")
+            except UnicodeDecodeError:
+                file_text = content.decode("gbk", errors="ignore")
+
+        if not file_text.strip() and not extracted_images:
+            raise HTTPException(status_code=400, detail="文件内容为空")
+        
+        # 使用AI解析文件
+        locations = _parse_locations_from_file_with_ai(file_text)
+
+        # AI失败时，使用规则兜底提取多个景点名称，避免“0个导入”。
+        if not locations and file_text.strip():
+            locations = _build_locations_from_text_fallback(file_text, file_name=file_name)
+
+        # 图片型PDF若无法解析出结构化景点，回退为最小可用景点，确保图片可入库。
+        if not locations and extracted_images:
+            fallback_name = (Path(file_name).stem or "景点").strip()[:40] or "景点"
+            locations = [
+                {
+                    "name": fallback_name,
+                    "slug": _generate_slug_from_name(fallback_name),
+                    "category": "culture",
+                    "latitude": 27.7248,
+                    "longitude": 100.7752,
+                    "description": f"从文件 {file_name or '未知文件'} 导入的图文资料",
+                    "introduction": "该景点由管理员上传文件自动创建，建议后续在管理后台补充完整信息。",
+                    "highlights": ["图片资料已导入"],
+                    "bestSeasonToVisit": "全年",
+                    "recommendedDuration": "1-2小时",
+                    "accommodationTips": "建议根据行程选择周边住宿",
+                    "province": "云南省",
+                    "city": "丽江市",
+                    "district": "宁蒗县",
+                    "address": "待补充",
+                    "ticketPrice": 0,
+                    "tags": ["文件导入"],
+                }
+            ]
+
+        if not locations:
+            raise HTTPException(
+                status_code=400,
+                detail="未能从文件中提取到景点信息，请确保文件包含可识别的景点名称（可使用标题/编号列表）"
+            )
+        
+        # 逐个写入知识库
+        results = []
+        for i, location_data in enumerate(locations):
+            success, message = _write_location_to_kb(location_data, db, extracted_images=extracted_images, offset=i)
+            results.append({
+                "name": location_data.get("name"),
+                "success": success,
+                "message": message
+            })
+        
+        db.commit()
+        
+        return {
+            "ok": True,
+            "total": len(locations),
+            "results": results
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"文件导入失败: {e}")
+        raise HTTPException(status_code=500, detail=f"文件导入失败: {str(e)}")

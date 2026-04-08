@@ -79,3 +79,11 @@ class UserDetailOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class AdminUserUpdateIn(BaseModel):
+    role: Optional[str] = None
+
+
+class AdminUserResetPasswordIn(BaseModel):
+    new_password: Optional[str] = None
