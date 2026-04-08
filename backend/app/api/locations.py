@@ -16,10 +16,21 @@ from app.schemas.location import LocationCreate, LocationOut, LocationUpdate
 router = APIRouter(prefix="/api/locations", tags=["locations"])
 admin_router = APIRouter(prefix="/api/admin/locations", tags=["admin-locations"])
 
+def _resolve_kb_path() -> Path:
+    """Resolve knowledge-base path for docker and local deployments."""
+    candidates = [
+        Path("/knowledge-base"),
+        Path("/app/knowledge-base"),
+        Path(__file__).resolve().parents[3] / "knowledge-base",
+    ]
+    for path in candidates:
+        if path.exists() and path.is_dir():
+            return path
+    return candidates[0]
+
+
 # 知识库路径配置
-KB_PATH = Path("/app/knowledge-base")  # Docker 环境
-if not KB_PATH.exists():
-    KB_PATH = Path(__file__).resolve().parents[3] / "knowledge-base"  # 本地开发环境
+KB_PATH = _resolve_kb_path()
 
 
 def _normalize_category(raw_value: str) -> str:
@@ -254,10 +265,34 @@ def get_knowledge_base_location(slug: str):
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=f"Invalid JSON in knowledge base location: {slug}"
         )
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error loading knowledge base location: {str(e)}"
+        )
+
+
+@router.get("/knowledge-base/index")
+def get_knowledge_base_locations_index():
+    """Return knowledge-base locations index for frontend fallback in deployment."""
+    index_path = KB_PATH / "locations" / "index.json"
+    if not index_path.exists():
+        return {"version": "1.0.0", "locations": []}
+
+    try:
+        with index_path.open("r", encoding="utf-8") as f:
+            data = json.load(f)
+        if not isinstance(data, dict):
+            return {"version": "1.0.0", "locations": []}
+        if not isinstance(data.get("locations"), list):
+            data["locations"] = []
+        return data
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error loading knowledge base index: {str(e)}",
         )
 
 

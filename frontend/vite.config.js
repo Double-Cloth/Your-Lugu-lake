@@ -65,7 +65,14 @@ export default defineConfig({
   server: {
     host: '0.0.0.0', // 显式设置为 0.0.0.0 确保 Docker 外可访问
     port: 5173,
-    allowedHosts: ['your-lugu-lake.duckdns.org', '.duckdns.org', 'localhost', '127.0.0.1'],
+    allowedHosts: [
+      'your-lugu-lake.online',
+      'www.your-lugu-lake.online',
+      'your-lugu-lake.duckdns.org',
+      '.duckdns.org',
+      'localhost',
+      '127.0.0.1'
+    ],
     strictPort: false,
     proxy: {
       '/api': {

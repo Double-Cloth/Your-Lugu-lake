@@ -186,11 +186,13 @@ export async function fetchLocationById(id) {
 export async function fetchKnowledgeBaseLocationBySlug(slug) {
   try {
     const response = await fetch(`/knowledge-base/locations/${slug}/info.json`);
-    if (!response.ok) return null;
+    if (!response.ok) {
+      return await fetchKnowledgeBaseLocationFromAPI(slug);
+    }
     return await response.json();
   } catch (error) {
-    console.warn(`Failed to load knowledge base location: ${slug}`, error);
-    return null;
+    console.warn(`Failed to load knowledge base location (static): ${slug}`, error);
+    return await fetchKnowledgeBaseLocationFromAPI(slug);
   }
 }
 
@@ -282,9 +284,20 @@ export async function fetchKnowledgeBaseCommonPage(pageSlug) {
 export async function fetchKnowledgeBaseLocationsIndex() {
   try {
     const response = await fetch("/knowledge-base/locations/index.json");
-    if (!response.ok) return [];
+    let indexJson = null;
 
-    const indexJson = await response.json();
+    if (response.ok) {
+      indexJson = await response.json();
+    } else {
+      try {
+        const { data } = await api.get("/api/locations/knowledge-base/index");
+        indexJson = data;
+      } catch (apiError) {
+        console.warn("Failed to load locations index from API fallback", apiError);
+        return [];
+      }
+    }
+
     const entries = Array.isArray(indexJson?.locations) ? indexJson.locations : [];
     if (entries.length === 0) return [];
 
@@ -302,8 +315,25 @@ export async function fetchKnowledgeBaseLocationsIndex() {
     if (valid.length > 0) return valid;
     return [];
   } catch (error) {
-    console.warn("Failed to load locations index", error);
-    return [];
+    console.warn("Failed to load locations index (static)", error);
+    try {
+      const { data } = await api.get("/api/locations/knowledge-base/index");
+      const entries = Array.isArray(data?.locations) ? data.locations : [];
+      if (entries.length === 0) return [];
+      const loadedFromApiIndex = await Promise.all(
+        entries.map(async (entry) => {
+          const slug = typeof entry?.slug === "string" ? entry.slug : "";
+          if (!slug) return null;
+          const item = await fetchKnowledgeBaseLocationFromAPI(slug);
+          if (!item) return null;
+          return { ...item, slug };
+        })
+      );
+      return loadedFromApiIndex.filter(Boolean);
+    } catch (apiError) {
+      console.warn("Failed to load locations index from API", apiError);
+      return [];
+    }
   }
 }
 
@@ -316,14 +346,26 @@ async function resolveKbSlugById(idOrSlug) {
   if (!Number.isFinite(idNum)) return null;
 
   try {
+    let indexJson = null;
     const response = await fetch("/knowledge-base/locations/index.json");
-    if (!response.ok) return null;
-    const indexJson = await response.json();
+    if (response.ok) {
+      indexJson = await response.json();
+    } else {
+      const { data } = await api.get("/api/locations/knowledge-base/index");
+      indexJson = data;
+    }
     const entries = Array.isArray(indexJson?.locations) ? indexJson.locations : [];
     const hit = entries.find((entry) => Number(entry?.id) === idNum);
     return typeof hit?.slug === "string" ? hit.slug : null;
   } catch {
-    return null;
+    try {
+      const { data } = await api.get("/api/locations/knowledge-base/index");
+      const entries = Array.isArray(data?.locations) ? data.locations : [];
+      const hit = entries.find((entry) => Number(entry?.id) === idNum);
+      return typeof hit?.slug === "string" ? hit.slug : null;
+    } catch {
+      return null;
+    }
   }
 }
 
@@ -620,9 +662,13 @@ export async function downloadQrcodeZip(token) {
 }
 
 // ==================== 游客管理 ====================
-export async function fetchAdminUsers(token, page = 1, perPage = 20, search = "") {
+export async function fetchAdminUsers(token, page = 1, perPage = 20, search = "", role = "") {
+  const params = { page, per_page: perPage, search };
+  if (role) {
+    params.role = role;
+  }
   const { data } = await api.get("/api/admin/users", {
-    params: { page, per_page: perPage, search },
+    params,
     headers: authHeader(token),
   });
   return data;

@@ -290,7 +290,7 @@ def list_users(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
     search: str = Query(""),
-    role: str = Query("user"),
+    role: str = Query(""),
     db: Session = Depends(get_db),
 ):
     """获取游客列表（分页、搜索）"""

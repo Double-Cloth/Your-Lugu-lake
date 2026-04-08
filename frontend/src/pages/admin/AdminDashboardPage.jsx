@@ -82,6 +82,8 @@ function getOsmTileY(lat, zoom) {
   return Math.floor((1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * Math.pow(2, zoom));
 }
 
+const LOCATION_FILTER_STORAGE_KEY = "admin_location_filters_v1";
+
 export default function AdminDashboardPage() {
   const [stats, setStats] = useState(null);
   const [locations, setLocations] = useState([]);
@@ -91,6 +93,12 @@ export default function AdminDashboardPage() {
   const [activeTab, setActiveTab] = useState("overview");
   const [users, setUsers] = useState([]);
   const [userSearch, setUserSearch] = useState("");
+  const [userRoleFilter, setUserRoleFilter] = useState("");
+  const [locationSearch, setLocationSearch] = useState("");
+  const [locationCategoryFilter, setLocationCategoryFilter] = useState("");
+  const [locationStatusFilter, setLocationStatusFilter] = useState("all");
+  const [locationQrFilter, setLocationQrFilter] = useState("all");
+  const [locationSortBy, setLocationSortBy] = useState("name-asc");
   const [userDetailVisible, setUserDetailVisible] = useState(false);
   const [selectedUserDetail, setSelectedUserDetail] = useState(null);
   const [selectedUserForOps, setSelectedUserForOps] = useState(null);
@@ -167,7 +175,7 @@ export default function AdminDashboardPage() {
         fetchAdminStats(token),
         fetchLocations(),
         fetchKnowledgeBaseLocationsIndex(),
-        fetchAdminUsers(token),
+        fetchAdminUsers(token, 1, 50, userSearch, userRoleFilter),
         fetchAdminFootprints(token),
         fetchFootprintStats(token),
         fetchAdminQrcodes(token),
@@ -194,7 +202,7 @@ export default function AdminDashboardPage() {
   }
 
   async function reloadUsers(token) {
-    const userRes = await fetchAdminUsers(token, 1, 50, userSearch);
+    const userRes = await fetchAdminUsers(token, 1, 50, userSearch, userRoleFilter);
     setUsers(userRes?.data || []);
   }
 
@@ -208,10 +216,52 @@ export default function AdminDashboardPage() {
     loadDashboard(token);
   }, [navigate]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.localStorage.getItem(LOCATION_FILTER_STORAGE_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      if (typeof saved?.locationSearch === "string") setLocationSearch(saved.locationSearch);
+      if (typeof saved?.locationCategoryFilter === "string") setLocationCategoryFilter(saved.locationCategoryFilter);
+      if (typeof saved?.locationStatusFilter === "string") setLocationStatusFilter(saved.locationStatusFilter);
+      if (typeof saved?.locationQrFilter === "string") setLocationQrFilter(saved.locationQrFilter);
+      if (typeof saved?.locationSortBy === "string") setLocationSortBy(saved.locationSortBy);
+    } catch {
+      // ignore invalid local cache
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const payload = {
+      locationSearch,
+      locationCategoryFilter,
+      locationStatusFilter,
+      locationQrFilter,
+      locationSortBy,
+    };
+    window.localStorage.setItem(LOCATION_FILTER_STORAGE_KEY, JSON.stringify(payload));
+  }, [locationSearch, locationCategoryFilter, locationStatusFilter, locationQrFilter, locationSortBy]);
+
+  useEffect(() => {
+    const token = getAdminToken();
+    if (!token) return;
+    void reloadUsers(token);
+  }, [userRoleFilter]);
+
   function logout() {
     void logoutSession().catch(() => null);
     clearAdminSession();
     navigate("/me", { replace: true });
+  }
+
+  function resetLocationFilters() {
+    setLocationSearch("");
+    setLocationCategoryFilter("");
+    setLocationStatusFilter("all");
+    setLocationQrFilter("all");
+    setLocationSortBy("name-asc");
   }
 
   async function handleSearchUsers() {
@@ -260,12 +310,22 @@ export default function AdminDashboardPage() {
   async function handleResetUserPassword(user) {
     const token = getAdminToken();
     if (!token) return;
+    const confirmText = newPasswordInput.trim()
+      ? `确认将用户 ${user.username} 的密码重置为你输入的新密码？`
+      : `确认重置用户 ${user.username} 的密码并自动生成临时密码？`;
+    if (!window.confirm(confirmText)) {
+      return;
+    }
     try {
       const payload = newPasswordInput.trim() ? { new_password: newPasswordInput.trim() } : {};
       const result = await resetAdminUserPassword(user.id, payload, token);
       setGeneratedPassword(result.temporary_password || "");
       setNewPasswordInput("");
-      Toast.show({ content: "密码已重置" });
+      const temporaryPassword = result?.temporary_password || "";
+      Toast.show({
+        content: temporaryPassword ? `密码已重置，临时密码：${temporaryPassword}` : "密码已重置",
+        duration: 3000,
+      });
     } catch (error) {
       Toast.show({ content: error?.response?.data?.detail || "重置密码失败" });
     }
@@ -274,6 +334,9 @@ export default function AdminDashboardPage() {
   async function handleDeleteUser(user) {
     const token = getAdminToken();
     if (!token) return;
+    if (!window.confirm(`确认删除用户 ${user.username} 吗？该操作会同时删除其全部打卡记录。`)) {
+      return;
+    }
     try {
       await deleteAdminUser(user.id, token);
       Toast.show({ content: "游客账号已删除" });
@@ -320,9 +383,14 @@ export default function AdminDashboardPage() {
   async function handleDeleteLocation(locationId, kbSlug = "") {
     const token = getAdminToken();
     if (!token) return;
+    const target = (displayLocations || []).find((loc) => Number(loc.id) === Number(locationId));
+    const displayName = target?.name || `#${locationId}`;
+    if (!window.confirm(`确认删除景点 ${displayName} 吗？该操作会同时删除二维码和打卡关联数据。`)) {
+      return;
+    }
     try {
       await deleteAdminLocation(locationId, token, kbSlug);
-      Toast.show({ content: "已删除" });
+      Toast.show({ content: `已删除景点：${displayName}` });
       await loadDashboard(token);
     } catch {
       Toast.show({ content: "删除失败" });
@@ -506,6 +574,62 @@ export default function AdminDashboardPage() {
     })
     : locations;
 
+  const normalizedLocationKeyword = locationSearch.trim().toLowerCase();
+  const filteredLocations = (Array.isArray(displayLocations) ? displayLocations : []).filter((loc) => {
+    if (locationCategoryFilter && String(loc.category || "") !== locationCategoryFilter) {
+      return false;
+    }
+
+    if (locationStatusFilter === "db-only" && !loc.id) {
+      return false;
+    }
+    if (locationStatusFilter === "kb-only" && loc.id) {
+      return false;
+    }
+
+    if (locationQrFilter === "with-qr" && !loc.qr_code_url) {
+      return false;
+    }
+    if (locationQrFilter === "without-qr" && !!loc.qr_code_url) {
+      return false;
+    }
+
+    if (!normalizedLocationKeyword) {
+      return true;
+    }
+
+    const haystacks = [
+      String(loc.name || "").toLowerCase(),
+      String(loc.slug || "").toLowerCase(),
+      String(loc.description || "").toLowerCase(),
+    ];
+    return haystacks.some((text) => text.includes(normalizedLocationKeyword));
+  });
+
+  const sortedFilteredLocations = [...filteredLocations].sort((a, b) => {
+    if (locationSortBy === "name-desc") {
+      return String(b.name || "").localeCompare(String(a.name || ""), "zh-CN");
+    }
+    if (locationSortBy === "id-asc") {
+      const aId = Number(a.id ?? a.kb_id ?? Number.MAX_SAFE_INTEGER);
+      const bId = Number(b.id ?? b.kb_id ?? Number.MAX_SAFE_INTEGER);
+      return aId - bId;
+    }
+    if (locationSortBy === "id-desc") {
+      const aId = Number(a.id ?? a.kb_id ?? -1);
+      const bId = Number(b.id ?? b.kb_id ?? -1);
+      return bId - aId;
+    }
+    return String(a.name || "").localeCompare(String(b.name || ""), "zh-CN");
+  });
+
+  const locationStats = {
+    total: (Array.isArray(displayLocations) ? displayLocations : []).length,
+    inDb: (Array.isArray(displayLocations) ? displayLocations : []).filter((item) => !!item.id).length,
+    kbOnly: (Array.isArray(displayLocations) ? displayLocations : []).filter((item) => !item.id).length,
+    withQr: (Array.isArray(displayLocations) ? displayLocations : []).filter((item) => !!item.qr_code_url).length,
+  };
+
   return (
     <div className="app-mobile-shell mobile-shell admin-dashboard">
       <div className="mobile-content page-fade-in">
@@ -567,6 +691,17 @@ export default function AdminDashboardPage() {
                 />
                 <Button size="small" onClick={handleSearchUsers}>搜索</Button>
               </div>
+              <div className="mb-3">
+                <Selector
+                  options={[
+                    { label: "全部角色", value: "" },
+                    { label: "游客", value: "user" },
+                    { label: "管理员", value: "admin" },
+                  ]}
+                  value={[userRoleFilter]}
+                  onChange={(arr) => setUserRoleFilter((arr && arr[0]) || "")}
+                />
+              </div>
               <h3>游客列表 ({users.length})</h3>
               {users.length === 0 ? (
                 <div className="text-center text-sm text-white/50 py-4">暂无游客</div>
@@ -588,6 +723,7 @@ export default function AdminDashboardPage() {
                       extra={
                         <div className="flex gap-1">
                           <Button size="mini" onClick={() => handleViewUserDetail(user)}>详情</Button>
+                          <Button size="mini" onClick={() => handleResetUserPassword(user)}>重置密码</Button>
                           <Button size="mini" onClick={() => handleToggleUserRole(user)}>改角色</Button>
                           <Button size="mini" color="danger" onClick={() => handleDeleteUser(user)}>删除</Button>
                         </div>
@@ -701,8 +837,82 @@ export default function AdminDashboardPage() {
                   <Button size="small" onClick={handleDownloadZip}>批量下载二维码</Button>
                 </div>
               </div>
+
+              <div className="grid grid-cols-2 gap-2 mb-3 text-xs">
+                <div className="rounded-xl border border-white/20 bg-white/5 p-2">总景点：{locationStats.total}</div>
+                <div className="rounded-xl border border-white/20 bg-white/5 p-2">已入库：{locationStats.inDb}</div>
+                <div className="rounded-xl border border-white/20 bg-white/5 p-2">仅知识库：{locationStats.kbOnly}</div>
+                <div className="rounded-xl border border-white/20 bg-white/5 p-2">已生成二维码：{locationStats.withQr}</div>
+              </div>
+
+              <div className="space-y-2 mb-3">
+                <Input
+                  value={locationSearch}
+                  onChange={setLocationSearch}
+                  placeholder="搜索景点名称/slug/描述"
+                  clearable
+                />
+                <div>
+                  <div className="text-xs text-white/60 mb-1">类别筛选</div>
+                  <Selector
+                    options={[
+                      { label: "全部", value: "" },
+                      { label: "人文", value: "culture" },
+                      { label: "自然", value: "nature" },
+                    ]}
+                    value={[locationCategoryFilter]}
+                    onChange={(arr) => setLocationCategoryFilter((arr && arr[0]) || "")}
+                  />
+                </div>
+                <div>
+                  <div className="text-xs text-white/60 mb-1">状态筛选</div>
+                  <Selector
+                    options={[
+                      { label: "全部", value: "all" },
+                      { label: "已入库", value: "db-only" },
+                      { label: "仅知识库", value: "kb-only" },
+                    ]}
+                    value={[locationStatusFilter]}
+                    onChange={(arr) => setLocationStatusFilter((arr && arr[0]) || "all")}
+                  />
+                </div>
+                <div>
+                  <div className="text-xs text-white/60 mb-1">二维码筛选</div>
+                  <Selector
+                    options={[
+                      { label: "全部", value: "all" },
+                      { label: "有二维码", value: "with-qr" },
+                      { label: "无二维码", value: "without-qr" },
+                    ]}
+                    value={[locationQrFilter]}
+                    onChange={(arr) => setLocationQrFilter((arr && arr[0]) || "all")}
+                  />
+                </div>
+                <div>
+                  <div className="text-xs text-white/60 mb-1">排序方式</div>
+                  <Selector
+                    options={[
+                      { label: "名称 A-Z", value: "name-asc" },
+                      { label: "名称 Z-A", value: "name-desc" },
+                      { label: "编号升序", value: "id-asc" },
+                      { label: "编号降序", value: "id-desc" },
+                    ]}
+                    value={[locationSortBy]}
+                    onChange={(arr) => setLocationSortBy((arr && arr[0]) || "name-asc")}
+                  />
+                </div>
+                <div className="flex justify-end">
+                  <Button size="small" fill="outline" onClick={resetLocationFilters}>清空筛选</Button>
+                </div>
+              </div>
+
+              <div className="text-xs text-white/60 mb-2">当前结果：{sortedFilteredLocations.length} 条</div>
               <div className="space-y-2">
-                {displayLocations.map((loc) => (
+                {sortedFilteredLocations.length === 0 ? (
+                  <div className="text-center text-sm text-white/50 py-6 border border-dashed border-white/20 rounded-xl">
+                    当前筛选条件下暂无景点
+                  </div>
+                ) : sortedFilteredLocations.map((loc) => (
                   <div key={`${loc.id ?? "kb"}-${loc.slug || loc.kb_id || loc.name || "unknown"}`} className="border rounded-xl p-3">
                     <div className="font-medium">{loc.name}</div>
                     <div className="text-xs text-white/50">{loc.category} | {loc.latitude}, {loc.longitude}</div>
