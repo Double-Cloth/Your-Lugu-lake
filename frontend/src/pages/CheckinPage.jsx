@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Card, ImageUploader, Input, Modal, Toast } from "antd-mobile";
-import { ImmersivePage, CardComponent, ButtonComponent, GlassInput } from "../components/SharedUI";
+import { Button, Toast, Modal, ImageUploader } from "antd-mobile";
+import { ImmersivePage, CardComponent, GlassInput } from "../components/SharedUI";
 import { Html5Qrcode } from "html5-qrcode";
-
-import { buildAssetUrl, createFootprint, fetchLocationById, getUserToken } from "../api";
+import { createFootprint, fetchLocationById, getUserToken, buildAssetUrl } from "../api";
+import LucideIcon from "../components/LucideIcon";
 
 function parseLocationIdFromText(text) {
   if (!text) return null;
@@ -18,28 +18,177 @@ function parseLocationIdFromText(text) {
   return null;
 }
 
+function isLocalhostLike(hostname) {
+  return ["localhost", "127.0.0.1", "::1"].includes(hostname);
+}
+
+function isHttpIpAccess() {
+  if (typeof window === "undefined") return false;
+  const hostname = window.location.hostname;
+  return window.location.protocol === "http:" && !isLocalhostLike(hostname) && /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
+}
+
+async function requestLocationPermission() {
+  if (!navigator.geolocation) {
+    Toast.show({ content: "当前设备不支持定位" });
+    return false;
+  }
+
+  if (typeof window !== "undefined" && !window.isSecureContext) {
+    Toast.show({ content: "通过服务器IP的HTTP访问无法使用定位，请改用HTTPS；IP + HTTPS 可正常使用" });
+    return false;
+  }
+
+  return new Promise((resolve) => {
+    navigator.geolocation.getCurrentPosition(
+      () => resolve(true),
+      (error) => {
+        if (error?.code === 1) {
+          Toast.show({ content: "请在浏览器弹窗中允许定位权限" });
+        } else {
+          Toast.show({ content: "定位权限请求失败，请稍后重试" });
+        }
+        resolve(false);
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 }
+    );
+  });
+}
+
+async function requestCameraPermission(onUnsupported) {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    onUnsupported?.();
+    Toast.show({ content: "当前设备不支持摄像头" });
+    return false;
+  }
+
+  if (typeof window !== "undefined" && !window.isSecureContext) {
+    onUnsupported?.();
+    Toast.show({ content: "通过服务器IP的HTTP访问无法使用摄像头，请改用HTTPS；IP + HTTPS 可正常使用" });
+    return false;
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: "environment" },
+    });
+    stream.getTracks().forEach((track) => track.stop());
+    return true;
+  } catch (error) {
+    if (error?.name === "NotAllowedError" || error?.name === "PermissionDeniedError") {
+      Toast.show({ content: "请在浏览器弹窗中允许摄像头权限" });
+    } else {
+      Toast.show({ content: "摄像头权限请求失败，请稍后重试" });
+    }
+    return false;
+  }
+}
+
 export default function CheckinPage() {
-  const canvasRef = useRef(null);
-  const scannerRef = useRef(null);
+  // 地图和定位相关
+  const mapRef = useRef(null);
+  const amapRef = useRef(null);
+  const polylineRef = useRef(null);
+  const markerRef = useRef(null);
   const watchIdRef = useRef(null);
+
+  // 二维码扫描相关
+  const scannerRef = useRef(null);
+
+  // 状态管理
+  const [tracking, setTracking] = useState(false);
+  const [trackPoints, setTrackPoints] = useState([]);
   const [scanLoading, setScanLoading] = useState(false);
   const [scanEnabled, setScanEnabled] = useState(false);
   const [scanModalVisible, setScanModalVisible] = useState(false);
-  const [tracking, setTracking] = useState(false);
-  const [trackPoints, setTrackPoints] = useState([]);
-  const [activeSpot, setActiveSpot] = useState(null);
+
+  // 表单数据
   const [locationId, setLocationId] = useState("");
-  const [moodText, setMoodText] = useState("");
+  const [activeSpot, setActiveSpot] = useState(null);
   const [gps, setGps] = useState({ lat: "", lon: "" });
+  const [moodText, setMoodText] = useState("");
   const [files, setFiles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
+  const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapError, setMapError] = useState("");
+  const [cameraSupported, setCameraSupported] = useState(true);
+  const ipHttpAccess = useMemo(() => isHttpIpAccess(), []);
 
+  // 计算是否可以提交
   const canSubmit = useMemo(() => {
     return Boolean(locationId && gps.lat && gps.lon);
   }, [locationId, gps.lat, gps.lon]);
 
+  // 初始化地图
   useEffect(() => {
+    let isMounted = true;
+    const aMapKey = import.meta.env.VITE_AMAP_KEY;
+    if (ipHttpAccess) {
+      setMapError("当前是服务器IP的HTTP访问，摄像头不可用，地图可能受高德白名单限制");
+    }
+    
+    // 如果没有配置Key，则跳过地图加载
+    if (!aMapKey) {
+      setMapLoaded(false);
+      setMapError("未配置高德地图 Key");
+      return;
+    }
+    
+    const loadAMap = async () => {
+      if (window.AMap) {
+        if (isMounted) initMap();
+        return;
+      }
+
+      // 动态加载高德地图脚本
+      const script = document.createElement("script");
+      script.src = `https://webapi.amap.com/maps?v=2.0&key=${aMapKey}`;
+      script.async = true;
+      script.onload = () => {
+        if (isMounted) initMap();
+      };
+      script.onerror = () => {
+        console.error("高德地图加载失败，请检查API Key是否有效");
+        if (isMounted) {
+          setMapError("地图脚本加载失败");
+          Toast.show({ 
+            content: "地图加载失败，请在.env中配置有效的VITE_AMAP_KEY",
+            duration: 5
+          });
+        }
+      };
+      document.head.appendChild(script);
+    };
+
+    const initMap = () => {
+      try {
+        if (!mapRef.current || !isMounted) return;
+        
+        const map = new window.AMap.Map(mapRef.current, {
+          viewMode: "2D",
+          zoom: 14,
+          center: [100.7537, 27.6452],
+          resizeEnable: true,
+        });
+
+        if (isMounted) {
+          amapRef.current = map;
+          setMapLoaded(true);
+          setMapError("");
+        }
+      } catch (error) {
+        console.error("地图初始化失败:", error);
+        if (isMounted) {
+          setMapError("地图初始化失败，可能是高德 Key 无效或未开通 Web JS API");
+          Toast.show({ content: "地图初始化失败，请刷新重试" });
+        }
+      }
+    };
+
+    loadAMap();
+
     return () => {
+      isMounted = false;
       if (watchIdRef.current !== null && navigator.geolocation) {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
@@ -54,76 +203,61 @@ export default function CheckinPage() {
     };
   }, []);
 
+  // 更新地图标记和轨迹线
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
+    if (!amapRef.current || trackPoints.length === 0) return;
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = "#eaf7ff";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const map = amapRef.current;
 
-    ctx.strokeStyle = "rgba(15, 126, 181, 0.18)";
-    ctx.lineWidth = 1;
-    for (let i = 24; i < canvas.width; i += 32) {
-      ctx.beginPath();
-      ctx.moveTo(i, 0);
-      ctx.lineTo(i, canvas.height);
-      ctx.stroke();
-    }
-    for (let j = 20; j < canvas.height; j += 28) {
-      ctx.beginPath();
-      ctx.moveTo(0, j);
-      ctx.lineTo(canvas.width, j);
-      ctx.stroke();
+    // 如果有现有的折线，就移除它
+    if (polylineRef.current) {
+      polylineRef.current.setMap(null);
+      polylineRef.current = null;
     }
 
-    if (trackPoints.length === 0) {
-      ctx.fillStyle = "#6b7280";
-      ctx.font = "14px sans-serif";
-      ctx.fillText("开启实时轨迹后会在这里绘制真实移动路线", 22, 106);
-      return;
-    }
+    // 转换轨迹点为地图坐标
+    const path = trackPoints.map((p) => [p.lon, p.lat]);
 
-    const lats = trackPoints.map((p) => p.lat);
-    const lons = trackPoints.map((p) => p.lon);
-    const minLat = Math.min(...lats);
-    const maxLat = Math.max(...lats);
-    const minLon = Math.min(...lons);
-    const maxLon = Math.max(...lons);
-
-    const width = canvas.width - 40;
-    const height = canvas.height - 40;
-    const xRange = maxLon - minLon || 0.0001;
-    const yRange = maxLat - minLat || 0.0001;
-
-    const projected = trackPoints.map((point) => {
-      const x = 20 + ((point.lon - minLon) / xRange) * width;
-      const y = 20 + ((maxLat - point.lat) / yRange) * height;
-      return [x, y];
+    // 绘制折线
+    const polyline = new window.AMap.Polyline({
+      path: path,
+      strokeColor: "#00D9FF",
+      strokeWeight: 4,
+      strokeOpacity: 0.8,
+      lineJoin: "round",
     });
 
-    ctx.strokeStyle = "#1295c9";
-    ctx.lineWidth = 4;
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.moveTo(projected[0][0], projected[0][1]);
-    for (let i = 1; i < projected.length; i += 1) {
-      ctx.lineTo(projected[i][0], projected[i][1]);
-    }
-    ctx.stroke();
+    polyline.setMap(map);
+    polylineRef.current = polyline;
 
-    const latest = projected[projected.length - 1];
-    ctx.fillStyle = "#ff8c00";
-    ctx.beginPath();
-    ctx.arc(latest[0], latest[1], 6, 0, Math.PI * 2);
-    ctx.fill();
+    // 最后一个点作为当前位置标记
+    if (markerRef.current) {
+      markerRef.current.setMap(null);
+      markerRef.current = null;
+    }
+
+    const lastPoint = trackPoints[trackPoints.length - 1];
+    const marker = new window.AMap.Marker({
+      position: [lastPoint.lon, lastPoint.lat],
+      title: "当前位置",
+      icon: new window.AMap.Icon({
+        size: [32, 32],
+        image: "https://webapi.amap.com/theme/v1.3/markers/m/dens_1.png",
+        imageSize: [19, 31],
+      }),
+    });
+
+    marker.setMap(map);
+    markerRef.current = marker;
+
+    // 自动调整地图视图
+    map.setFitView([marker]);
   }, [trackPoints]);
 
-  function startTracking() {
-    if (!navigator.geolocation) {
-      Toast.show({ content: "当前设备不支持定位" });
+  // 开始实时定位和轨迹记录
+  async function startTracking() {
+    const permissionGranted = await requestLocationPermission();
+    if (!permissionGranted) {
       return;
     }
     if (watchIdRef.current !== null) {
@@ -145,6 +279,7 @@ export default function CheckinPage() {
     );
   }
 
+  // 停止定位
   function stopTracking() {
     if (watchIdRef.current !== null && navigator.geolocation) {
       navigator.geolocation.clearWatch(watchIdRef.current);
@@ -153,19 +288,37 @@ export default function CheckinPage() {
     setTracking(false);
   }
 
+  // 重置轨迹
   function resetTrack() {
     stopTracking();
     setTrackPoints([]);
+    if (polylineRef.current) {
+      polylineRef.current.setMap(null);
+      polylineRef.current = null;
+    }
+    if (markerRef.current) {
+      markerRef.current.setMap(null);
+      markerRef.current = null;
+    }
   }
 
+  // 定位到当前位置
   async function locateMe() {
-    if (!navigator.geolocation) {
-      Toast.show({ content: "当前设备不支持定位" });
+    const permissionGranted = await requestLocationPermission();
+    if (!permissionGranted) {
       return;
     }
     navigator.geolocation.getCurrentPosition(
       (pos) => {
-        setGps({ lat: String(pos.coords.latitude), lon: String(pos.coords.longitude) });
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+        setGps({ lat: String(lat), lon: String(lon) });
+
+        if (amapRef.current) {
+          const map = amapRef.current;
+          map.setCenter([lon, lat]);
+          map.setZoom(16);
+        }
       },
       () => {
         Toast.show({ content: "定位失败，请允许定位权限" });
@@ -195,6 +348,8 @@ export default function CheckinPage() {
       Toast.show({ content: "打卡成功" });
       setMoodText("");
       setFiles([]);
+      setLocationId("");
+      resetTrack();
     } catch (error) {
       if (error?.response?.status === 401) {
         Toast.show({ content: "请先在“我的”页面登录游客账号" });
@@ -232,8 +387,24 @@ export default function CheckinPage() {
       return;
     }
 
+    if (!window.isSecureContext && !isLocalhostLike(window.location.hostname)) {
+      setCameraSupported(false);
+      Toast.show({ content: "摄像头需要安全上下文，请使用 HTTPS 打开页面；IP + HTTPS 可正常使用" });
+      return;
+    }
+
+    if (!cameraSupported) {
+      Toast.show({ content: "当前浏览器不支持摄像头，请改用手动输入景点ID" });
+      return;
+    }
+
     setScanLoading(true);
     try {
+      const cameraPermissionGranted = await requestCameraPermission(() => setCameraSupported(false));
+      if (!cameraPermissionGranted) {
+        return;
+      }
+
       const instance = new Html5Qrcode("qr-reader");
       scannerRef.current = instance;
       await instance.start(
@@ -268,55 +439,177 @@ export default function CheckinPage() {
   }
 
   return (
-    <ImmersivePage bgImage="/images/lugu-scenery.jpg" className="page-fade-in pt-6">
+    <ImmersivePage bgImage="/images/lugu-scenery.jpg" className="page-fade-in pb-[env(safe-area-inset-bottom)]">
       <div className="hero-shell mb-3">
         <div className="hero-kicker">Check-in Trail</div>
         <h1 className="page-title m-0">地图打卡</h1>
-        <p className="hero-copy">使用实时定位绘制真实移动轨迹，并通过真实二维码完成景点打卡。</p>
+        <p className="hero-copy">使用高德地图实时定位绘制移动轨迹，通过二维码完成景点打卡。</p>
       </div>
 
-      <Card className="card card-glass">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="section-title m-0">路线地图</h3>
-          <span className="chip-soft">{tracking ? "定位中" : "未定位"}</span>
+      {/* 地图卡片 */}
+      <CardComponent variant="glass" className="p-0 overflow-hidden mb-4 h-64">
+        <div 
+          ref={mapRef} 
+          style={{ width: "100%", height: "100%", borderRadius: "1rem" }}
+          className="relative"
+        >
+          {!mapLoaded && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl">
+              <div className="px-4 text-center text-white text-sm leading-6">
+                {mapError || "地图加载中..."}
+              </div>
+            </div>
+          )}
         </div>
-        <canvas ref={canvasRef} className="checkin-map-canvas" width={320} height={210} />
-        <div className="button-group-horizontal mt-3">
-          <Button color="primary" block onClick={tracking ? stopTracking : startTracking}>{tracking ? "停止定位" : "开始实时轨迹"}</Button>
-          <Button block onClick={resetTrack}>重置轨迹</Button>
-        </div>
-      </Card>
+      </CardComponent>
 
-      <Card className="card card-glass">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="section-title m-0">扫码打卡</h3>
-          <span className="chip-soft">真实摄像头</span>
+      {ipHttpAccess && (
+        <div className="mb-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-xs leading-5 text-amber-100">
+          当前是通过服务器 IP 的 HTTP 方式访问。地图需要高德控制台把这个 IP 加入白名单，摄像头和定位则需要 HTTPS 或 localhost。
         </div>
-        <Button block color="primary" loading={scanLoading} onClick={startScan}>{scanEnabled ? "关闭扫码" : "扫描二维码"}</Button>
-        {scanEnabled && <div id="qr-reader" className="mt-3" />}
+      )}
+
+      {/* 定位控制卡片 */}
+      <CardComponent variant="glass" className="mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-white font-bold flex items-center gap-2">
+            <LucideIcon name="Navigation" size={18} className="text-cyan-400" />
+            实时轨迹
+          </h3>
+          <span className={`text-xs px-2 py-1 rounded-full ${tracking ? 'bg-green-500/30 text-green-200' : 'bg-slate-500/30 text-slate-300'}`}>
+            {tracking ? "定位中" : "未定位"}
+          </span>
+        </div>
+
+        <div className="space-y-2">
+          <Button
+            block
+            color={tracking ? "danger" : "primary"}
+            onClick={tracking ? stopTracking : startTracking}
+            className="text-sm font-bold"
+          >
+            {tracking ? "停止实时轨迹" : "开始实时轨迹"}
+          </Button>
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              block
+              onClick={locateMe}
+              className="bg-white/10 text-white border border-white/20 text-sm font-bold"
+            >
+              定位我的位置
+            </Button>
+            <Button
+              block
+              onClick={resetTrack}
+              className="bg-white/10 text-white border border-white/20 text-sm font-bold"
+              color="danger"
+            >
+              重置轨迹
+            </Button>
+          </div>
+        </div>
+
+        {trackPoints.length > 0 && (
+          <div className="mt-3 p-2 bg-white/5 rounded-lg border border-white/10">
+            <p className="text-xs text-white/70">
+              已记录轨迹点：{trackPoints.length} 个
+            </p>
+          </div>
+        )}
+      </CardComponent>
+
+      {/* 二维码扫描卡片 */}
+      <CardComponent variant="glass" className="mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-white font-bold flex items-center gap-2">
+            <LucideIcon name="QrCode" size={18} className="text-amber-400" />
+            扫码打卡
+          </h3>
+          <span className="text-xs px-2 py-1 rounded-full bg-slate-500/30 text-slate-300">摄像头</span>
+        </div>
+
+        <Button
+          block
+          color="primary"
+          loading={scanLoading}
+          onClick={startScan}
+          className="text-sm font-bold"
+        >
+          {scanEnabled ? "关闭扫码" : "启动二维码扫描"}
+        </Button>
+
+        {scanEnabled && (
+          <div id="qr-reader" className="mt-3 min-h-[260px] rounded-lg overflow-hidden bg-black/20" />
+        )}
+
+        {!cameraSupported && (
+          <div className="mt-3 p-3 rounded-lg border border-amber-400/30 bg-amber-400/10 text-amber-100 text-xs leading-5">
+            当前浏览器无法直接启用摄像头。请使用 HTTPS 访问页面；如果是服务器 IP 访问，也需要配置 HTTPS 才能使用摄像头。
+          </div>
+        )}
+      </CardComponent>
+
+      {/* 景点选择卡片 */}
+      <CardComponent variant="glass" className="mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-white font-bold flex items-center gap-2">
+            <LucideIcon name="MapPin" size={18} className="text-red-400" />
+            景点信息
+          </h3>
+        </div>
 
         <GlassInput
-          wrapperClassName="mt-3"
           placeholder="景点ID（扫码后自动填充）"
           value={locationId}
           onChange={setLocationId}
-          clearable
+          wrapperClassName="mb-2"
         />
 
-        <Button className="mt-3" block onClick={locateMe}>获取当前位置</Button>
-        <div className="mt-2 text-xs text-white/50">
-          纬度: {gps.lat || "未获取"}，经度: {gps.lon || "未获取"}
+        {activeSpot && (
+          <div className="p-2 bg-white/5 rounded-lg border border-white/10 text-xs text-white/80">
+            <p className="font-bold text-white mb-1">{activeSpot.name}</p>
+            {activeSpot.description && (
+              <p>{activeSpot.description.substring(0, 100)}...</p>
+            )}
+          </div>
+        )}
+      </CardComponent>
+
+      {/* 定位信息卡片 */}
+      {gps.lat && gps.lon && (
+        <CardComponent variant="glass" className="mb-4">
+          <div className="grid grid-cols-2 gap-2 text-xs">
+            <div className="p-2 bg-white/5 rounded border border-white/10">
+              <p className="text-white/60">纬度</p>
+              <p className="text-white font-bold text-sm">{parseFloat(gps.lat).toFixed(4)}</p>
+            </div>
+            <div className="p-2 bg-white/5 rounded border border-white/10">
+              <p className="text-white/60">经度</p>
+              <p className="text-white font-bold text-sm">{parseFloat(gps.lon).toFixed(4)}</p>
+            </div>
+          </div>
+        </CardComponent>
+      )}
+
+      {/* 打卡表单卡片 */}
+      <CardComponent variant="glass" className="mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-white font-bold flex items-center gap-2">
+            <LucideIcon name="Heart" size={18} className="text-pink-400" />
+            打卡内容
+          </h3>
         </div>
 
         <GlassInput
-          wrapperClassName="mt-3"
-          placeholder="记录此刻心情"
+          placeholder="分享你的感受（选填）"
+          inputType="text"
           value={moodText}
           onChange={setMoodText}
-          clearable
+          wrapperClassName="mb-3"
         />
 
-        <div className="mt-3 bg-white/10 p-3 rounded-xl border border-white/20">
+        <div className="mb-3">
+          <label className="text-xs text-white/70 block mb-2">上传照片</label>
           <ImageUploader
             value={files}
             onChange={setFiles}
@@ -328,10 +621,17 @@ export default function CheckinPage() {
           />
         </div>
 
-        <Button className="mt-3" color="primary" loading={submitting} block onClick={submitCheckin}>
-          提交打卡
+        <Button
+          block
+          color="primary"
+          loading={submitting}
+          disabled={!canSubmit}
+          onClick={submitCheckin}
+          className="font-bold text-base py-2"
+        >
+          {canSubmit ? "确认打卡" : "请先获取定位"}
         </Button>
-      </Card>
+      </CardComponent>
 
       <Modal
         visible={scanModalVisible}

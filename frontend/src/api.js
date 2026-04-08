@@ -4,8 +4,31 @@ import {
   getUserSessionToken,
 } from "./auth";
 
+function resolveApiBaseUrl(rawValue) {
+  const configuredValue = String(rawValue || "").trim();
+  if (!configuredValue) {
+    return "";
+  }
+
+  if (typeof window === "undefined") {
+    return configuredValue.replace(/\/$/, "");
+  }
+
+  const currentHost = window.location.hostname;
+  const currentIsLocal = ["localhost", "127.0.0.1", "::1"].includes(currentHost);
+  const configuredIsLocal = /^(localhost|127\.0\.0\.1|::1)(:\d+)?$/.test(configuredValue.replace(/^https?:\/\//, ""));
+
+  if (configuredIsLocal && !currentIsLocal) {
+    return "";
+  }
+
+  return configuredValue.replace(/\/$/, "");
+}
+
+const resolvedApiBaseUrl = resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL || "");
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || "",
+  baseURL: resolvedApiBaseUrl,
   timeout: 15000,
   withCredentials: true,
   headers: {
@@ -13,7 +36,7 @@ const api = axios.create({
   },
 });
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+const API_BASE = resolvedApiBaseUrl;
 const CSRF_COOKIE_NAME = import.meta.env.VITE_CSRF_COOKIE_NAME || "lugu_csrf_token";
 const CSRF_HEADER_NAME = import.meta.env.VITE_CSRF_HEADER_NAME || "X-CSRF-Token";
 const PASSWORD_CIPHER_PREFIX = "enc:rsa_oaep_sha256:";
@@ -544,6 +567,13 @@ export async function generateLocationQr(locationId, token) {
   return data;
 }
 
+export async function generateQrcodesFromKnowledgeBase(token) {
+  const { data } = await api.post("/api/admin/qrcodes/generate-from-knowledge-base", {}, {
+    headers: authHeader(token),
+  });
+  return data;
+}
+
 export async function sceneChat(message, systemPrompt, token, sceneContext = null, sessionKey = null) {
   const { data } = await api.post("/api/routes/chat", 
     {
@@ -586,6 +616,68 @@ export async function downloadQrcodeZip(token) {
     responseType: "blob",
   });
   return response.data;
+}
+
+// ==================== 游客管理 ====================
+export async function fetchAdminUsers(token, page = 1, perPage = 20, search = "") {
+  const { data } = await api.get("/api/admin/users", {
+    params: { page, per_page: perPage, search },
+    headers: authHeader(token),
+  });
+  return data;
+}
+
+export async function fetchAdminUserDetail(userId, token) {
+  const { data } = await api.get(`/api/admin/users/${userId}`, {
+    headers: authHeader(token),
+  });
+  return data;
+}
+
+export async function deleteAdminUser(userId, token) {
+  const { data } = await api.delete(`/api/admin/users/${userId}`, {
+    headers: authHeader(token),
+  });
+  return data;
+}
+
+// ==================== 打卡记录 ====================
+export async function fetchAdminFootprints(token, page = 1, perPage = 20, filters = {}) {
+  const { data } = await api.get("/api/admin/footprints", {
+    params: { page, per_page: perPage, ...filters },
+    headers: authHeader(token),
+  });
+  return data;
+}
+
+export async function fetchFootprintStats(token) {
+  const { data } = await api.get("/api/admin/footprints/stats", {
+    headers: authHeader(token),
+  });
+  return data;
+}
+
+export async function deleteAdminFootprint(footprintId, token) {
+  const { data } = await api.delete(`/api/admin/footprints/${footprintId}`, {
+    headers: authHeader(token),
+  });
+  return data;
+}
+
+// ==================== 二维码管理 ====================
+export async function fetchAdminQrcodes(token, page = 1, perPage = 20, filters = {}) {
+  const { data } = await api.get("/api/admin/qrcodes", {
+    params: { page, per_page: perPage, ...filters },
+    headers: authHeader(token),
+  });
+  return data;
+}
+
+export async function updateAdminQrcode(qrcodeId, payload, token) {
+  const { data } = await api.put(`/api/admin/qrcodes/${qrcodeId}`, payload, {
+    headers: authHeader(token),
+  });
+  return data;
 }
 
 export async function fetchKnowledgeBaseHotels() {

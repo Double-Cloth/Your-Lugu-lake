@@ -814,11 +814,46 @@ body,
 }
 
 .admin-stat-label {
-  @apply text-xs text-lake-700;
+  @apply text-xs text-white/70;
 }
 
 .admin-stat-value {
-  @apply mt-1 text-2xl font-bold text-lake-900;
+  @apply mt-1 text-2xl font-bold text-white;
+}
+
+.admin-dashboard {
+  @apply text-white;
+}
+
+.admin-dashboard .mobile-content {
+  @apply overflow-y-auto overflow-x-hidden;
+}
+
+.admin-dashboard h3 {
+  @apply text-white;
+}
+
+.admin-dashboard .adm-card {
+  --adm-color-text: rgba(255, 255, 255, 0.95);
+  --adm-color-text-secondary: rgba(255, 255, 255, 0.7);
+}
+
+.admin-dashboard .adm-list-item-content-main,
+.admin-dashboard .adm-list-item-content-extra,
+.admin-dashboard .adm-list-item-content-description {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.admin-dashboard .adm-tabs-tab {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.admin-dashboard .adm-tabs-tab-active {
+  color: rgba(255, 255, 255, 0.98);
+}
+
+.admin-dashboard .adm-tabs-tab-line {
+  background: rgba(255, 255, 255, 0.95);
 }
 
 /* ====================================
