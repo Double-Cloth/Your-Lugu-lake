@@ -318,11 +318,6 @@ Windows PowerShell：
 - [部署与运维](doc/06-DEPLOYMENT.md)
 - [知识库接入规范](doc/07-KNOWLEDGE-BASE-INTEGRATION.md)
 
-## 16. 版本信息
-
-- 当前版本：0.3.1
-- 最近更新：2026-03-31
-
-## 17. 许可证
+## 16. 许可证
 
 本项目采用 MIT 许可证，详见 [LICENSE](LICENSE)。
