@@ -88,6 +88,7 @@ export default function CheckinPage() {
   // 地图和定位相关
   const mapRef = useRef(null);
   const amapRef = useRef(null);
+  const amapAuthFailedRef = useRef(false);
   const polylineRef = useRef(null);
   const markerRef = useRef(null);
   const watchIdRef = useRef(null);
@@ -101,6 +102,7 @@ export default function CheckinPage() {
   const [scanLoading, setScanLoading] = useState(false);
   const [scanEnabled, setScanEnabled] = useState(false);
   const [scanModalVisible, setScanModalVisible] = useState(false);
+  const [scannedQrText, setScannedQrText] = useState("");
 
   // 表单数据
   const [locationId, setLocationId] = useState("");
@@ -122,10 +124,12 @@ export default function CheckinPage() {
   // 初始化地图
   useEffect(() => {
     let isMounted = true;
+    const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
     const aMapKey = import.meta.env.VITE_AMAP_KEY;
     const aMapSecurityJsCode = import.meta.env.VITE_AMAP_SECURITY_JS_CODE;
+    amapAuthFailedRef.current = false;
     if (ipHttpAccess) {
-      setMapError("当前是服务器IP的HTTP访问，摄像头不可用，地图可能受高德白名单限制");
+      setMapError("当前是服务器IP的HTTP访问，地图需要把当前 IP 加入高德 Web JS API 白名单；摄像头和定位仍建议使用 HTTPS 或 localhost。");
     }
     
     // 如果没有配置Key，则跳过地图加载
@@ -133,6 +137,20 @@ export default function CheckinPage() {
       setMapLoaded(false);
       setMapError("未配置高德地图 Key");
       return;
+    }
+
+    const handleGlobalError = (event) => {
+      const message = String(event?.error?.message || event?.message || "");
+      if (!message.includes("INVALID_USER_DOMAIN")) return;
+      if (!isMounted) return;
+      amapAuthFailedRef.current = true;
+      const details = currentOrigin ? `当前访问来源: ${currentOrigin}` : "";
+      setMapError(`高德鉴权失败（INVALID_USER_DOMAIN）。请把当前访问域名或IP加入高德 Web JS API 白名单，并确认 Key 与安全密钥属于同一个高德应用。${details}`);
+      Toast.show({ content: "高德鉴权失败：请检查白名单域名/IP、Key 与安全密钥是否同一应用" });
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("error", handleGlobalError);
     }
 
     if (typeof window !== "undefined" && aMapSecurityJsCode) {
@@ -143,6 +161,7 @@ export default function CheckinPage() {
     }
     
     const loadAMap = async () => {
+      if (amapAuthFailedRef.current) return;
       if (window.AMap) {
         if (isMounted) initMap();
         return;
@@ -150,15 +169,20 @@ export default function CheckinPage() {
 
       // 动态加载高德地图脚本
       const script = document.createElement("script");
-      script.src = `https://webapi.amap.com/maps?v=2.0&key=${aMapKey}`;
+      const scriptUrl = new URL("https://webapi.amap.com/maps");
+      scriptUrl.searchParams.set("v", "2.0");
+      scriptUrl.searchParams.set("key", aMapKey);
+      script.src = scriptUrl.toString();
       script.async = true;
       script.onload = () => {
+        if (amapAuthFailedRef.current) return;
         if (isMounted) initMap();
       };
       script.onerror = () => {
         console.error("高德地图加载失败，请检查API Key是否有效");
         if (isMounted) {
-          setMapError("地图脚本加载失败，请检查 VITE_AMAP_KEY、VITE_AMAP_SECURITY_JS_CODE、Web JS API 权限、域名/IP 白名单和网络是否可访问 webapi.amap.com");
+          const originHint = currentOrigin ? `当前访问来源: ${currentOrigin}` : "";
+          setMapError(`地图脚本加载失败，请检查 VITE_AMAP_KEY、VITE_AMAP_SECURITY_JS_CODE、Web JS API 权限、域名/IP 白名单和网络是否可访问 webapi.amap.com。${originHint}`);
           Toast.show({ 
             content: "地图加载失败，请检查高德 Key、安全密钥、Web JS API 权限和白名单配置",
             duration: 5
@@ -170,7 +194,7 @@ export default function CheckinPage() {
 
     const initMap = () => {
       try {
-        if (!mapRef.current || !isMounted) return;
+        if (!mapRef.current || !isMounted || amapAuthFailedRef.current) return;
         
         const map = new window.AMap.Map(mapRef.current, {
           viewMode: "2D",
@@ -180,6 +204,7 @@ export default function CheckinPage() {
         });
 
         if (isMounted) {
+          amapAuthFailedRef.current = false;
           amapRef.current = map;
           setMapLoaded(true);
           setMapError("");
@@ -187,7 +212,8 @@ export default function CheckinPage() {
       } catch (error) {
         console.error("地图初始化失败:", error);
         if (isMounted) {
-          setMapError("地图初始化失败，可能是高德 Key/安全密钥无效，或未开通 Web JS API");
+          const originHint = currentOrigin ? `当前访问来源: ${currentOrigin}` : "";
+          setMapError(`地图初始化失败，可能是高德 Key/安全密钥无效，或未开通 Web JS API。${originHint}`);
           Toast.show({ content: "地图初始化失败，请检查高德 Key、安全密钥和白名单后重试" });
         }
       }
@@ -197,6 +223,9 @@ export default function CheckinPage() {
 
     return () => {
       isMounted = false;
+      if (typeof window !== "undefined") {
+        window.removeEventListener("error", handleGlobalError);
+      }
       if (watchIdRef.current !== null && navigator.geolocation) {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
@@ -213,7 +242,7 @@ export default function CheckinPage() {
 
   // 更新地图标记和轨迹线
   useEffect(() => {
-    if (!amapRef.current || trackPoints.length === 0) return;
+    if (!amapRef.current || trackPoints.length === 0 || amapAuthFailedRef.current) return;
 
     const map = amapRef.current;
 
@@ -335,10 +364,10 @@ export default function CheckinPage() {
     );
   }
 
-  async function submitCheckin() {
+  async function submitCheckin(qrContent = "") {
     if (!canSubmit) {
       Toast.show({ content: "请先填写景点ID并获取定位" });
-      return;
+      return false;
     }
 
     const formData = new FormData();
@@ -346,6 +375,9 @@ export default function CheckinPage() {
     formData.append("gps_lat", gps.lat);
     formData.append("gps_lon", gps.lon);
     formData.append("mood_text", moodText);
+    if (qrContent) {
+      formData.append("qr_content", qrContent);
+    }
     if (files[0]?.file) {
       formData.append("photo", files[0].file);
     }
@@ -357,13 +389,17 @@ export default function CheckinPage() {
       setMoodText("");
       setFiles([]);
       setLocationId("");
+      setScannedQrText("");
+      setScanModalVisible(false);
       resetTrack();
+      return true;
     } catch (error) {
       if (error?.response?.status === 401) {
         Toast.show({ content: "请先在“我的”页面登录游客账号" });
-        return;
+        return false;
       }
-      Toast.show({ content: "打卡失败，请稍后再试" });
+      Toast.show({ content: error?.response?.data?.detail || "打卡失败，请稍后再试" });
+      return false;
     } finally {
       setSubmitting(false);
     }
@@ -430,6 +466,7 @@ export default function CheckinPage() {
           }
 
           setLocationId(String(parsedId));
+          setScannedQrText(decodedText);
           try {
             const location = await fetchLocationById(parsedId);
             setActiveSpot(location);
@@ -547,7 +584,7 @@ export default function CheckinPage() {
           onClick={startScan}
           className="text-sm font-bold"
         >
-          {scanEnabled ? "关闭扫码" : "启动二维码扫描"}
+          {scanEnabled ? "关闭扫码" : "扫描管理员二维码"}
         </Button>
 
         {(scanEnabled || scanLoading) && (
@@ -657,7 +694,10 @@ export default function CheckinPage() {
         }
         closeOnMaskClick
         onClose={() => setScanModalVisible(false)}
-        actions={[{ key: "ok", text: "继续打卡", primary: true, onClick: () => setScanModalVisible(false) }]}
+        actions={[
+          { key: "later", text: "稍后处理", onClick: () => setScanModalVisible(false) },
+          { key: "checkin", text: "记录打卡", primary: true, onClick: () => submitCheckin(scannedQrText) },
+        ]}
       />
     </ImmersivePage>
   );

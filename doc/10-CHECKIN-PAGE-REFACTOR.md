@@ -286,11 +286,15 @@ FormData {
 - 高德 API Key 无效或过期
 - CDN 加载超时
 - 浏览器 CORS 限制
+- 当前访问域名或 IP 未加入高德 Web JS API 白名单
+- Key 与 `securityJsCode` 不属于同一个高德应用
 
 **解决**:
 - 检查 `.env` 中的 `VITE_AMAP_KEY`
 - 在浏览器 DevTools Network 检查 amap.com 请求
-- 尝试更换 Key
+- 在高德控制台把当前访问来源加入 Web JS API 白名单
+- 确认 `VITE_AMAP_SECURITY_JS_CODE` 和 `VITE_AMAP_KEY` 来自同一个应用
+- 尝试使用 localhost 或已备案的正式域名访问
 
 ### 问题2: GPS 定位失败
 **原因**:

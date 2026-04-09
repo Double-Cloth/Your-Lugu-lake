@@ -378,6 +378,21 @@ async function resolveKbSlugByIdOrDatabase(idOrSlug, dbLocation) {
   return null;
 }
 
+async function fetchKnowledgeBaseLocationById(idOrSlug) {
+  const slug = await resolveKbSlugById(idOrSlug);
+  if (!slug) return null;
+
+  const kbData = await fetchKnowledgeBaseLocationBySlug(slug) || await fetchKnowledgeBaseLocationFromAPI(slug);
+  if (!kbData) return null;
+
+  return {
+    ...kbData,
+    id: typeof idOrSlug === "number" || /^\d+$/.test(String(idOrSlug)) ? Number(idOrSlug) : kbData.id,
+    slug: kbData.slug || slug,
+    _source: "knowledge-base",
+  };
+}
+
 /**
  * 综合获取景点信息：优先使用知识库，回退到数据库
  * 
@@ -413,6 +428,11 @@ export async function fetchLocationDetail(idOrSlug) {
       }
       return { ...dbLocation, _source: 'database' };
     } catch (error) {
+      const kbLocation = await fetchKnowledgeBaseLocationById(idOrSlug);
+      if (kbLocation) {
+        return kbLocation;
+      }
+
       console.error("Failed to fetch location by ID:", error);
       return null;
     }
