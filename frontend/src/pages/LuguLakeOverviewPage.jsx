@@ -51,7 +51,7 @@ export default function LuguLakeOverviewPage() {
   const highlights = Array.isArray(details.highlights) ? details.highlights : [];
 
   return (
-    <ImmersivePage bgImage="/images/lugu-hero.jpg" className="page-fade-in pb-[env(safe-area-inset-bottom)]">
+    <ImmersivePage bgImage="/images/lugu-hero.png" className="page-fade-in pb-[env(safe-area-inset-bottom)]">
       <div className="mb-4 pt-2 -mx-2">
         <button
           type="button"

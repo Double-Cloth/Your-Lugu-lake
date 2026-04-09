@@ -72,7 +72,7 @@ export default function LocationDetailPage() {
   const { details = {}, location = {}, facilities = {}, ticketInfo = {}, transportation = {}, sections = {} } = item;
 
   // 使用知识库图片的第一张作为背景，如果没有则使用默认图
-  const bgImage = galleryImages.length > 0 ? galleryImages[0] : "/images/lugu-hero.jpg";
+  const bgImage = galleryImages.length > 0 ? galleryImages[0] : "/images/lugu-hero.png";
 
   return (
     <ImmersivePage bgImage={bgImage} className="page-fade-in pb-[env(safe-area-inset-bottom)]">

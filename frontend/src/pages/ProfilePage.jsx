@@ -799,7 +799,7 @@ export default function ProfilePage() {
   );
 
   return (
-    <ImmersivePage bgImage="/images/lugu-hero.jpg">
+    <ImmersivePage bgImage="/images/lugu-hero.png">
       {loggedIn ? renderAuth() : renderUnauth()}
     </ImmersivePage>
   );

@@ -35,7 +35,7 @@ async function requestLocationPermission() {
   }
 
   if (typeof window !== "undefined" && !window.isSecureContext) {
-    Toast.show({ content: "通过服务器IP的HTTP访问无法使用定位，请改用HTTPS；IP + HTTPS 可正常使用" });
+    Toast.show({ content: "当前页面未被浏览器识别为安全上下文，定位无法启用。请确认使用的是受信任的 HTTPS 证书，而不只是 HTTPS 协议。" });
     return false;
   }
 
@@ -64,7 +64,7 @@ async function requestCameraPermission(onUnsupported) {
 
   if (typeof window !== "undefined" && !window.isSecureContext) {
     onUnsupported?.();
-    Toast.show({ content: "通过服务器IP的HTTP访问无法使用摄像头，请改用HTTPS；IP + HTTPS 可正常使用" });
+    Toast.show({ content: "当前页面未被浏览器识别为安全上下文，摄像头无法启用。请确认 HTTPS 证书已被浏览器信任。" });
     return false;
   }
 
@@ -123,6 +123,7 @@ export default function CheckinPage() {
   useEffect(() => {
     let isMounted = true;
     const aMapKey = import.meta.env.VITE_AMAP_KEY;
+    const aMapSecurityJsCode = import.meta.env.VITE_AMAP_SECURITY_JS_CODE;
     if (ipHttpAccess) {
       setMapError("当前是服务器IP的HTTP访问，摄像头不可用，地图可能受高德白名单限制");
     }
@@ -132,6 +133,13 @@ export default function CheckinPage() {
       setMapLoaded(false);
       setMapError("未配置高德地图 Key");
       return;
+    }
+
+    if (typeof window !== "undefined" && aMapSecurityJsCode) {
+      window._AMapSecurityConfig = {
+        ...(window._AMapSecurityConfig || {}),
+        securityJsCode: aMapSecurityJsCode,
+      };
     }
     
     const loadAMap = async () => {
@@ -150,9 +158,9 @@ export default function CheckinPage() {
       script.onerror = () => {
         console.error("高德地图加载失败，请检查API Key是否有效");
         if (isMounted) {
-          setMapError("地图脚本加载失败");
+          setMapError("地图脚本加载失败，请检查 VITE_AMAP_KEY、VITE_AMAP_SECURITY_JS_CODE、Web JS API 权限、域名/IP 白名单和网络是否可访问 webapi.amap.com");
           Toast.show({ 
-            content: "地图加载失败，请在.env中配置有效的VITE_AMAP_KEY",
+            content: "地图加载失败，请检查高德 Key、安全密钥、Web JS API 权限和白名单配置",
             duration: 5
           });
         }
@@ -179,8 +187,8 @@ export default function CheckinPage() {
       } catch (error) {
         console.error("地图初始化失败:", error);
         if (isMounted) {
-          setMapError("地图初始化失败，可能是高德 Key 无效或未开通 Web JS API");
-          Toast.show({ content: "地图初始化失败，请刷新重试" });
+          setMapError("地图初始化失败，可能是高德 Key/安全密钥无效，或未开通 Web JS API");
+          Toast.show({ content: "地图初始化失败，请检查高德 Key、安全密钥和白名单后重试" });
         }
       }
     };
@@ -389,7 +397,7 @@ export default function CheckinPage() {
 
     if (!window.isSecureContext && !isLocalhostLike(window.location.hostname)) {
       setCameraSupported(false);
-      Toast.show({ content: "摄像头需要安全上下文，请使用 HTTPS 打开页面；IP + HTTPS 可正常使用" });
+      Toast.show({ content: "摄像头需要浏览器认可的安全上下文。请检查 HTTPS 证书是否受信任，或改用 localhost 测试。" });
       return;
     }
 
@@ -402,8 +410,12 @@ export default function CheckinPage() {
     try {
       const cameraPermissionGranted = await requestCameraPermission(() => setCameraSupported(false));
       if (!cameraPermissionGranted) {
+        setScanEnabled(false);
         return;
       }
+
+      setScanEnabled(true);
+      await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
 
       const instance = new Html5Qrcode("qr-reader");
       scannerRef.current = instance;
@@ -429,9 +441,9 @@ export default function CheckinPage() {
           await stopScan();
         }
       );
-      setScanEnabled(true);
     } catch {
-      Toast.show({ content: "启动扫码失败，请检查摄像头权限" });
+      Toast.show({ content: "启动扫码失败，请检查浏览器权限、HTTPS 证书和二维码容器是否已渲染" });
+      setScanEnabled(false);
       await stopScan();
     } finally {
       setScanLoading(false);
@@ -538,7 +550,7 @@ export default function CheckinPage() {
           {scanEnabled ? "关闭扫码" : "启动二维码扫描"}
         </Button>
 
-        {scanEnabled && (
+        {(scanEnabled || scanLoading) && (
           <div id="qr-reader" className="mt-3 min-h-[260px] rounded-lg overflow-hidden bg-black/20" />
         )}
 

@@ -16,7 +16,7 @@ import {
 } from "../api";
 import { clearUserSession, withUserSessionPath } from "../auth";
 
-const LUGU_LAKE_BG_URL = "/images/lugu-hero.jpg";
+const LUGU_LAKE_BG_URL = "/images/lugu-hero.png";
 
 const CULTURE_DURATION_OPTIONS = [
   { label: "半天", value: "half-day" },
