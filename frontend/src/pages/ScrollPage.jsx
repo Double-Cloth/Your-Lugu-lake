@@ -15,6 +15,9 @@ export default function ScrollPage() {
     return footprints.map((item) => ({
       ...item,
       locationName: locationMap[item.location_id]?.name || `景点#${item.location_id}`,
+      photoList: Array.isArray(item.photo_urls)
+        ? item.photo_urls
+        : (item.photo_url ? [item.photo_url] : []),
     }));
   }, [footprints, locationMap]);
 
@@ -106,12 +109,17 @@ export default function ScrollPage() {
                 <div className="text-xs text-white/95">{new Date(item.check_in_time).toLocaleString()}</div>
                 <div className="font-medium text-base">{item.locationName}</div>
                 <div className="text-sm text-white/60">{item.mood_text || "无心情记录"}</div>
-                {item.photo_url && (
-                  <img
-                    src={buildAssetUrl(item.photo_url)}
-                    alt="footprint"
-                    className="mt-2 w-full rounded-lg"
-                  />
+                {item.photoList.length > 0 && (
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    {item.photoList.map((url, photoIndex) => (
+                      <img
+                        key={`${item.id}-${photoIndex}`}
+                        src={buildAssetUrl(url)}
+                        alt="footprint"
+                        className="w-full rounded-lg"
+                      />
+                    ))}
+                  </div>
                 )}
               </div>
             ))}

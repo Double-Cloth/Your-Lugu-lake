@@ -54,20 +54,59 @@ async function requestLocationPermission() {
     return false;
   }
 
-  return new Promise((resolve) => {
-    navigator.geolocation.getCurrentPosition(
-      () => resolve(true),
-      (error) => {
-        if (error?.code === 1) {
-          Toast.show({ content: "请在浏览器弹窗中允许定位权限" });
-        } else {
-          Toast.show({ content: "定位权限请求失败，请稍后重试" });
-        }
-        resolve(false);
-      },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 8000 }
-    );
+  if (navigator.permissions?.query) {
+    try {
+      const status = await navigator.permissions.query({ name: "geolocation" });
+      if (status?.state === "denied") {
+        Toast.show({ content: "浏览器已禁止定位权限，请在站点设置中改为允许" });
+        return false;
+      }
+    } catch {
+      // ignore unsupported Permission API implementations
+    }
+  }
+
+  try {
+    await getCurrentPositionWithFallback();
+    return true;
+  } catch (error) {
+    Toast.show({ content: getGeolocationErrorMessage(error, "定位权限请求失败") });
+    return false;
+  }
+}
+
+function getGeolocationErrorMessage(error, prefix = "定位失败") {
+  if (!error) return `${prefix}，请稍后重试`;
+  if (error.code === 1) return "请在浏览器站点设置中允许定位权限";
+  if (error.code === 2) return "无法获取位置（可能是信号较弱或系统定位服务未开启）";
+  if (error.code === 3) return "定位超时，请移动到开阔区域后重试";
+  return `${prefix}，请稍后重试`;
+}
+
+function getCurrentPosition(options) {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, options);
   });
+}
+
+async function getCurrentPositionWithFallback() {
+  const attempts = [
+    { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
+    { enableHighAccuracy: false, maximumAge: 30000, timeout: 18000 },
+  ];
+
+  let lastError = null;
+  for (const options of attempts) {
+    try {
+      return await getCurrentPosition(options);
+    } catch (error) {
+      lastError = error;
+      if (error?.code === 1) {
+        throw error;
+      }
+    }
+  }
+  throw lastError || new Error("定位失败");
 }
 
 async function requestCameraPermission(onUnsupported) {
@@ -108,6 +147,7 @@ export default function CheckinPage() {
   const polylineRef = useRef(null);
   const markerRef = useRef(null);
   const watchIdRef = useRef(null);
+  const watchFallbackRef = useRef(false);
   const disposedRef = useRef(false);
 
   // 二维码扫描相关
@@ -174,8 +214,10 @@ export default function CheckinPage() {
 
   // 计算是否可以提交
   const canSubmit = useMemo(() => {
-    return Boolean(locationId && gps.lat && gps.lon);
-  }, [locationId, gps.lat, gps.lon]);
+    const hasLocationInfo = Boolean(String(locationId || "").trim());
+    const hasMoodInfo = Boolean(String(moodText || "").trim());
+    return hasLocationInfo || hasMoodInfo;
+  }, [locationId, moodText]);
 
   // 初始化地图
   useEffect(() => {
@@ -368,19 +410,43 @@ export default function CheckinPage() {
       return;
     }
 
+    watchFallbackRef.current = false;
     setTracking(true);
-    watchIdRef.current = navigator.geolocation.watchPosition(
+
+    const startWatch = (options) => {
+      watchIdRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         const lat = pos.coords.latitude;
         const lon = pos.coords.longitude;
         setGps({ lat: String(lat), lon: String(lon) });
         setTrackPoints((prev) => [...prev, { lat, lon, t: Date.now() }]);
       },
-      () => {
-        Toast.show({ content: "实时定位失败，请检查权限" });
+      (error) => {
+        const canFallback = !watchFallbackRef.current && (error?.code === 2 || error?.code === 3);
+        if (canFallback) {
+          watchFallbackRef.current = true;
+          if (watchIdRef.current !== null) {
+            navigator.geolocation.clearWatch(watchIdRef.current);
+          }
+          Toast.show({ content: "高精度定位不稳定，已自动切换到普通精度" });
+          startWatch({ enableHighAccuracy: false, maximumAge: 30000, timeout: 20000 });
+          return;
+        }
+
+        if (error?.code === 1) {
+          setTracking(false);
+          if (watchIdRef.current !== null) {
+            navigator.geolocation.clearWatch(watchIdRef.current);
+            watchIdRef.current = null;
+          }
+        }
+        Toast.show({ content: getGeolocationErrorMessage(error, "实时定位失败") });
       },
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+      options
     );
+    };
+
+    startWatch({ enableHighAccuracy: true, maximumAge: 0, timeout: 12000 });
   }
 
   // 停止定位
@@ -389,6 +455,7 @@ export default function CheckinPage() {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }
+    watchFallbackRef.current = false;
     setTracking(false);
   }
 
@@ -413,47 +480,54 @@ export default function CheckinPage() {
     if (!permissionGranted) {
       return;
     }
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
-        setGps({ lat: String(lat), lon: String(lon) });
+    try {
+      const pos = await getCurrentPositionWithFallback();
+      const lat = pos.coords.latitude;
+      const lon = pos.coords.longitude;
+      setGps({ lat: String(lat), lon: String(lon) });
 
-        if (amapRef.current) {
-          const map = amapRef.current;
-          map.setCenter([lon, lat]);
-          map.setZoom(16);
-        }
-      },
-      () => {
-        Toast.show({ content: "定位失败，请允许定位权限" });
-      },
-      { enableHighAccuracy: true, timeout: 12000 }
-    );
+      if (amapRef.current) {
+        const map = amapRef.current;
+        map.setCenter([lon, lat]);
+        map.setZoom(16);
+      }
+    } catch (error) {
+      Toast.show({ content: getGeolocationErrorMessage(error, "定位失败") });
+    }
   }
 
   async function submitCheckin(qrContent = "") {
     if (!canSubmit) {
-      Toast.show({ content: "请先填写景点ID并获取定位" });
+      Toast.show({ content: "请至少填写景点ID或心情" });
       return false;
     }
 
     const formData = new FormData();
-    formData.append("location_id", locationId);
-    formData.append("gps_lat", gps.lat);
-    formData.append("gps_lon", gps.lon);
+    if (locationId) {
+      formData.append("location_id", locationId);
+    }
+    if (gps.lat && gps.lon) {
+      formData.append("gps_lat", gps.lat);
+      formData.append("gps_lon", gps.lon);
+    }
     formData.append("mood_text", moodText);
     if (qrContent) {
       formData.append("qr_content", qrContent);
     }
-    if (files[0]?.file) {
-      formData.append("photo", files[0].file);
+    for (const item of files) {
+      if (item?.file) {
+        formData.append("photos", item.file);
+      }
     }
 
     setSubmitting(true);
     try {
-      await createFootprint(formData, getUserToken() || "cookie-session");
-      Toast.show({ content: "打卡成功" });
+      const result = await createFootprint(formData, getUserToken() || "cookie-session");
+      if (!locationId && result?.location_name) {
+        Toast.show({ content: `打卡成功，已自动匹配景点：${result.location_name}` });
+      } else {
+        Toast.show({ content: "打卡成功" });
+      }
       setMoodText("");
       setFiles([]);
       setLocationId("");
@@ -754,7 +828,7 @@ export default function CheckinPage() {
         </div>
 
         <GlassInput
-          placeholder="景点ID（扫码后自动填充）"
+          placeholder="景点ID（选填，扫码后自动填充）"
           value={locationId}
           onChange={setLocationId}
           wrapperClassName="mb-2"
@@ -808,7 +882,7 @@ export default function CheckinPage() {
           <ImageUploader
             value={files}
             onChange={setFiles}
-            maxCount={1}
+            maxCount={9}
             upload={async (file) => ({
               url: URL.createObjectURL(file),
               file,
@@ -824,7 +898,7 @@ export default function CheckinPage() {
           onClick={submitCheckin}
           className="font-bold text-base py-2"
         >
-          {canSubmit ? "确认打卡" : "请先获取定位"}
+          {canSubmit ? "确认打卡" : "请填写景点ID或心情"}
         </Button>
       </CardComponent>
 

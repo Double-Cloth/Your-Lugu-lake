@@ -27,6 +27,7 @@ from app.core.security import get_password_hash
 from app.db.session import get_db
 from app.models.ai_route import AIRoute
 from app.models.footprint import Footprint
+from app.models.footprint_media import FootprintMedia
 from app.models.location import Location
 from app.models.qrcode import QrCode
 from app.models.user import User
@@ -722,6 +723,17 @@ def list_footprints(
     
     total = query.count()
     footprints = query.order_by(desc(Footprint.check_in_time)).offset((page - 1) * per_page).limit(per_page).all()
+    footprint_ids = [fp.id for fp in footprints]
+    media_map: dict[int, list[str]] = {}
+    if footprint_ids:
+        medias = (
+            db.query(FootprintMedia)
+            .filter(FootprintMedia.footprint_id.in_(footprint_ids))
+            .order_by(FootprintMedia.id.asc())
+            .all()
+        )
+        for media in medias:
+            media_map.setdefault(media.footprint_id, []).append(media.media_url)
     
     return {
         "total": total,
@@ -737,6 +749,7 @@ def list_footprints(
                 "gps_lon": fp.gps_lon,
                 "mood_text": fp.mood_text,
                 "photo_url": fp.photo_url,
+                "photo_urls": media_map.get(fp.id, [fp.photo_url] if fp.photo_url else []),
             }
             for fp in footprints
         ],
