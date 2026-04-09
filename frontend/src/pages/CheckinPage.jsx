@@ -6,11 +6,26 @@ import { createFootprint, fetchLocationById, getUserToken, buildAssetUrl } from 
 import LucideIcon from "../components/LucideIcon";
 
 function parseLocationIdFromText(text) {
-  if (!text) return null;
-  const pathMatch = text.match(/\/locations\/(\d+)/);
+  const rawText = String(text || "").trim();
+  if (!rawText) return null;
+
+  let normalizedText = rawText;
+  if (normalizedText.startsWith("{") || normalizedText.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(normalizedText);
+      normalizedText = String(parsed?.scan_content || parsed?.scanContent || parsed?.location_id || parsed?.locationId || normalizedText).trim();
+    } catch {
+      // ignore JSON parse failures and fall back to text matching
+    }
+  }
+
+  const pathMatch = normalizedText.match(/\/locations\/(\d+)/);
   if (pathMatch?.[1]) return Number(pathMatch[1]);
 
-  const plainNumber = Number(text);
+  const urlMatch = normalizedText.match(/[?&](?:location_id|locationId)=(\d+)/i);
+  if (urlMatch?.[1]) return Number(urlMatch[1]);
+
+  const plainNumber = Number(normalizedText);
   if (Number.isFinite(plainNumber) && plainNumber > 0) {
     return plainNumber;
   }
@@ -89,12 +104,15 @@ export default function CheckinPage() {
   const mapRef = useRef(null);
   const amapRef = useRef(null);
   const amapAuthFailedRef = useRef(false);
+  const [mapRequested, setMapRequested] = useState(false);
   const polylineRef = useRef(null);
   const markerRef = useRef(null);
   const watchIdRef = useRef(null);
+  const disposedRef = useRef(false);
 
   // 二维码扫描相关
   const scannerRef = useRef(null);
+  const qrReaderRef = useRef(null);
 
   // 状态管理
   const [tracking, setTracking] = useState(false);
@@ -116,6 +134,44 @@ export default function CheckinPage() {
   const [cameraSupported, setCameraSupported] = useState(true);
   const ipHttpAccess = useMemo(() => isHttpIpAccess(), []);
 
+  const loadAmapScript = async (aMapKey) => {
+    if (window.AMap) {
+      return window.AMap;
+    }
+
+    if (!window.__amapScriptPromise) {
+      window.__amapScriptPromise = new Promise((resolve, reject) => {
+        const existingScript = document.querySelector('script[data-amap-sdk="true"]');
+        if (existingScript) {
+          existingScript.addEventListener("load", () => resolve(window.AMap));
+          existingScript.addEventListener("error", reject);
+          return;
+        }
+
+        const script = document.createElement("script");
+        const scriptUrl = new URL("https://webapi.amap.com/maps");
+        scriptUrl.searchParams.set("v", "1.4.15");
+        scriptUrl.searchParams.set("key", aMapKey);
+        script.dataset.amapSdk = "true";
+        script.src = scriptUrl.toString();
+        script.async = true;
+        script.onload = () => resolve(window.AMap);
+        script.onerror = () => {
+          window.__amapScriptPromise = null;
+          reject(new Error("高德地图脚本加载失败"));
+        };
+        document.head.appendChild(script);
+      });
+    }
+
+    try {
+      return await window.__amapScriptPromise;
+    } catch (error) {
+      window.__amapScriptPromise = null;
+      throw error;
+    }
+  };
+
   // 计算是否可以提交
   const canSubmit = useMemo(() => {
     return Boolean(locationId && gps.lat && gps.lon);
@@ -124,6 +180,7 @@ export default function CheckinPage() {
   // 初始化地图
   useEffect(() => {
     let isMounted = true;
+    disposedRef.current = false;
     const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
     const aMapKey = import.meta.env.VITE_AMAP_KEY;
     const aMapSecurityJsCode = import.meta.env.VITE_AMAP_SECURITY_JS_CODE;
@@ -141,12 +198,17 @@ export default function CheckinPage() {
 
     const handleGlobalError = (event) => {
       const message = String(event?.error?.message || event?.message || "");
-      if (!message.includes("INVALID_USER_DOMAIN")) return;
+      if (!message.includes("INVALID_USER_DOMAIN") && !message.includes("Unimplemented type: 3")) return;
+      event?.preventDefault?.();
+      event?.stopImmediatePropagation?.();
       if (!isMounted) return;
       amapAuthFailedRef.current = true;
       const details = currentOrigin ? `当前访问来源: ${currentOrigin}` : "";
-      setMapError(`高德鉴权失败（INVALID_USER_DOMAIN）。请把当前访问域名或IP加入高德 Web JS API 白名单，并确认 Key 与安全密钥属于同一个高德应用。${details}`);
-      Toast.show({ content: "高德鉴权失败：请检查白名单域名/IP、Key 与安全密钥是否同一应用" });
+      const reason = message.includes("INVALID_USER_DOMAIN")
+        ? "高德鉴权失败（INVALID_USER_DOMAIN）。请把当前访问域名或IP加入高德 Web JS API 白名单，并确认 Key 与安全密钥属于同一个高德应用。"
+        : "高德地图运行时异常。当前环境可能不满足高德 Web JS API 的白名单或资源加载要求。";
+      setMapError(`${reason}${details}`);
+      Toast.show({ content: "地图暂不可用，请先使用扫码或手动输入景点ID" });
     };
 
     if (typeof window !== "undefined") {
@@ -161,25 +223,14 @@ export default function CheckinPage() {
     }
     
     const loadAMap = async () => {
+      if (!mapRequested) return;
       if (amapAuthFailedRef.current) return;
-      if (window.AMap) {
-        if (isMounted) initMap();
-        return;
-      }
-
-      // 动态加载高德地图脚本
-      const script = document.createElement("script");
-      const scriptUrl = new URL("https://webapi.amap.com/maps");
-      scriptUrl.searchParams.set("v", "2.0");
-      scriptUrl.searchParams.set("key", aMapKey);
-      script.src = scriptUrl.toString();
-      script.async = true;
-      script.onload = () => {
+      try {
+        await loadAmapScript(aMapKey);
         if (amapAuthFailedRef.current) return;
         if (isMounted) initMap();
-      };
-      script.onerror = () => {
-        console.error("高德地图加载失败，请检查API Key是否有效");
+      } catch (error) {
+        console.error("高德地图加载失败，请检查API Key是否有效", error);
         if (isMounted) {
           const originHint = currentOrigin ? `当前访问来源: ${currentOrigin}` : "";
           setMapError(`地图脚本加载失败，请检查 VITE_AMAP_KEY、VITE_AMAP_SECURITY_JS_CODE、Web JS API 权限、域名/IP 白名单和网络是否可访问 webapi.amap.com。${originHint}`);
@@ -188,8 +239,7 @@ export default function CheckinPage() {
             duration: 5
           });
         }
-      };
-      document.head.appendChild(script);
+      }
     };
 
     const initMap = () => {
@@ -230,15 +280,31 @@ export default function CheckinPage() {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
       }
-      if (scannerRef.current) {
-        scannerRef.current
-          .stop()
-          .catch(() => null)
-          .then(() => scannerRef.current?.clear().catch(() => null));
-        scannerRef.current = null;
+      polylineRef.current = null;
+      markerRef.current = null;
+      amapRef.current = null;
+    };
+  }, [mapRequested, ipHttpAccess]);
+
+  useEffect(() => {
+    return () => {
+      disposedRef.current = true;
+      const scanner = scannerRef.current;
+      scannerRef.current = null;
+      if (scanner) {
+        void scanner.stop().catch(() => null);
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (!mapRequested) {
+      setMapLoaded(false);
+      if (!mapError) {
+        setMapError("地图默认按需加载。点击下方按钮后再初始化高德地图，可避免因域名白名单问题影响页面切换。");
+      }
+    }
+  }, [mapRequested]);
 
   // 更新地图标记和轨迹线
   useEffect(() => {
@@ -293,6 +359,7 @@ export default function CheckinPage() {
 
   // 开始实时定位和轨迹记录
   async function startTracking() {
+    setMapRequested(true);
     const permissionGranted = await requestLocationPermission();
     if (!permissionGranted) {
       return;
@@ -341,6 +408,7 @@ export default function CheckinPage() {
 
   // 定位到当前位置
   async function locateMe() {
+    setMapRequested(true);
     const permissionGranted = await requestLocationPermission();
     if (!permissionGranted) {
       return;
@@ -406,23 +474,45 @@ export default function CheckinPage() {
   }
 
   async function stopScan() {
-    if (!scannerRef.current) {
+    const scanner = scannerRef.current;
+    if (!scanner) {
       setScanEnabled(false);
       return;
     }
 
     try {
-      await scannerRef.current.stop();
+      await scanner.stop();
     } catch {
       // ignore
     }
     try {
-      await scannerRef.current.clear();
+      await scanner.clear();
     } catch {
       // ignore
     }
     scannerRef.current = null;
+    if (qrReaderRef.current) {
+      qrReaderRef.current.innerHTML = "";
+    }
     setScanEnabled(false);
+  }
+
+  async function waitForQrReaderReady() {
+    await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+    await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
+
+    const container = qrReaderRef.current;
+    if (!container) {
+      throw new Error("二维码容器未挂载");
+    }
+
+    if (container.clientWidth === 0 || container.clientHeight === 0) {
+      await new Promise((resolve) => window.setTimeout(resolve, 50));
+    }
+
+    if (container.clientWidth === 0 || container.clientHeight === 0) {
+      throw new Error("二维码容器尺寸无效");
+    }
   }
 
   async function startScan() {
@@ -442,44 +532,87 @@ export default function CheckinPage() {
       return;
     }
 
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setCameraSupported(false);
+      Toast.show({ content: "当前设备不支持摄像头，请改用手动输入景点ID" });
+      return;
+    }
+
+    const permissionGranted = await requestCameraPermission(() => setCameraSupported(false));
+    if (!permissionGranted) {
+      return;
+    }
+
     setScanLoading(true);
     try {
-      const cameraPermissionGranted = await requestCameraPermission(() => setCameraSupported(false));
-      if (!cameraPermissionGranted) {
-        setScanEnabled(false);
+      setScanEnabled(true);
+      await waitForQrReaderReady();
+
+      if (disposedRef.current) {
         return;
       }
 
-      setScanEnabled(true);
-      await new Promise((resolve) => window.requestAnimationFrame(() => resolve()));
-
       const instance = new Html5Qrcode("qr-reader");
       scannerRef.current = instance;
-      await instance.start(
-        { facingMode: "environment" },
-        { fps: 10, qrbox: { width: 220, height: 220 } },
-        async (decodedText) => {
-          const parsedId = parseLocationIdFromText(decodedText);
-          if (!parsedId) {
-            Toast.show({ content: "二维码内容无效" });
-            return;
-          }
 
-          setLocationId(String(parsedId));
-          setScannedQrText(decodedText);
-          try {
-            const location = await fetchLocationById(parsedId);
-            setActiveSpot(location);
-          } catch {
-            setActiveSpot(null);
-          }
-          setScanModalVisible(true);
-          Toast.show({ content: `扫码成功，景点ID: ${parsedId}` });
-          await stopScan();
+      const onScanSuccess = async (decodedText) => {
+        if (disposedRef.current) {
+          return;
         }
-      );
-    } catch {
-      Toast.show({ content: "启动扫码失败，请检查浏览器权限、HTTPS 证书和二维码容器是否已渲染" });
+        const parsedId = parseLocationIdFromText(decodedText);
+        if (!parsedId) {
+          Toast.show({ content: "二维码内容无效" });
+          return;
+        }
+
+        setLocationId(String(parsedId));
+        setScannedQrText(decodedText);
+        try {
+          const location = await fetchLocationById(parsedId);
+          setActiveSpot(location);
+        } catch {
+          setActiveSpot(null);
+        }
+        setScanModalVisible(true);
+        Toast.show({ content: `扫码成功，景点ID: ${parsedId}` });
+        await stopScan();
+      };
+
+      const scanConfig = { fps: 10, qrbox: { width: 220, height: 220 } };
+      const cameraCandidates = [{ facingMode: "environment" }, { facingMode: "user" }];
+
+      try {
+        const cameras = await Html5Qrcode.getCameras();
+        if (Array.isArray(cameras) && cameras.length > 0) {
+          const backCamera = cameras.find((camera) => /back|rear|environment|后置|背面/i.test(camera?.label || ""));
+          cameraCandidates.unshift({ deviceId: { exact: (backCamera || cameras[0]).id } });
+        }
+      } catch {
+        // ignore camera enumeration failures and fall back to facingMode
+      }
+
+      let started = false;
+      let lastError = null;
+      for (const cameraOption of cameraCandidates) {
+        try {
+          await instance.start(cameraOption, scanConfig, onScanSuccess);
+          started = true;
+          break;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      if (!started) {
+        throw lastError || new Error("未找到可用摄像头");
+      }
+    } catch (error) {
+      console.error("启动扫码失败:", error);
+      if (error?.name === "NotAllowedError" || error?.name === "PermissionDeniedError") {
+        Toast.show({ content: "请在浏览器弹窗中允许摄像头权限" });
+      } else {
+        Toast.show({ content: "启动扫码失败，请检查浏览器权限、HTTPS 证书和二维码容器是否已渲染" });
+      }
       setScanEnabled(false);
       await stopScan();
     } finally {
@@ -503,9 +636,19 @@ export default function CheckinPage() {
           className="relative"
         >
           {!mapLoaded && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl">
-              <div className="px-4 text-center text-white text-sm leading-6">
-                {mapError || "地图加载中..."}
+            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl px-4">
+              <div className="w-full max-w-[18rem] text-center text-white text-sm leading-6 space-y-3">
+                <div>{mapError || (mapRequested ? "地图加载中..." : "地图未启用")}</div>
+                {!mapRequested && (
+                  <Button
+                    block
+                    color="primary"
+                    onClick={() => setMapRequested(true)}
+                    className="text-sm font-bold"
+                  >
+                    启用地图
+                  </Button>
+                )}
               </div>
             </div>
           )}
@@ -587,9 +730,12 @@ export default function CheckinPage() {
           {scanEnabled ? "关闭扫码" : "扫描管理员二维码"}
         </Button>
 
-        {(scanEnabled || scanLoading) && (
-          <div id="qr-reader" className="mt-3 min-h-[260px] rounded-lg overflow-hidden bg-black/20" />
-        )}
+        <div
+          id="qr-reader"
+          ref={qrReaderRef}
+          className="mt-3 min-h-[260px] rounded-lg overflow-hidden bg-black/20"
+          style={{ display: scanEnabled || scanLoading ? "block" : "none" }}
+        />
 
         {!cameraSupported && (
           <div className="mt-3 p-3 rounded-lg border border-amber-400/30 bg-amber-400/10 text-amber-100 text-xs leading-5">
