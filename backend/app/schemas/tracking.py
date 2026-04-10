@@ -18,6 +18,7 @@ class TrackingStateBase(BaseModel):
     tracking: bool = False
     gps: TrackingGpsState = Field(default_factory=TrackingGpsState)
     track_points: list[TrackingPoint] = Field(default_factory=list)
+    replace_track_points: bool = False
 
 
 class TrackingStateUpdateRequest(TrackingStateBase):

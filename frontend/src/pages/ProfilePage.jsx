@@ -73,9 +73,18 @@ function formatTravelProfile(profile) {
   return [duration, group, focus, pace].filter(Boolean).join(" · ");
 }
 
+function isUnauthorizedError(error) {
+  return Number(error?.response?.status) === 401;
+}
+
+function delay(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { username: usernameFromPath } = useParams();
+  const posterBackgroundUrl = "/images/lugu-hero.png";
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -151,8 +160,38 @@ export default function ProfilePage() {
       setLoggedIn(false);
       return;
     }
+
+    const token = getUserToken();
+    if (!token) {
+      setLoggedIn(false);
+      return;
+    }
+
     try {
-      const data = await fetchCurrentUser(getUserToken());
+      let data = null;
+      let lastError = null;
+
+      // 移动端切回前台时网络可能短暂不可用，避免一次失败就清会话。
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          data = await fetchCurrentUser(token);
+          lastError = null;
+          break;
+        } catch (error) {
+          lastError = error;
+          if (isUnauthorizedError(error)) {
+            break;
+          }
+          if (attempt < 2) {
+            await delay(400 * (attempt + 1));
+          }
+        }
+      }
+
+      if (lastError) {
+        throw lastError;
+      }
+
       if (!data) {
         clearUserSession();
         setLoggedIn(false);
@@ -161,9 +200,15 @@ export default function ProfilePage() {
       setUserSession("", data?.username || "");
       setProfile(data);
       setLoggedIn(true);
-    } catch {
-      clearUserSession();
-      setLoggedIn(false);
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        clearUserSession();
+        setLoggedIn(false);
+        return;
+      }
+
+      // 非 401 不强制登出，避免用户感知为“自动刷新/跳回登录”。
+      setLoggedIn(true);
     }
   }
 
@@ -253,6 +298,7 @@ export default function ProfilePage() {
     try {
       const data = await fetchCurrentUser(token);
       if (!data) {
+        clearUserSession();
         setLoggedIn(false);
         setProfile(null);
         return;
@@ -262,8 +308,14 @@ export default function ProfilePage() {
       if (typeof data?.username === "string" && data.username.trim()) {
         setUserSession(token, data.username);
       }
-    } catch {
-      Toast.show({ content: "获取用户信息失败" });
+    } catch (error) {
+      if (isUnauthorizedError(error)) {
+        clearUserSession();
+        setLoggedIn(false);
+        setProfile(null);
+        return;
+      }
+      Toast.show({ content: "网络波动，资料将在恢复后自动刷新" });
     }
   }
 
@@ -390,8 +442,21 @@ export default function ProfilePage() {
     });
   }
 
+  function drawCoverImage(ctx, image, canvasWidth, canvasHeight) {
+    const scale = Math.max(canvasWidth / image.width, canvasHeight / image.height);
+    const drawWidth = image.width * scale;
+    const drawHeight = image.height * scale;
+    const offsetX = (canvasWidth - drawWidth) / 2;
+    const offsetY = (canvasHeight - drawHeight) / 2;
+    ctx.drawImage(image, offsetX, offsetY, drawWidth, drawHeight);
+  }
+
   async function drawPoster() {
-    const canvas = canvasRef.current;
+    let canvas = canvasRef.current;
+    for (let attempt = 0; !canvas && attempt < 6; attempt += 1) {
+      await new Promise((resolve) => window.requestAnimationFrame(resolve));
+      canvas = canvasRef.current;
+    }
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
@@ -404,10 +469,25 @@ export default function ProfilePage() {
     const topMood = records.find((item) => item.mood && item.mood !== "完成打卡");
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    gradient.addColorStop(0, "#0b3b4f");
-    gradient.addColorStop(1, "#0e3141");
-    ctx.fillStyle = gradient;
+
+    try {
+      const background = await loadImage(posterBackgroundUrl);
+      ctx.save();
+      drawCoverImage(ctx, background, canvas.width, canvas.height);
+      ctx.restore();
+    } catch {
+      const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      gradient.addColorStop(0, "#0b3b4f");
+      gradient.addColorStop(1, "#0e3141");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    const overlay = ctx.createLinearGradient(0, 0, 0, canvas.height);
+    overlay.addColorStop(0, "rgba(5, 20, 30, 0.36)");
+    overlay.addColorStop(0.55, "rgba(6, 24, 36, 0.48)");
+    overlay.addColorStop(1, "rgba(5, 18, 28, 0.78)");
+    ctx.fillStyle = overlay;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.fillStyle = "rgba(255,255,255,0.06)";
@@ -468,7 +548,8 @@ export default function ProfilePage() {
     ctx.fillText(`Generated ${new Date().toLocaleDateString("zh-CN")}`, 56, canvas.height - 56);
   }
 
-  function savePoster() {
+  async function savePoster() {
+    await drawPoster();
     const canvas = canvasRef.current;
     if (!canvas) return;
     try {
@@ -507,7 +588,6 @@ export default function ProfilePage() {
       </div>
 
       <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-[32px] p-6 shadow-2xl relative overflow-hidden shrink-0">
-        <div className="absolute -top-20 -right-20 w-40 h-40 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>
         <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-orange-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="flex relative mb-8 bg-black/40 rounded-2xl p-1 backdrop-blur-md">
@@ -907,8 +987,8 @@ export default function ProfilePage() {
           </div>
           
           <div className="flex gap-3">
-            <ButtonComponent variant="secondary" className="flex-1" onClick={drawPoster}>重新生成</ButtonComponent>
-            <ButtonComponent variant="primary" className="flex-1 shadow-lg shadow-amber-500/30" onClick={savePoster}>一键保存</ButtonComponent>
+            <ButtonComponent variant="secondary" className="flex-1" onClick={() => void drawPoster()}>重新生成</ButtonComponent>
+            <ButtonComponent variant="primary" className="flex-1 shadow-lg shadow-amber-500/30" onClick={() => void savePoster()}>一键保存</ButtonComponent>
           </div>
         </div>
       </Popup>

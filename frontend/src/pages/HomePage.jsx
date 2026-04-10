@@ -468,7 +468,7 @@ export default function HomePage() {
 
   return (
     <ImmersivePage bgImage={heroBgUrl || LUGU_LAKE_BG_URL} className="page-fade-in pt-0 pb-0 flex-1">
-      <div className="flex-1 flex flex-col justify-center items-center h-full w-full px-4" style={{ marginTop: "-40px" }}>
+      <div className="flex-1 flex flex-col justify-center items-center h-full w-full px-4 py-6 sm:py-8">
         <div className="w-full max-w-xl text-center mb-6 z-10 relative text-shadow-md">
           <div className="inline-block bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-white/95 text-xs tracking-widest mb-4 border border-white/20 shadow-lg">
             欢迎来到泸沽湖景区

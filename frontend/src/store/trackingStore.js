@@ -1,4 +1,5 @@
 const STORAGE_PREFIX = "lugu_checkin_tracking_v1_";
+const MAX_TRACK_POINTS = 3000;
 
 const DEFAULT_STATE = {
 	tracking: false,
@@ -27,7 +28,7 @@ function normalizeTrackPoints(trackPoints) {
 		return [];
 	}
 
-	return trackPoints
+	const normalized = trackPoints
 		.map((point) => {
 			const lat = Number(point?.lat);
 			const lon = Number(point?.lon);
@@ -41,6 +42,19 @@ function normalizeTrackPoints(trackPoints) {
 			};
 		})
 		.filter(Boolean);
+
+	const deduped = [];
+	const seen = new Set();
+	for (const point of normalized) {
+		const key = `${point.t}:${point.lat.toFixed(7)}:${point.lon.toFixed(7)}`;
+		if (seen.has(key)) {
+			continue;
+		}
+		seen.add(key);
+		deduped.push(point);
+	}
+
+	return deduped.slice(-MAX_TRACK_POINTS);
 }
 
 function normalizeTrackingState(state) {
@@ -185,10 +199,10 @@ export function recordTrackingPoint(username, lat, lon) {
 			lat: String(lat),
 			lon: String(lon),
 		},
-		trackPoints: [
+		trackPoints: normalizeTrackPoints([
 			...normalizeTrackPoints(currentState.trackPoints),
 			{ lat: Number(lat), lon: Number(lon), t: Date.now() },
-		],
+		]),
 		updatedAt: new Date().toISOString(),
 	}));
 }

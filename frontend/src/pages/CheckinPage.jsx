@@ -101,6 +101,117 @@ function getCurrentPosition(options) {
   });
 }
 
+function toRadians(value) {
+  return (value * Math.PI) / 180;
+}
+
+function calculateDistanceMeters(lat1, lon1, lat2, lon2) {
+  const earthRadius = 6371000;
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadius * c;
+}
+
+function resolveSamplingPolicy({ speed = 0, batteryLow = false, visibilityState = "visible" }) {
+  const hidden = visibilityState === "hidden";
+
+  if (hidden || batteryLow) {
+    return {
+      minIntervalMs: 9000,
+      minDistanceMeters: 12,
+      forceIntervalMs: 30000,
+      maxAccuracyMeters: 150,
+    };
+  }
+
+  if (speed >= 5) {
+    return {
+      minIntervalMs: 2500,
+      minDistanceMeters: 4,
+      forceIntervalMs: 10000,
+      maxAccuracyMeters: 120,
+    };
+  }
+
+  if (speed >= 1.5) {
+    return {
+      minIntervalMs: 3500,
+      minDistanceMeters: 6,
+      forceIntervalMs: 12000,
+      maxAccuracyMeters: 130,
+    };
+  }
+
+  return {
+    minIntervalMs: 4500,
+    minDistanceMeters: 8,
+    forceIntervalMs: 15000,
+    maxAccuracyMeters: 140,
+  };
+}
+
+function shouldRecordTrackingSample(position, lastPoint, { batteryLow = false } = {}) {
+  const lat = Number(position?.coords?.latitude);
+  const lon = Number(position?.coords?.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+    return { accept: false, point: null };
+  }
+
+  const now = Date.now();
+  const speedRaw = Number(position?.coords?.speed);
+  const speed = Number.isFinite(speedRaw) && speedRaw > 0 ? speedRaw : 0;
+  const headingRaw = Number(position?.coords?.heading);
+  const heading = Number.isFinite(headingRaw) ? headingRaw : null;
+  const accuracyRaw = Number(position?.coords?.accuracy);
+  const accuracy = Number.isFinite(accuracyRaw) && accuracyRaw > 0 ? accuracyRaw : 999;
+  const visibilityState = typeof document !== "undefined" ? document.visibilityState : "visible";
+  const policy = resolveSamplingPolicy({ speed, batteryLow, visibilityState });
+  const point = { lat, lon, t: now };
+
+  if (!lastPoint) {
+    return { accept: true, point };
+  }
+
+  const elapsedMs = Math.max(0, now - Number(lastPoint.t || 0));
+  if (accuracy > policy.maxAccuracyMeters && elapsedMs < policy.forceIntervalMs) {
+    return { accept: false, point };
+  }
+
+  const distanceMeters = calculateDistanceMeters(
+    Number(lastPoint.lat),
+    Number(lastPoint.lon),
+    lat,
+    lon
+  );
+  const accuracyAdjustedDistance = Math.max(
+    policy.minDistanceMeters * 0.75,
+    Math.min(35, accuracy * 0.55)
+  );
+
+  if (elapsedMs >= policy.forceIntervalMs) {
+    return { accept: true, point };
+  }
+
+  if (speed >= 4 && elapsedMs >= policy.minIntervalMs && distanceMeters >= policy.minDistanceMeters * 0.65) {
+    return { accept: true, point };
+  }
+
+  if (heading !== null && speed >= 1.5 && elapsedMs >= policy.minIntervalMs && distanceMeters >= policy.minDistanceMeters * 0.6) {
+    return { accept: true, point };
+  }
+
+  if (elapsedMs >= policy.minIntervalMs && distanceMeters >= accuracyAdjustedDistance) {
+    return { accept: true, point };
+  }
+
+  return { accept: false, point };
+}
+
 async function getCurrentPositionWithFallback() {
   const attempts = [
     { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
@@ -153,22 +264,82 @@ async function requestCameraPermission(onUnsupported) {
 
 const CHECKIN_DRAFT_STORAGE_PREFIX = "lugu_checkin_draft_v1_";
 
+function getDraftStorage() {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.localStorage;
+  } catch {
+    try {
+      return window.sessionStorage;
+    } catch {
+      return null;
+    }
+  }
+}
+
 function writeCheckinDraft(username, data) {
   if (!username) return;
-  try { sessionStorage.setItem(CHECKIN_DRAFT_STORAGE_PREFIX + username, JSON.stringify(data)); } catch (e) {}
+  const storage = getDraftStorage();
+  if (!storage) return;
+  try { storage.setItem(CHECKIN_DRAFT_STORAGE_PREFIX + username, JSON.stringify(data)); } catch (e) {}
 }
 
 function readCheckinDraft(username) {
   if (!username) return null;
   try {
-    const raw = sessionStorage.getItem(CHECKIN_DRAFT_STORAGE_PREFIX + username);
+    const key = CHECKIN_DRAFT_STORAGE_PREFIX + username;
+    const storage = getDraftStorage();
+    let raw = storage ? storage.getItem(key) : null;
+
+    // 兼容历史版本：旧草稿存放在 sessionStorage。
+    if (!raw && typeof window !== "undefined") {
+      raw = window.sessionStorage?.getItem(key) || null;
+      if (raw && storage && storage !== window.sessionStorage) {
+        storage.setItem(key, raw);
+      }
+    }
+
     return raw ? JSON.parse(raw) : null;
   } catch (e) { return null; }
 }
 
 function clearCheckinDraft(username) {
   if (!username) return;
-  try { sessionStorage.removeItem(CHECKIN_DRAFT_STORAGE_PREFIX + username); } catch (e) {}
+  const key = CHECKIN_DRAFT_STORAGE_PREFIX + username;
+  try { window.localStorage?.removeItem(key); } catch (e) {}
+  try { window.sessionStorage?.removeItem(key); } catch (e) {}
+}
+
+function readCookieValue(name) {
+  if (typeof document === "undefined") return "";
+  const chunks = document.cookie ? document.cookie.split(";") : [];
+  for (const rawChunk of chunks) {
+    const chunk = rawChunk.trim();
+    if (!chunk) continue;
+    const [key, ...rest] = chunk.split("=");
+    if (key !== name) continue;
+    return decodeURIComponent(rest.join("=") || "");
+  }
+  return "";
+}
+
+function resolveApiBaseUrl(rawValue) {
+  const configuredValue = String(rawValue || "").trim();
+  if (!configuredValue) return "";
+
+  if (typeof window === "undefined") {
+    return configuredValue.replace(/\/$/, "");
+  }
+
+  const currentHost = window.location.hostname;
+  const currentIsLocal = ["localhost", "127.0.0.1", "::1"].includes(currentHost);
+  const configuredIsLocal = /^(localhost|127\.0\.0\.1|::1)(:\d+)?$/.test(configuredValue.replace(/^https?:\/\//, ""));
+
+  if (configuredIsLocal && !currentIsLocal) {
+    return "";
+  }
+
+  return configuredValue.replace(/\/$/, "");
 }
 
 async function fileToDataUrl(file) {
@@ -208,7 +379,10 @@ export default function CheckinPage() {
   const markerRef = useRef(null);
   const watchIdRef = useRef(null);
   const watchFallbackRef = useRef(false);
+  const trackingEnabledRef = useRef(false);
   const disposedRef = useRef(false);
+  const lastAcceptedTrackPointRef = useRef(null);
+  const lowPowerSamplingRef = useRef(false);
 
   const scannerRef = useRef(null);
   const qrReaderRef = useRef(null);
@@ -230,12 +404,123 @@ export default function CheckinPage() {
   const [submitting, setSubmitting] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState("");
+  const [mapFullscreen, setMapFullscreen] = useState(false);
   const [cameraSupported, setCameraSupported] = useState(true);
   const [trackingUpdatedAt, setTrackingUpdatedAt] = useState(persistedTrackingState.updatedAt || "");
+  const trackPointsLengthRef = useRef(Array.isArray(persistedTrackingState.trackPoints) ? persistedTrackingState.trackPoints.length : 0);
   const draftHydratedRef = useRef(false);
   const draftSaveTimerRef = useRef(null);
   const trackingSyncReadyRef = useRef(false);
-  const trackingSyncTimerRef = useRef(null);
+  const trackingSyncRetryTimerRef = useRef(null);
+  const trackingSyncRetryDelayRef = useRef(1000);
+  const trackingSyncInFlightRef = useRef(false);
+  const trackingSyncDirtyRef = useRef(false);
+  const csrfCookieName = import.meta.env.VITE_CSRF_COOKIE_NAME || "lugu_csrf_token";
+  const csrfHeaderName = import.meta.env.VITE_CSRF_HEADER_NAME || "X-CSRF-Token";
+  const resolvedApiBaseUrl = resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL || "");
+
+  function flushTrackingSyncOnPageHide() {
+    if (!trackingSyncReadyRef.current || typeof window === "undefined") {
+      return;
+    }
+
+    const payload = toTrackingApiPayload(getTrackingState(sessionUsername));
+    const csrfToken = readCookieValue(csrfCookieName);
+    const endpoint = `${resolvedApiBaseUrl}/api/tracking/me` || "/api/tracking/me";
+    const headers = {
+      "Content-Type": "application/json",
+    };
+    if (csrfToken) {
+      headers[csrfHeaderName] = csrfToken;
+    }
+
+    try {
+      void fetch(endpoint, {
+        method: "PUT",
+        credentials: "include",
+        keepalive: true,
+        headers,
+        body: JSON.stringify(payload),
+      });
+    } catch {
+      // ignore best-effort keepalive sync errors
+    }
+  }
+
+  function normalizeRemoteTrackingState(remoteState) {
+    return {
+      tracking: Boolean(remoteState?.tracking),
+      gps: remoteState?.gps || { lat: "", lon: "" },
+      trackPoints: Array.isArray(remoteState?.track_points) ? remoteState.track_points : [],
+      updatedAt: remoteState?.updated_at || "",
+    };
+  }
+
+  function scheduleTrackingSync(delayMs = 500) {
+    if (!trackingSyncReadyRef.current) {
+      return;
+    }
+
+    if (trackingSyncRetryTimerRef.current) {
+      window.clearTimeout(trackingSyncRetryTimerRef.current);
+      trackingSyncRetryTimerRef.current = null;
+    }
+
+    trackingSyncRetryTimerRef.current = window.setTimeout(() => {
+      trackingSyncRetryTimerRef.current = null;
+      void flushTrackingSync();
+    }, Math.max(0, delayMs));
+  }
+
+  async function flushTrackingSync() {
+    if (!trackingSyncReadyRef.current || trackingSyncInFlightRef.current) {
+      return;
+    }
+
+    trackingSyncInFlightRef.current = true;
+    trackingSyncDirtyRef.current = false;
+    const payload = toTrackingApiPayload(getTrackingState(sessionUsername));
+    let failed = false;
+
+    try {
+      const remoteState = await saveTrackingState(payload);
+      trackingSyncRetryDelayRef.current = 1000;
+
+      if (!trackingSyncDirtyRef.current && remoteState) {
+        const normalizedRemoteState = normalizeRemoteTrackingState(remoteState);
+        setTrackingState(sessionUsername, (currentState) => {
+          const currentPoints = Array.isArray(currentState?.trackPoints) ? currentState.trackPoints : [];
+          const remotePoints = Array.isArray(normalizedRemoteState.trackPoints) ? normalizedRemoteState.trackPoints : [];
+          const currentUpdatedAt = Date.parse(currentState?.updatedAt || "") || 0;
+          const remoteUpdatedAt = Date.parse(normalizedRemoteState.updatedAt || "") || 0;
+
+          return {
+            ...currentState,
+            tracking: Boolean(normalizedRemoteState.tracking),
+            gps: normalizedRemoteState.gps || currentState.gps,
+            trackPoints: remotePoints.length >= currentPoints.length ? remotePoints : currentPoints,
+            updatedAt: remoteUpdatedAt >= currentUpdatedAt ? normalizedRemoteState.updatedAt : currentState.updatedAt,
+          };
+        });
+      }
+    } catch {
+      failed = true;
+      trackingSyncDirtyRef.current = true;
+    } finally {
+      trackingSyncInFlightRef.current = false;
+    }
+
+    if (failed) {
+      const retryDelay = trackingSyncRetryDelayRef.current;
+      trackingSyncRetryDelayRef.current = Math.min(retryDelay * 2, 30000);
+      scheduleTrackingSync(retryDelay);
+      return;
+    }
+
+    if (trackingSyncDirtyRef.current) {
+      scheduleTrackingSync(300);
+    }
+  }
 
   function handleBack() {
     if (window.history.length > 1) {
@@ -244,6 +529,59 @@ export default function CheckinPage() {
     }
     navigate(withUserSessionPath("/home"), { replace: true });
   }
+
+  useEffect(() => {
+    const points = Array.isArray(persistedTrackingState?.trackPoints) ? persistedTrackingState.trackPoints : [];
+    const lastPoint = points.length > 0 ? points[points.length - 1] : null;
+    if (lastPoint && Number.isFinite(Number(lastPoint.lat)) && Number.isFinite(Number(lastPoint.lon))) {
+      lastAcceptedTrackPointRef.current = {
+        lat: Number(lastPoint.lat),
+        lon: Number(lastPoint.lon),
+        t: Number.isFinite(Number(lastPoint.t)) ? Number(lastPoint.t) : Date.now(),
+      };
+      return;
+    }
+    lastAcceptedTrackPointRef.current = null;
+  }, [sessionUsername]);
+
+  useEffect(() => {
+    if (!navigator.getBattery) {
+      lowPowerSamplingRef.current = false;
+      return undefined;
+    }
+
+    let batteryManager = null;
+    let cancelled = false;
+
+    const updateBatteryState = () => {
+      if (!batteryManager || cancelled) {
+        return;
+      }
+      lowPowerSamplingRef.current = !batteryManager.charging && Number(batteryManager.level) <= 0.2;
+    };
+
+    navigator.getBattery()
+      .then((battery) => {
+        if (cancelled) {
+          return;
+        }
+        batteryManager = battery;
+        updateBatteryState();
+        batteryManager.addEventListener("chargingchange", updateBatteryState);
+        batteryManager.addEventListener("levelchange", updateBatteryState);
+      })
+      .catch(() => {
+        lowPowerSamplingRef.current = false;
+      });
+
+    return () => {
+      cancelled = true;
+      if (batteryManager) {
+        batteryManager.removeEventListener("chargingchange", updateBatteryState);
+        batteryManager.removeEventListener("levelchange", updateBatteryState);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const unsubscribe = subscribeTrackingState(sessionUsername, (state) => {
@@ -266,12 +604,7 @@ export default function CheckinPage() {
           return;
         }
 
-        const normalizedRemoteState = {
-          tracking: Boolean(remoteState.tracking),
-          gps: remoteState.gps || { lat: "", lon: "" },
-          trackPoints: Array.isArray(remoteState.track_points) ? remoteState.track_points : [],
-          updatedAt: remoteState.updated_at || "",
-        };
+        const normalizedRemoteState = normalizeRemoteTrackingState(remoteState);
 
         const localState = getTrackingState(sessionUsername);
         const remoteUpdatedAt = Date.parse(normalizedRemoteState.updatedAt || "") || 0;
@@ -286,7 +619,8 @@ export default function CheckinPage() {
       } finally {
         if (!cancelled) {
           trackingSyncReadyRef.current = true;
-          void saveTrackingState(toTrackingApiPayload(getTrackingState(sessionUsername))).catch(() => null);
+          trackingSyncDirtyRef.current = true;
+          scheduleTrackingSync(0);
         }
       }
     }
@@ -300,22 +634,41 @@ export default function CheckinPage() {
 
   useEffect(() => {
     if (!trackingSyncReadyRef.current) return undefined;
-
-    if (trackingSyncTimerRef.current) {
-      window.clearTimeout(trackingSyncTimerRef.current);
-    }
-
-    trackingSyncTimerRef.current = window.setTimeout(() => {
-      void saveTrackingState(toTrackingApiPayload({ tracking, gps, trackPoints })).catch(() => null);
-    }, 500);
+    trackingSyncDirtyRef.current = true;
+    const pointsLength = Array.isArray(trackPoints) ? trackPoints.length : 0;
+    const pointsChanged = pointsLength !== trackPointsLengthRef.current;
+    trackPointsLengthRef.current = pointsLength;
+    const syncDelay = tracking ? (pointsChanged ? 2500 : 4000) : 1200;
+    scheduleTrackingSync(syncDelay);
 
     return () => {
-      if (trackingSyncTimerRef.current) {
-        window.clearTimeout(trackingSyncTimerRef.current);
-        trackingSyncTimerRef.current = null;
+      if (trackingSyncRetryTimerRef.current) {
+        window.clearTimeout(trackingSyncRetryTimerRef.current);
+        trackingSyncRetryTimerRef.current = null;
       }
     };
-  }, [tracking, gps, trackPoints]);
+  }, [tracking, gps, trackPoints, sessionUsername]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        flushTrackingSyncOnPageHide();
+      }
+    };
+
+    const handlePageHide = () => {
+      flushTrackingSyncOnPageHide();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("beforeunload", handlePageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("beforeunload", handlePageHide);
+    };
+  }, [sessionUsername]);
 
   useEffect(() => {
     let cancelled = false;
@@ -568,13 +921,15 @@ export default function CheckinPage() {
 
   useEffect(() => {
     return () => {
+      trackingEnabledRef.current = false;
       disposedRef.current = true;
       if (watchIdRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
         navigator.geolocation.clearWatch(watchIdRef.current);
         watchIdRef.current = null;
       }
-      if (trackingSyncTimerRef.current) {
-        window.clearTimeout(trackingSyncTimerRef.current);
+      if (trackingSyncRetryTimerRef.current) {
+        window.clearTimeout(trackingSyncRetryTimerRef.current);
+        trackingSyncRetryTimerRef.current = null;
       }
       setTrackingActive(sessionUsername, false);
       const scanner = scannerRef.current;
@@ -582,6 +937,73 @@ export default function CheckinPage() {
       if (scanner) {
         void scanner.stop().catch(() => null);
       }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === "undefined") {
+      return undefined;
+    }
+
+    if (mapFullscreen) {
+      document.body.classList.add("checkin-map-fullscreen-open");
+    } else {
+      document.body.classList.remove("checkin-map-fullscreen-open");
+    }
+
+    return () => {
+      document.body.classList.remove("checkin-map-fullscreen-open");
+    };
+  }, [mapFullscreen]);
+
+  useEffect(() => {
+    if (!mapFullscreen) {
+      return undefined;
+    }
+
+    const handleEsc = (event) => {
+      if (event.key === "Escape") {
+        setMapFullscreen(false);
+      }
+    };
+
+    window.addEventListener("keydown", handleEsc);
+    return () => {
+      window.removeEventListener("keydown", handleEsc);
+    };
+  }, [mapFullscreen]);
+
+  useEffect(() => {
+    if (!mapLoaded || !amapRef.current) {
+      return;
+    }
+
+    const resizeMap = () => {
+      try {
+        amapRef.current?.resize?.();
+      } catch {
+        // ignore map resize errors on older SDK runtime
+      }
+    };
+
+    resizeMap();
+    const timer = window.setTimeout(resizeMap, 220);
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [mapFullscreen, mapLoaded]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState !== "hidden") return;
+      if (scannerRef.current) {
+        void stopScan();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
   }, []);
 
@@ -653,15 +1075,17 @@ export default function CheckinPage() {
         polylineRef.current = polyline;
       }
 
-      const lastPoint = trackPoints[trackPoints.length - 1];
-      focusMapOnPosition(lastPoint.lat, lastPoint.lon, 16);
+      if (tracking) {
+        const lastPoint = trackPoints[trackPoints.length - 1];
+        focusMapOnPosition(lastPoint.lat, lastPoint.lon, 16);
+      }
       return;
     }
 
-    if (hasGps) {
+    if (tracking && hasGps) {
       focusMapOnPosition(Number(gps.lat), Number(gps.lon), 16);
     }
-  }, [mapLoaded, gps.lat, gps.lon, trackPoints]);
+  }, [mapLoaded, gps.lat, gps.lon, trackPoints, tracking]);
 
   // 开始实时定位和轨迹记录
   async function startTracking() {
@@ -678,15 +1102,42 @@ export default function CheckinPage() {
     }
 
     watchFallbackRef.current = false;
+    trackingEnabledRef.current = true;
     setTrackingActive(sessionUsername, true);
+
+    try {
+      const initialPosition = await getCurrentPositionWithFallback();
+      if (!trackingEnabledRef.current) {
+        setIsStartingTrack(false);
+        return;
+      }
+      const initialDecision = shouldRecordTrackingSample(initialPosition, lastAcceptedTrackPointRef.current, {
+        batteryLow: lowPowerSamplingRef.current,
+      });
+      if (initialDecision.accept && initialDecision.point) {
+        lastAcceptedTrackPointRef.current = initialDecision.point;
+        recordTrackingPoint(sessionUsername, initialDecision.point.lat, initialDecision.point.lon);
+      }
+    } catch {
+      // ignore initial snapshot failures; watchPosition will continue trying
+    }
 
     const startWatch = (options) => {
       watchIdRef.current = navigator.geolocation.watchPosition(
         (pos) => {
+          if (!trackingEnabledRef.current) {
+            return;
+          }
           setIsStartingTrack(false);
-          const lat = pos.coords.latitude;
-          const lon = pos.coords.longitude;
-          recordTrackingPoint(sessionUsername, lat, lon);
+          const decision = shouldRecordTrackingSample(pos, lastAcceptedTrackPointRef.current, {
+            batteryLow: lowPowerSamplingRef.current,
+          });
+          if (!decision.accept || !decision.point) {
+            return;
+          }
+
+          lastAcceptedTrackPointRef.current = decision.point;
+          recordTrackingPoint(sessionUsername, decision.point.lat, decision.point.lon);
         },
         (error) => {
           const canFallback = !watchFallbackRef.current && (error?.code === 2 || error?.code === 3);
@@ -720,6 +1171,7 @@ export default function CheckinPage() {
 
   // 停止定位
   function stopTracking() {
+    trackingEnabledRef.current = false;
     if (watchIdRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
       navigator.geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
@@ -732,7 +1184,14 @@ export default function CheckinPage() {
   // 重置轨迹
   function resetTrack() {
     stopTracking();
+    lastAcceptedTrackPointRef.current = null;
     resetTrackingState(sessionUsername);
+    void saveTrackingState({
+      tracking: false,
+      gps: { lat: "", lon: "" },
+      track_points: [],
+      replace_track_points: true,
+    }).catch(() => null);
     if (polylineRef.current) {
       polylineRef.current.setMap(null);
       polylineRef.current = null;
@@ -765,11 +1224,13 @@ export default function CheckinPage() {
     }
   }
 
-  async function submitCheckin(qrContent = "") {
+  async function submitCheckin(qrContent = scannedQrText) {
     if (!canSubmit) {
       Toast.show({ content: "请至少填写景点ID或心情" });
       return false;
     }
+
+    const normalizedQrContent = typeof qrContent === "string" ? qrContent.trim() : "";
 
     const formData = new FormData();
     if (locationId) {
@@ -780,8 +1241,8 @@ export default function CheckinPage() {
       formData.append("gps_lon", gps.lon);
     }
     formData.append("mood_text", moodText);
-    if (qrContent) {
-      formData.append("qr_content", qrContent);
+    if (normalizedQrContent) {
+      formData.append("qr_content", normalizedQrContent);
     }
     for (const item of files) {
       if (item?.file) {
@@ -916,8 +1377,8 @@ export default function CheckinPage() {
         } catch {
           setActiveSpot(null);
         }
-        setScanModalVisible(true);
-        Toast.show({ content: `扫码成功，景点ID: ${parsedId}` });
+        setScanModalVisible(false);
+        Toast.show({ content: `扫码成功，已识别景点ID: ${parsedId}，可继续填写心情后再确认打卡` });
         await stopScan();
       };
 
@@ -978,12 +1439,24 @@ export default function CheckinPage() {
       </div>
 
       {/* 地图卡片 */}
-      <CardComponent variant="glass" className="checkin-card p-0 overflow-hidden mb-4 h-64">
+      <CardComponent
+        variant="glass"
+        className={`checkin-card p-0 overflow-hidden mb-4 h-64 ${mapFullscreen ? "checkin-map-fullscreen-card" : ""}`}
+      >
         <div 
           ref={mapRef} 
           style={{ width: "100%", height: "100%", borderRadius: "1rem" }}
           className="checkin-map-stage relative"
         >
+          <button
+            type="button"
+            className="checkin-map-fullscreen-btn"
+            onClick={() => setMapFullscreen((current) => !current)}
+            aria-label={mapFullscreen ? "退出全屏地图" : "全屏查看地图"}
+          >
+            <LucideIcon name={mapFullscreen ? "Minimize2" : "Maximize2"} size={16} color="currentColor" />
+            <span>{mapFullscreen ? "退出全屏" : "全屏"}</span>
+          </button>
           {!mapLoaded && (
             <div className="checkin-map-overlay absolute inset-0 flex items-center justify-center rounded-xl px-4">
               <div className="checkin-map-overlay-inner w-full max-w-[18rem] text-center text-sm leading-6 space-y-3">
@@ -1167,8 +1640,8 @@ export default function CheckinPage() {
           variant="primary"
           loading={submitting}
           disabled={!canSubmit}
-          onClick={submitCheckin}
-         className="w-full font-bold text-base py-2">
+          onClick={() => void submitCheckin()}
+          className="w-full font-bold text-base py-2">
           {canSubmit ? "确认打卡" : "请填写景点ID或心情"}
         </ButtonComponent>
       </CardComponent>
@@ -1180,15 +1653,15 @@ export default function CheckinPage() {
           <div className="checkin-modal-content">
             <div className="checkin-modal-title text-base font-semibold">{activeSpot?.name || "当前景点"}</div>
             {activeSpot?.qr_code_url ? <img src={buildAssetUrl(activeSpot.qr_code_url)} alt="景点二维码" className="w-full rounded-xl mt-2" /> : null}
-            <div className="checkin-modal-desc text-sm mt-2">{activeSpot?.description || "已完成扫码，欢迎继续探索。"}</div>
+            <div className="checkin-modal-desc text-sm mt-2">{activeSpot?.description || "已识别景点，请继续填写心情、照片后再确认打卡。"}</div>
             <div className="checkin-modal-meta text-xs mt-3">分类：{activeSpot?.category || "景点"}</div>
           </div>
         }
         closeOnMaskClick
         onClose={() => setScanModalVisible(false)}
         actions={[
-          { key: "later", text: "稍后处理", onClick: () => setScanModalVisible(false) },
-          { key: "checkin", text: "记录打卡", primary: true, onClick: () => submitCheckin(scannedQrText) },
+          { key: "later", text: "继续填写", onClick: () => setScanModalVisible(false) },
+          { key: "checkin", text: "确认打卡", primary: true, onClick: () => void submitCheckin(scannedQrText) },
         ]}
       />
     </ImmersivePage>

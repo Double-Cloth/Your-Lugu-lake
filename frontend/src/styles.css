@@ -972,6 +972,61 @@ body,
   background: linear-gradient(180deg, rgba(9, 31, 44, 0.36) 0%, rgba(9, 31, 44, 0.62) 100%);
 }
 
+.checkin-theme .checkin-map-fullscreen-card {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 1200 !important;
+  height: auto !important;
+  width: 100vw !important;
+  max-width: none !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  border: none !important;
+}
+
+.checkin-theme .checkin-map-fullscreen-card .checkin-map-stage {
+  border-radius: 0 !important;
+}
+
+.checkin-theme .checkin-map-fullscreen-btn {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  right: calc(env(safe-area-inset-right, 0px) + 12px);
+  z-index: 15;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(201, 233, 247, 0.46);
+  color: #ecf8ff;
+  background: rgba(11, 37, 52, 0.64);
+  box-shadow: 0 8px 20px rgba(4, 24, 36, 0.35);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  backdrop-filter: blur(6px);
+}
+
+.checkin-theme .checkin-map-fullscreen-btn:active {
+  transform: translateY(1px);
+}
+
+body.checkin-map-fullscreen-open {
+  overflow: hidden;
+}
+
+/* 某些移动浏览器中，祖先 transform 会让 fixed 元素错位；全屏时强制移除。 */
+body.checkin-map-fullscreen-open .page-fade-in {
+  animation: none !important;
+  transform: none !important;
+}
+
+body.checkin-map-fullscreen-open .app-main-scroll {
+  overflow: hidden !important;
+  overscroll-behavior: contain;
+}
+
 .checkin-theme .checkin-map-overlay {
   background: rgba(6, 23, 33, 0.66);
   backdrop-filter: blur(4px);
