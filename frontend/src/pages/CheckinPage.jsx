@@ -55,6 +55,14 @@ function isHttpIpAccess() {
   return window.location.protocol === "http:" && !isLocalhostLike(hostname) && /^\d{1,3}(\.\d{1,3}){3}$/.test(hostname);
 }
 
+function isMobileBrowserLike() {
+  if (typeof navigator === "undefined") {
+    return false;
+  }
+  const ua = String(navigator.userAgent || "").toLowerCase();
+  return /android|iphone|ipad|ipod|mobile|harmonyos/.test(ua);
+}
+
 async function requestLocationPermission() {
   if (!navigator.geolocation) {
     Toast.show({ content: "当前设备不支持定位" });
@@ -213,10 +221,18 @@ function shouldRecordTrackingSample(position, lastPoint, { batteryLow = false } 
 }
 
 async function getCurrentPositionWithFallback() {
-  const attempts = [
-    { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
-    { enableHighAccuracy: false, maximumAge: 30000, timeout: 18000 },
-  ];
+  const onMobile = isMobileBrowserLike();
+  const attempts = onMobile
+    ? [
+        // 移动端优先取可接受的缓存定位，避免一上来高精度导致超时。
+        { enableHighAccuracy: false, maximumAge: 180000, timeout: 8000 },
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
+        { enableHighAccuracy: false, maximumAge: 600000, timeout: 30000 },
+      ]
+    : [
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
+        { enableHighAccuracy: false, maximumAge: 30000, timeout: 18000 },
+      ];
 
   let lastError = null;
   for (const options of attempts) {
@@ -1166,7 +1182,12 @@ export default function CheckinPage() {
       );
     };
 
-    startWatch({ enableHighAccuracy: true, maximumAge: 0, timeout: 12000 });
+    const onMobile = isMobileBrowserLike();
+    startWatch(
+      onMobile
+        ? { enableHighAccuracy: false, maximumAge: 30000, timeout: 20000 }
+        : { enableHighAccuracy: true, maximumAge: 0, timeout: 12000 }
+    );
   }
 
   // 停止定位
