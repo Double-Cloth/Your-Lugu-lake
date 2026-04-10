@@ -281,6 +281,23 @@ export async function fetchKnowledgeBaseCommonPage(pageSlug) {
   }
 }
 
+/**
+ * 加载 common/pages 下的任意模块文件
+ * @param {string} relativePath - 相对路径，如 eco-guide/rare-fauna.json
+ * @returns {Promise<object|null>}
+ */
+export async function fetchKnowledgeBaseCommonModule(relativePath) {
+  if (!relativePath) return null;
+  try {
+    const response = await fetch(`/knowledge-base/common/pages/${relativePath}`);
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.warn(`Failed to load KB common module: ${relativePath}`, error);
+    return null;
+  }
+}
+
 export async function fetchKnowledgeBaseLocationsIndex() {
   try {
     const response = await fetch("/knowledge-base/locations/index.json");
@@ -405,8 +422,13 @@ async function fetchKnowledgeBaseLocationById(idOrSlug) {
  * @returns {Promise<object>} 完整景点信息
  */
 export async function fetchLocationDetail(idOrSlug) {
-  // 如果是数字ID，先从数据库获取基础数据和slug
+  // 如果是数字ID，先从知识库获取，避免数据库无记录时产生404噪音
   if (typeof idOrSlug === 'number' || /^\d+$/.test(idOrSlug)) {
+    const kbLocation = await fetchKnowledgeBaseLocationById(idOrSlug);
+    if (kbLocation) {
+      return kbLocation;
+    }
+
     try {
       const dbLocation = await fetchLocationById(idOrSlug);
       
@@ -428,12 +450,9 @@ export async function fetchLocationDetail(idOrSlug) {
       }
       return { ...dbLocation, _source: 'database' };
     } catch (error) {
-      const kbLocation = await fetchKnowledgeBaseLocationById(idOrSlug);
-      if (kbLocation) {
-        return kbLocation;
+      if (error?.response?.status !== 404) {
+        console.error("Failed to fetch location by ID:", error);
       }
-
-      console.error("Failed to fetch location by ID:", error);
       return null;
     }
   }
@@ -554,6 +573,16 @@ export async function updateCurrentUser(payload, token) {
   const { data } = await api.put("/api/auth/me", nextPayload, {
     headers: authHeader(token),
   });
+  return data;
+}
+
+export async function fetchTrackingState() {
+  const { data } = await api.get("/api/tracking/me");
+  return data;
+}
+
+export async function saveTrackingState(payload) {
+  const { data } = await api.put("/api/tracking/me", payload);
   return data;
 }
 

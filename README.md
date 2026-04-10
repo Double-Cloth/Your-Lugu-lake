@@ -23,7 +23,7 @@
 
 ### 2.1 游客端
 
-- 首页分层导览：景区一览、文化导览、全域导览
+- 首页分层导览：景区一览、文化导览、全域导览、生态导览
 - 景点详情页：知识库优先加载，数据库信息兜底
 - 打卡功能：支持地理位置、文字心情、图片上传
 - 旅行绘卷：基于打卡记录聚合展示个人行程轨迹
@@ -266,6 +266,8 @@ Windows PowerShell：
 
 - knowledge-base/common
 - knowledge-base/common/pages
+- knowledge-base/common/pages/eco-guide.json
+- knowledge-base/common/pages/eco-guide/*.json
 - knowledge-base/locations/{slug}/info.json
 - knowledge-base/locations/{slug}/images
 - knowledge-base/hotels/index.json
@@ -274,6 +276,7 @@ Windows PowerShell：
 建议维护策略：
 
 - 内容变更优先修改知识库文件，不直接改前端硬编码文本。
+- 生态导览按模块文件维护，避免把大段内容集中在单文件中。
 - 新增景点时同步维护 locations/index.json 与对应 slug 目录。
 - 发布前对 JSON 做格式校验，避免运行期解析错误。
 

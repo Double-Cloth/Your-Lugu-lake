@@ -26,7 +26,7 @@ docker compose up --build
 
 ## 3. 核心功能体验
 
-1. 打开首页：体验「景区一览 / 文化导览 / 全域导览」
+1. 打开首页：体验「景区一览 / 文化导览 / 全域导览 / 生态导览」
 2. 在「我的」注册或登录游客账号
 3. 在「打卡」页扫码或手填景点 ID，提交足迹
 4. 在「文化导览」生成 AI 路线
@@ -51,7 +51,7 @@ curl -X POST http://localhost:18000/api/auth/login \
 ```bash
 curl http://localhost:18000/api/locations
 curl http://localhost:18000/api/locations/1
-curl http://localhost:18000/api/locations/knowledge-base/lugu-lake
+curl http://localhost:18000/api/locations/knowledge-base/luyuan-cliff
 ```
 
 ### 打卡（需 token）
@@ -88,12 +88,16 @@ uvicorn app.main:app --reload
 ## 6. 常见问题
 
 ### Q1: 登录失败或 401
-- 检查是否把 token 存在 `user_token`（游客）或 `admin_token`（管理员）
-- 检查请求头是否带 `Authorization: Bearer ...`
+- 检查浏览器是否正确接收会话 Cookie
+- 检查写请求是否带上 `X-CSRF-Token`
 
 ### Q2: 景点详情不显示知识库内容
 - 检查 `knowledge-base/locations/index.json` 是否包含对应 `id/slug`
 - 检查 `knowledge-base/locations/{slug}/info.json` 是否有效 JSON
+
+### Q4: 生态导览某模块不显示
+- 检查 `knowledge-base/common/pages/eco-guide.json` 中 `moduleFiles` 是否指向存在文件
+- 检查子文件（如 `rare-fauna.json`）是否包含 `items` 数组
 
 ### Q3: 打卡上传图片失败
 - 检查是否使用 `multipart/form-data`

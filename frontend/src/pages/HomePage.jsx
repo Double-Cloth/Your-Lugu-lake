@@ -5,6 +5,8 @@ import { ImmersivePage, CardComponent, ButtonComponent, ReadingGlassCard, GlassI
 
 import {
   buildAssetUrl,
+  fetchKnowledgeBaseCommonModule,
+  fetchKnowledgeBaseCommonPage,
   fetchKnowledgeBaseHotels,
   fetchKnowledgeBaseLocationsIndex,
   fetchKnowledgeBaseNearbySpots,
@@ -119,6 +121,7 @@ export default function HomePage() {
   const [kbLocations, setKbLocations] = useState([]);
   const [nearbyGuides, setNearbyGuides] = useState({ spots: [], hotels: [] });
   const [kbOverview, setKbOverview] = useState(null);
+  const [kbEcoGuide, setKbEcoGuide] = useState(null);
 
   useEffect(() => {
     const panelFromState = location.state?.openPanel;
@@ -192,6 +195,45 @@ export default function HomePage() {
         const overview = await fetchKnowledgeBaseOverview();
         setKbOverview(overview?.overview || null);
 
+        const ecoGuide = await fetchKnowledgeBaseCommonPage("eco-guide");
+        if (ecoGuide?.moduleFiles && typeof ecoGuide.moduleFiles === "object") {
+          const {
+            science,
+            rareFauna,
+            rareFlora,
+            ecosystemBenefits,
+            wellnessRoute,
+            observationTips,
+          } = ecoGuide.moduleFiles;
+
+          const [scienceData, faunaData, floraData, benefitsData, routeData, tipsData] = await Promise.all([
+            fetchKnowledgeBaseCommonModule(science),
+            fetchKnowledgeBaseCommonModule(rareFauna),
+            fetchKnowledgeBaseCommonModule(rareFlora),
+            fetchKnowledgeBaseCommonModule(ecosystemBenefits),
+            fetchKnowledgeBaseCommonModule(wellnessRoute),
+            fetchKnowledgeBaseCommonModule(observationTips),
+          ]);
+
+          setKbEcoGuide({
+            ...ecoGuide,
+            details: {
+              introduction: scienceData?.introduction || "",
+              rareFauna: Array.isArray(faunaData?.items) ? faunaData.items : [],
+              rareFlora: Array.isArray(floraData?.items) ? floraData.items : [],
+              ecosystemBenefits: {
+                environment: Array.isArray(benefitsData?.environment) ? benefitsData.environment : [],
+                human: Array.isArray(benefitsData?.human) ? benefitsData.human : [],
+              },
+              wellnessRoute: Array.isArray(routeData?.items) ? routeData.items : [],
+              routeNote: typeof routeData?.routeNote === "string" ? routeData.routeNote : "",
+              observationTips: Array.isArray(tipsData?.items) ? tipsData.items : [],
+            },
+          });
+        } else {
+          setKbEcoGuide(ecoGuide || null);
+        }
+
         const spotsList = await fetchKnowledgeBaseNearbySpots();
         const hotelsList = await fetchKnowledgeBaseHotels();
         const spots = Array.isArray(spotsList) ? spotsList : [];
@@ -223,6 +265,7 @@ export default function HomePage() {
         setKbLocations([]);
         setNearbyGuides({ spots: [], hotels: [] });
         setKbOverview(null);
+        setKbEcoGuide(null);
         setMyFootprints([]);
       } finally {
         setLoading(false);
@@ -277,6 +320,33 @@ export default function HomePage() {
     const list = kbOverview?.culture?.highlights;
     return Array.isArray(list) ? list : [];
   }, [kbOverview]);
+  const ecoIntro = useMemo(() => {
+    return kbEcoGuide?.details?.introduction || kbEcoGuide?.description || "暂无生态导览内容，请在 knowledge-base/common/pages/eco-guide.json 中配置。";
+  }, [kbEcoGuide]);
+  const ecoFauna = useMemo(() => {
+    const list = kbEcoGuide?.details?.rareFauna;
+    return Array.isArray(list) ? list : [];
+  }, [kbEcoGuide]);
+  const ecoFlora = useMemo(() => {
+    const list = kbEcoGuide?.details?.rareFlora;
+    return Array.isArray(list) ? list : [];
+  }, [kbEcoGuide]);
+  const ecoBenefitsEnv = useMemo(() => {
+    const list = kbEcoGuide?.details?.ecosystemBenefits?.environment;
+    return Array.isArray(list) ? list : [];
+  }, [kbEcoGuide]);
+  const ecoBenefitsHuman = useMemo(() => {
+    const list = kbEcoGuide?.details?.ecosystemBenefits?.human;
+    return Array.isArray(list) ? list : [];
+  }, [kbEcoGuide]);
+  const ecoRoute = useMemo(() => {
+    const list = kbEcoGuide?.details?.wellnessRoute;
+    return Array.isArray(list) ? list : [];
+  }, [kbEcoGuide]);
+  const ecoTips = useMemo(() => {
+    const list = kbEcoGuide?.details?.observationTips;
+    return Array.isArray(list) ? list : [];
+  }, [kbEcoGuide]);
   const ecoLocations = useMemo(() => {
     return kbLocations.filter((item) => {
       const text = `${item.name || ""} ${item.category || ""} ${item.description || ""}`;
@@ -797,34 +867,105 @@ export default function HomePage() {
           </div>
 
           <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md">
-            <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">生态科普</div>
+            <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">{kbEcoGuide?.sections?.scienceTitle || "生态科普"}</div>
             <div className="text-sm text-white/85 leading-relaxed">
-              泸沽湖既是高原湖泊景观，也是湿地与山地生态的复合场域。适合用“轻徒步 + 慢停留 + 少打扰”的方式去观察水体、候鸟、植被与地貌变化。
+              {ecoIntro}
             </div>
-            <div className="grid grid-cols-1 gap-2 mt-3">
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-sm text-white/80">看点 1：优先选择清晨或傍晚的柔光时段，观察湖面与湿地层次。</div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-sm text-white/80">看点 2：尽量沿既有步道活动，减少对植被和栖息地的干扰。</div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-sm text-white/80">看点 3：拍照、观鸟、讲解可以合并成一条低强度自然课程线。</div>
-            </div>
+
+            {ecoFauna.length > 0 ? (
+              <div className="mt-4">
+                <div className="text-sm font-semibold text-white/90 mb-2">{kbEcoGuide?.sections?.rareFaunaTitle || "珍稀动物"}</div>
+                <div className="space-y-2">
+                  {ecoFauna.map((item, idx) => (
+                    <div key={`eco-fauna-${item.name || idx}`} className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-sm font-semibold text-white">{item.name || `动物 ${idx + 1}`}</div>
+                        {item.protectionLevel ? <span className="px-2 py-0.5 text-[11px] rounded-full bg-white/15 text-white/85">{item.protectionLevel}</span> : null}
+                      </div>
+                      {item.scientificName ? <div className="text-xs text-white/55 mt-1 italic">{item.scientificName}</div> : null}
+                      {item.introduction ? <div className="text-xs text-white/75 mt-2 leading-relaxed">{item.introduction}</div> : null}
+                      {Array.isArray(item?.benefits?.environment) && item.benefits.environment.length > 0 ? (
+                        <div className="text-xs text-emerald-100/90 mt-2">生态益处：{item.benefits.environment.join("；")}</div>
+                      ) : null}
+                      {Array.isArray(item?.benefits?.human) && item.benefits.human.length > 0 ? (
+                        <div className="text-xs text-sky-100/90 mt-1">人类益处：{item.benefits.human.join("；")}</div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {ecoFlora.length > 0 ? (
+              <div className="mt-4">
+                <div className="text-sm font-semibold text-white/90 mb-2">{kbEcoGuide?.sections?.rareFloraTitle || "珍稀植物"}</div>
+                <div className="space-y-2">
+                  {ecoFlora.map((item, idx) => (
+                    <div key={`eco-flora-${item.name || idx}`} className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-sm font-semibold text-white">{item.name || `植物 ${idx + 1}`}</div>
+                        {item.protectionLevel ? <span className="px-2 py-0.5 text-[11px] rounded-full bg-white/15 text-white/85">{item.protectionLevel}</span> : null}
+                      </div>
+                      {item.scientificName ? <div className="text-xs text-white/55 mt-1 italic">{item.scientificName}</div> : null}
+                      {item.introduction ? <div className="text-xs text-white/75 mt-2 leading-relaxed">{item.introduction}</div> : null}
+                      {Array.isArray(item?.benefits?.environment) && item.benefits.environment.length > 0 ? (
+                        <div className="text-xs text-emerald-100/90 mt-2">生态益处：{item.benefits.environment.join("；")}</div>
+                      ) : null}
+                      {Array.isArray(item?.benefits?.human) && item.benefits.human.length > 0 ? (
+                        <div className="text-xs text-sky-100/90 mt-1">人类益处：{item.benefits.human.join("；")}</div>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {ecoBenefitsEnv.length > 0 || ecoBenefitsHuman.length > 0 ? (
+              <div className="mt-4">
+                <div className="text-sm font-semibold text-white/90 mb-2">{kbEcoGuide?.sections?.benefitsTitle || "动植物生态价值"}</div>
+                <div className="grid grid-cols-1 gap-2">
+                  {ecoBenefitsEnv.length > 0 ? (
+                    <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                      <div className="text-xs font-semibold text-emerald-100/90 mb-1">对生态环境的价值</div>
+                      <div className="text-xs text-white/75 leading-relaxed">{ecoBenefitsEnv.join("；")}</div>
+                    </div>
+                  ) : null}
+                  {ecoBenefitsHuman.length > 0 ? (
+                    <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                      <div className="text-xs font-semibold text-sky-100/90 mb-1">对人类社会的价值</div>
+                      <div className="text-xs text-white/75 leading-relaxed">{ecoBenefitsHuman.join("；")}</div>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            {ecoTips.length > 0 ? (
+              <div className="mt-4">
+                <div className="text-sm font-semibold text-white/90 mb-2">{kbEcoGuide?.sections?.tipsTitle || "观察守则"}</div>
+                <div className="grid grid-cols-1 gap-2">
+                  {ecoTips.map((tip, idx) => (
+                    <div key={`eco-tip-${idx}`} className="bg-white/5 border border-white/10 rounded-2xl p-3 text-sm text-white/80">{tip}</div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </Card>
 
           <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md">
-            <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">康养路线</div>
+            <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">{kbEcoGuide?.sections?.wellnessRouteTitle || "康养路线"}</div>
             <div className="space-y-2 text-sm text-white/85">
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
-                <div className="font-semibold text-white">清晨 06:30 - 09:00</div>
-                <div className="mt-1">湖边慢走，做轻量呼吸练习，适合老人和亲子游客。</div>
-              </div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
-                <div className="font-semibold text-white">上午 09:30 - 12:00</div>
-                <div className="mt-1">串联一个自然景观点和一个观景平台，减少赶路，增加停留。</div>
-              </div>
-              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
-                <div className="font-semibold text-white">下午 15:30 - 17:30</div>
-                <div className="mt-1">轻徒步 + 观景拍照，回程保留休息时间，避免高强度拉满行程。</div>
-              </div>
+              {ecoRoute.length === 0 ? (
+                <div className="bg-white/5 border border-white/10 rounded-2xl p-3">暂无路线配置，请在 knowledge-base/common/pages/eco-guide.json 中补充。</div>
+              ) : ecoRoute.map((item, idx) => (
+                <div key={`eco-route-${item.period || idx}`} className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                  <div className="font-semibold text-white">{item.period || `阶段 ${idx + 1}`} {item.time || ""}</div>
+                  {item.activity ? <div className="mt-1">{item.activity}</div> : null}
+                  {item.benefit ? <div className="text-xs text-white/65 mt-1">收益：{item.benefit}</div> : null}
+                </div>
+              ))}
             </div>
-            <div className="text-xs text-white/55 mt-3">如果你想要更具体的路线，可以先去“全域导览”挑选景点，再回来组合成生态线。</div>
+            <div className="text-xs text-white/55 mt-3">{kbEcoGuide?.details?.routeNote || "如果你想要更具体的路线，可以先去“全域导览”挑选景点，再回来组合成生态线。"}</div>
           </Card>
 
           <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md">

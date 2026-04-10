@@ -42,10 +42,11 @@ frontend/src/
 
 ## 状态与鉴权
 
-### Token 存储
+### 会话机制
 
-- 游客 token: `localStorage.user_token`
-- 管理员 token: `localStorage.admin_token`
+- 当前主链路采用 Cookie 会话（HttpOnly）
+- 写请求由 `X-CSRF-Token` + CSRF Cookie 校验
+- 前端仍保留少量 Bearer 兼容逻辑，用于历史数据或异常兜底
 
 ### auth 工具
 
@@ -71,8 +72,9 @@ frontend/src/
 ## 页面说明
 
 ### HomePage
-- 三模块入口：景区一览 / 文化导览 / 全域导览
+- 四模块入口：景区一览 / 文化导览 / 全域导览 / 生态导览
 - 内容由 knowledge-base 提供（overview、locations、hotels、nearby-spots）
+- 生态导览采用模块化文件：`common/pages/eco-guide.json` + `common/pages/eco-guide/*.json`
 
 ### LuguLakeOverviewPage / MosuoCulturePage
 - 专题页内容来自：`knowledge-base/common/pages/*.json`
@@ -80,6 +82,7 @@ frontend/src/
 
 ### LocationDetailPage
 - 通过 `fetchLocationDetail` 实现知识库优先、数据库回退
+- 数字 ID 会先按 `locations/index.json` 映射 slug，再加载 knowledge-base
 - 图片来自 `knowledge-base/locations/{slug}/images/*`
 - 分节标题由 `info.json` 的 `sections.*Title` 控制
 
@@ -112,10 +115,16 @@ npm run dev
 ```
 
 环境变量：
-- `VITE_API_BASE_URL`（默认 `http://localhost:8000`）
+- `VITE_API_BASE_URL`（默认留空，开发态由 Vite 代理）
 
 ## 调试建议
 
 - 网络问题优先看浏览器 Network
-- 认证问题先检查本地 `user_token/admin_token`
+- 认证问题优先检查 Cookie 与 CSRF Header 是否成对发送
 - 景点详情异常先检查 knowledge-base JSON 格式与 slug/id 映射
+
+### 生态导览专项排查
+
+- 检查 `knowledge-base/common/pages/eco-guide.json` 的 `moduleFiles` 路径
+- 检查 `knowledge-base/common/pages/eco-guide/*.json` 是否为有效 JSON
+- 若页面为空，先看 Network 是否 404 到模块文件

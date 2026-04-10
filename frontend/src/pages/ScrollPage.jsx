@@ -17,6 +17,14 @@ export default function ScrollPage() {
   const [activeLocationId, setActiveLocationId] = useState("all");
   const scrollRef = useRef(null);
 
+  function handleBack() {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate("/home", { replace: true });
+  }
+
   const enriched = useMemo(() => {
     return footprints
       .map((item) => ({
@@ -194,6 +202,17 @@ export default function ScrollPage() {
 
   return (
     <ImmersivePage bgImage="/images/lugu-scenery.jpg" className="scroll-theme page-fade-in pb-6">
+      <div className="mb-3 flex justify-start">
+        <button type="button" className="scroll-back-btn" onClick={handleBack} aria-label="返回上一页">
+          <span className="scroll-back-btn-icon" aria-hidden="true">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M15 18l-6-6 6-6" />
+            </svg>
+          </span>
+          <span className="scroll-back-btn-text">返回</span>
+        </button>
+      </div>
+
       <div className="hero-shell scroll-hero mb-3">
         <div className="hero-kicker">Travel Scroll</div>
         <h1 className="page-title m-0">我的旅行绘卷</h1>

@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "lastUpdated": "2026-03-26",
+  "lastUpdated": "2026-04-10",
   "pages": [
     {
       "slug": "lugu-lake",
@@ -11,6 +11,11 @@
       "slug": "mosuo-culture",
       "title": "摩梭文化介绍",
       "file": "mosuo-culture.json"
+    },
+    {
+      "slug": "eco-guide",
+      "title": "生态导览",
+      "file": "eco-guide.json"
     }
   ]
 }

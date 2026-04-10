@@ -11,6 +11,25 @@
 - `pages/index.json`：专题页索引（slug 与文件映射）
 - `pages/lugu-lake.json`：泸沽湖整体介绍
 - `pages/mosuo-culture.json`：摩梭文化介绍
+- `pages/eco-guide.json`：生态导览主索引
+- `pages/eco-guide/*.json`：生态导览分模块内容（科普、动植物、价值、路线、守则）
+
+### 生态导览模块化约定
+
+`pages/eco-guide.json` 中通过 `moduleFiles` 指向子模块文件：
+
+- `science`: `eco-guide/science.json`
+- `rareFauna`: `eco-guide/rare-fauna.json`
+- `rareFlora`: `eco-guide/rare-flora.json`
+- `ecosystemBenefits`: `eco-guide/ecosystem-benefits.json`
+- `wellnessRoute`: `eco-guide/wellness-route.json`
+- `observationTips`: `eco-guide/observation-tips.json`
+
+推荐更新策略：
+
+1. 新增模块时先更新 `moduleFiles` 映射。
+2. 保持模块文件字段语义稳定（例如 `items`、`introduction`）。
+3. 修改后执行 JSON 校验，避免前端运行期解析失败。
 
 ### config.json - 知识库全局配置
 用于配置知识库的元数据和功能开关。
@@ -109,6 +128,7 @@
 
 - [ ] 定期更新 config.json 的 lastUpdated
 - [ ] 新增景点类别时更新 categories.json
+- [ ] 生态导览内容变更后同步更新 `pages/eco-guide.json` 的 lastUpdated
 - [ ] 备份重要配置文件
 - [ ] 监控知识库版本变更
 

@@ -12,6 +12,7 @@ from app.api.footprints import router as footprint_router
 from app.api.locations import admin_router as admin_location_router
 from app.api.locations import router as location_router
 from app.api.routes import router as route_router
+from app.api.tracking import router as tracking_router
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine, wait_for_db
@@ -119,6 +120,7 @@ app.include_router(location_router)
 app.include_router(admin_location_router)
 app.include_router(admin_router)
 app.include_router(route_router)
+app.include_router(tracking_router)
 app.include_router(footprint_router)
 
 

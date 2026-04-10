@@ -11,8 +11,17 @@ knowledge-base/
 ├─ common/
 │  ├─ overview.json
 │  └─ pages/
+│     ├─ index.json
 │     ├─ lugu-lake.json
-│     └─ mosuo-culture.json
+│     ├─ mosuo-culture.json
+│     ├─ eco-guide.json
+│     └─ eco-guide/
+│        ├─ science.json
+│        ├─ rare-fauna.json
+│        ├─ rare-flora.json
+│        ├─ ecosystem-benefits.json
+│        ├─ wellness-route.json
+│        └─ observation-tips.json
 ├─ locations/
 │  ├─ index.json
 │  └─ {slug}/
@@ -34,10 +43,14 @@ knowledge-base/
 - `common/pages/lugu-lake.json`
 - `common/pages/mosuo-culture.json`
 
-3. 景点详情页：
-- 先读 `locations/{slug}/info.json`
-- 失败回退后端 `/api/locations/knowledge-base/{slug}`
-- 再失败回退数据库 `/api/locations/{id}`
+3. 生态导览：
+- 先读 `common/pages/eco-guide.json`（主索引）
+- 再按 `moduleFiles` 加载 `common/pages/eco-guide/*.json`
+
+4. 景点详情页：
+- 数字 ID：先按 `locations/index.json` 映射 slug，再读知识库
+- 知识库失败时回退后端 `/api/locations/knowledge-base/{slug}`
+- 都失败后再回退数据库 `/api/locations/{id}`
 
 ## 后端知识库接口
 
@@ -49,10 +62,19 @@ knowledge-base/
 ### common/pages/*.json
 - `title`
 - `description`
-- `details.introduction`
-- `details.highlights`
-- `sections.highlightsTitle`
-- `sections.tipsTitle`
+- `sections.*`
+
+### common/pages/eco-guide.json
+- 基础信息：`title/description/sections`
+- 模块映射：`moduleFiles.*`
+
+### common/pages/eco-guide/*.json
+- `science.json`: `introduction`
+- `rare-fauna.json`: `items[]`
+- `rare-flora.json`: `items[]`
+- `ecosystem-benefits.json`: `environment[]/human[]`
+- `wellness-route.json`: `items[]/routeNote`
+- `observation-tips.json`: `items[]`
 
 ### locations/{slug}/info.json
 - 基础字段：`id/name/slug/category/latitude/longitude/description`
@@ -72,7 +94,9 @@ knowledge-base/
 
 ```bash
 # PowerShell JSON 校验示例
-Get-Content knowledge-base/locations/lugu-lake/info.json -Raw | ConvertFrom-Json | Out-Null
+Get-Content knowledge-base/locations/luyuan-cliff/info.json -Raw | ConvertFrom-Json | Out-Null
+Get-Content knowledge-base/common/pages/eco-guide.json -Raw | ConvertFrom-Json | Out-Null
+Get-Content knowledge-base/common/pages/eco-guide/rare-fauna.json -Raw | ConvertFrom-Json | Out-Null
 ```
 
 ## 常见问题
@@ -85,3 +109,7 @@ Get-Content knowledge-base/locations/lugu-lake/info.json -Raw | ConvertFrom-Json
 
 3. 专题页标题未生效：
 - 检查 `sections.tipsTitle` / `sections.highlightsTitle`
+
+4. 生态导览子模块不显示：
+- 检查 `eco-guide.json` 的 `moduleFiles` 路径是否存在
+- 检查子模块 JSON 是否为有效数组结构（如 `items`）

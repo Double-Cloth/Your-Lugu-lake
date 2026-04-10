@@ -6,6 +6,7 @@ from app.models.knowledge_vector_store import KnowledgeVectorChunk, KnowledgeVec
 from app.models.location import Location
 from app.models.user import User
 from app.models.qrcode import QrCode
+from app.models.user_tracking_state import UserTrackingState
 
 __all__ = [
 	"User",
@@ -18,4 +19,5 @@ __all__ = [
 	"KnowledgeVectorStoreMeta",
 	"KnowledgeVectorChunk",
 	"QrCode",
+	"UserTrackingState",
 ]

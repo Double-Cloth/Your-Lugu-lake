@@ -1,0 +1,26 @@
+{
+  "id": "eco-guide-overview",
+  "slug": "eco-guide",
+  "name": "生态导览",
+  "title": "生态导览",
+  "subtitle": "珍稀动植物与湖区共生系统",
+  "description": "泸沽湖生态导览聚焦湿地、湖湾与山地交错形成的复合生态系统，适合通过低干扰观察方式理解自然与人类生活的长期协同关系。",
+  "sections": {
+    "scienceTitle": "生态科普",
+    "rareFaunaTitle": "珍稀动物",
+    "rareFloraTitle": "珍稀植物",
+    "benefitsTitle": "动植物生态价值",
+    "wellnessRouteTitle": "康养路线",
+    "footprintTitle": "生态足迹",
+    "tipsTitle": "观察守则"
+  },
+  "moduleFiles": {
+    "science": "eco-guide/science.json",
+    "rareFauna": "eco-guide/rare-fauna.json",
+    "rareFlora": "eco-guide/rare-flora.json",
+    "ecosystemBenefits": "eco-guide/ecosystem-benefits.json",
+    "wellnessRoute": "eco-guide/wellness-route.json",
+    "observationTips": "eco-guide/observation-tips.json"
+  },
+  "lastUpdated": "2026-04-10"
+}

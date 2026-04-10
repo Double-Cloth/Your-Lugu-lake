@@ -22,9 +22,9 @@
 
 | 字段 | 类型 | 说明 | 示例 |
 |------|------|------|------|
-| id | number | 唯一景点ID | 1 |
-| name | string | 景点官方名称 | 泸沽湖 |
-| slug | string | URL友好标识 | lugu-lake |
+| id | number | 唯一景点ID | 10 |
+| name | string | 景点官方名称 | 泸源崖 |
+| slug | string | URL友好标识 | luyuan-cliff |
 | category | string | 景点类别 | nature |
 | latitude | number | 纬度 | 27.6931 |
 | longitude | number | 经度 | 100.7883 |
@@ -44,7 +44,7 @@ mkdir -p locations/my-spot/audio
 ```
 
 ### 第2步：编写 info.json
-参考 `lugu-lake/info.json` 或 `dapeng-island/info.json` 模板
+参考已存在景点目录（如 `luyuan-cliff/info.json`）模板
 
 关键要素：
 - 确保 ID 在数据库中不重复
@@ -63,9 +63,15 @@ mkdir -p locations/my-spot/audio
 ## 数据源
 
 景点信息来自：
-- [ ] 数据库migrations
+- [ ] knowledge-base 主数据（推荐）
 - [ ] 种子数据脚本 (backend/scripts/seed.py)
 - [ ] 线上业务数据
+
+## 与详情页加载策略的关系
+
+- 详情页数字 ID 会先通过 `locations/index.json` 映射到 slug。
+- 若 `id -> slug` 映射缺失，前端才会回退数据库接口。
+- 因此新增或迁移景点时，务必先维护 `locations/index.json`。
 
 ## AI知识库应用场景
 

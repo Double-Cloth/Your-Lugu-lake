@@ -1,9 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Toast, Modal, ImageUploader } from "antd-mobile";
 import { ImmersivePage, CardComponent, ButtonComponent, GlassInput } from "../components/SharedUI";
 import { Html5Qrcode } from "html5-qrcode";
-import { getUserSessionUsername } from "../auth";
-import { createFootprint, fetchLocationById, getUserToken, buildAssetUrl } from "../api";
+import { getUserSessionUsername, withUserSessionPath } from "../auth";
+import { buildAssetUrl, createFootprint, fetchLocationById, fetchTrackingState, getUserToken, saveTrackingState } from "../api";
+import {
+  getTrackingState,
+  recordTrackingPoint,
+  resetTrackingState,
+  setTrackingActive,
+  setTrackingLocation,
+  setTrackingState,
+  toTrackingApiPayload,
+  subscribeTrackingState,
+} from "../store/trackingStore";
 import LucideIcon from "../components/LucideIcon";
 
 function parseLocationIdFromText(text) {
@@ -184,77 +195,26 @@ function dataUrlToFile(dataUrl, fileName, mimeType) {
   }
 }
 
-let bgWatchId = null;
-let bgWatchFallback = false;
-let bgTracking = false;
-let bgTrackPoints = [];
-let bgGps = { lat: "", lon: "" };
-
-const bgTrackingListeners = new Set();
-
-function notifyBgTracking() {
-  for (const listener of bgTrackingListeners) {
-    listener();
-  }
-}
-
-function applyBgGpsUpdate(lat, lon) {
-  bgGps = { lat: String(lat), lon: String(lon) };
-  bgTrackPoints = [...bgTrackPoints, { lat, lon, t: Date.now() }];
-  
-  const username = getUserSessionUsername();
-  if (username) {
-    const draft = readCheckinDraft(username) || {};
-    draft.gps = bgGps;
-    draft.trackPoints = bgTrackPoints;
-    writeCheckinDraft(username, draft);
-  }
-  
-  notifyBgTracking();
-}
-
-function stopBgTracking() {
-  if (bgWatchId !== null && typeof navigator !== "undefined" && navigator.geolocation) {
-    navigator.geolocation.clearWatch(bgWatchId);
-    bgWatchId = null;
-  }
-  bgTracking = false;
-  notifyBgTracking();
-}
-
-function resetBgTrack() {
-  stopBgTracking();
-  bgTrackPoints = [];
-  
-  const username = getUserSessionUsername();
-  if (username) {
-    const draft = readCheckinDraft(username) || {};
-    draft.trackPoints = bgTrackPoints;
-    writeCheckinDraft(username, draft);
-  }
-  
-  notifyBgTracking();
-}
-
 export default function CheckinPage() {
+  const navigate = useNavigate();
+  const sessionUsername = getUserSessionUsername();
+  const persistedTrackingState = getTrackingState(sessionUsername);
 
-  // 地图和定位相关
   const mapRef = useRef(null);
   const amapRef = useRef(null);
   const amapAuthFailedRef = useRef(false);
   const [mapRequested, setMapRequested] = useState(true);
   const polylineRef = useRef(null);
   const markerRef = useRef(null);
+  const watchIdRef = useRef(null);
   const watchFallbackRef = useRef(false);
   const disposedRef = useRef(false);
 
-  // 二维码扫描相关
   const scannerRef = useRef(null);
   const qrReaderRef = useRef(null);
 
-  // 状态管理
-  const [tracking, setTracking] = useState(bgTracking);
-  const [trackPoints, setTrackPoints] = useState(bgTrackPoints);
+  const [tracking, setTracking] = useState(persistedTrackingState.tracking);
+  const [trackPoints, setTrackPoints] = useState(persistedTrackingState.trackPoints);
   const [scanLoading, setScanLoading] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [isStartingTrack, setIsStartingTrack] = useState(false);
@@ -262,30 +222,100 @@ export default function CheckinPage() {
   const [scanModalVisible, setScanModalVisible] = useState(false);
   const [scannedQrText, setScannedQrText] = useState("");
 
-  // 表单数据
   const [locationId, setLocationId] = useState("");
   const [activeSpot, setActiveSpot] = useState(null);
-  const [gps, setGps] = useState(bgGps);
+  const [gps, setGps] = useState(persistedTrackingState.gps);
   const [moodText, setMoodText] = useState("");
   const [files, setFiles] = useState([]);
   const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    const listener = () => {
-      setTracking(bgTracking);
-      setTrackPoints([...bgTrackPoints]);
-      setGps({ ...bgGps });
-    };
-    bgTrackingListeners.add(listener);
-    return () => bgTrackingListeners.delete(listener);
-  }, []);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState("");
   const [cameraSupported, setCameraSupported] = useState(true);
-  
-  const sessionUsername = getUserSessionUsername();
+  const [trackingUpdatedAt, setTrackingUpdatedAt] = useState(persistedTrackingState.updatedAt || "");
   const draftHydratedRef = useRef(false);
   const draftSaveTimerRef = useRef(null);
+  const trackingSyncReadyRef = useRef(false);
+  const trackingSyncTimerRef = useRef(null);
+
+  function handleBack() {
+    if (window.history.length > 1) {
+      navigate(-1);
+      return;
+    }
+    navigate(withUserSessionPath("/home"), { replace: true });
+  }
+
+  useEffect(() => {
+    const unsubscribe = subscribeTrackingState(sessionUsername, (state) => {
+      setTracking(Boolean(state?.tracking));
+      setTrackPoints(Array.isArray(state?.trackPoints) ? state.trackPoints : []);
+      setGps(state?.gps || { lat: "", lon: "" });
+      setTrackingUpdatedAt(state?.updatedAt || "");
+    });
+
+    return unsubscribe;
+  }, [sessionUsername]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function hydrateRemoteTrackingState() {
+      try {
+        const remoteState = await fetchTrackingState();
+        if (cancelled || !remoteState) {
+          return;
+        }
+
+        const normalizedRemoteState = {
+          tracking: Boolean(remoteState.tracking),
+          gps: remoteState.gps || { lat: "", lon: "" },
+          trackPoints: Array.isArray(remoteState.track_points) ? remoteState.track_points : [],
+          updatedAt: remoteState.updated_at || "",
+        };
+
+        const localState = getTrackingState(sessionUsername);
+        const remoteUpdatedAt = Date.parse(normalizedRemoteState.updatedAt || "") || 0;
+        const localUpdatedAt = Date.parse(localState.updatedAt || "") || 0;
+
+        if (remoteUpdatedAt >= localUpdatedAt || localState.trackPoints.length === 0) {
+          setTrackingState(sessionUsername, normalizedRemoteState);
+        }
+        setTrackingUpdatedAt(normalizedRemoteState.updatedAt || localState.updatedAt || "");
+      } catch {
+        // keep using local cached state when the server is unavailable
+      } finally {
+        if (!cancelled) {
+          trackingSyncReadyRef.current = true;
+          void saveTrackingState(toTrackingApiPayload(getTrackingState(sessionUsername))).catch(() => null);
+        }
+      }
+    }
+
+    void hydrateRemoteTrackingState();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [sessionUsername]);
+
+  useEffect(() => {
+    if (!trackingSyncReadyRef.current) return undefined;
+
+    if (trackingSyncTimerRef.current) {
+      window.clearTimeout(trackingSyncTimerRef.current);
+    }
+
+    trackingSyncTimerRef.current = window.setTimeout(() => {
+      void saveTrackingState(toTrackingApiPayload({ tracking, gps, trackPoints })).catch(() => null);
+    }, 500);
+
+    return () => {
+      if (trackingSyncTimerRef.current) {
+        window.clearTimeout(trackingSyncTimerRef.current);
+        trackingSyncTimerRef.current = null;
+      }
+    };
+  }, [tracking, gps, trackPoints]);
 
   useEffect(() => {
     let cancelled = false;
@@ -294,24 +324,19 @@ export default function CheckinPage() {
     const restoreDraft = async () => {
       const draft = readCheckinDraft(sessionUsername);
       if (!draft) {
-          if (!bgTracking) {
-             bgTrackPoints = [];
-             bgGps = { lat: "", lon: "" };
-             notifyBgTracking();
-          }
-          setScanLoading(false);
-          setScanEnabled(false);
-          setScanModalVisible(false);
-          setScannedQrText("");
-          setLocationId("");
-          setActiveSpot(null);
-          setMoodText("");
-          setFiles([]);
-          setSubmitting(false);
-          setMapRequested(true);
-          draftHydratedRef.current = true;
-          return;
-        }
+        setScanLoading(false);
+        setScanEnabled(false);
+        setScanModalVisible(false);
+        setScannedQrText("");
+        setLocationId("");
+        setActiveSpot(null);
+        setMoodText("");
+        setFiles([]);
+        setSubmitting(false);
+        setMapRequested(true);
+        draftHydratedRef.current = true;
+        return;
+      }
 
       const restoredFiles = Array.isArray(draft.files)
         ? await Promise.all(
@@ -328,23 +353,16 @@ export default function CheckinPage() {
 
       setLocationId(typeof draft.locationId === "string" ? draft.locationId : "");
       setActiveSpot(draft.activeSpot || null);
-        
-        if (!bgTracking) {
-           if (draft.gps?.lat !== undefined) bgGps = draft.gps;
-           if (Array.isArray(draft.trackPoints)) bgTrackPoints = draft.trackPoints;
-           notifyBgTracking();
-        }
+      setMoodText(typeof draft.moodText === "string" ? draft.moodText : "");
+      setFiles(restoredFiles.filter(Boolean));
+      setScannedQrText(typeof draft.scannedQrText === "string" ? draft.scannedQrText : "");
+      setScanModalVisible(!!draft.scanModalVisible);
+      setMapRequested(draft.mapRequested !== undefined ? !!draft.mapRequested : true);
 
-        setMoodText(typeof draft.moodText === "string" ? draft.moodText : "");
-        setFiles(restoredFiles.filter(Boolean));
-        setScannedQrText(typeof draft.scannedQrText === "string" ? draft.scannedQrText : "");
-        setScanModalVisible(!!draft.scanModalVisible);
-        setMapRequested(draft.mapRequested !== undefined ? !!draft.mapRequested : true);
-
-        draftHydratedRef.current = true;
+      draftHydratedRef.current = true;
     };
 
-    restoreDraft();
+    void restoreDraft();
 
     return () => {
       cancelled = true;
@@ -375,9 +393,7 @@ export default function CheckinPage() {
         const payload = {
           locationId,
           activeSpot,
-          gps,
           moodText,
-          trackPoints,
           files: storedFiles.filter(Boolean),
           scannedQrText,
           scanModalVisible,
@@ -395,7 +411,7 @@ export default function CheckinPage() {
         draftSaveTimerRef.current = null;
       }
     };
-  }, [sessionUsername, locationId, activeSpot, gps, moodText, trackPoints, files, scannedQrText, scanModalVisible, mapRequested]);
+  }, [sessionUsername, locationId, activeSpot, moodText, files, scannedQrText, scanModalVisible, mapRequested]);
 
   const ipHttpAccess = useMemo(() => isHttpIpAccess(), []);
 
@@ -553,6 +569,14 @@ export default function CheckinPage() {
   useEffect(() => {
     return () => {
       disposedRef.current = true;
+      if (watchIdRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      if (trackingSyncTimerRef.current) {
+        window.clearTimeout(trackingSyncTimerRef.current);
+      }
+      setTrackingActive(sessionUsername, false);
       const scanner = scannerRef.current;
       scannerRef.current = null;
       if (scanner) {
@@ -570,57 +594,74 @@ export default function CheckinPage() {
     }
   }, [mapRequested]);
 
-  // 更新地图标记和轨迹线
-  useEffect(() => {
-    if (!amapRef.current || trackPoints.length === 0 || amapAuthFailedRef.current) return;
+  function focusMapOnPosition(lat, lon, zoom = 16) {
+    if (!amapRef.current || amapAuthFailedRef.current) {
+      return;
+    }
 
     const map = amapRef.current;
 
-    // 如果有现有的折线，就移除它
-    if (polylineRef.current) {
-      polylineRef.current.setMap(null);
-      polylineRef.current = null;
-    }
-
-    // 转换轨迹点为地图坐标
-    const path = trackPoints.map((p) => [p.lon, p.lat]);
-
-    // 绘制折线
-    const polyline = new window.AMap.Polyline({
-      path: path,
-      strokeColor: "#00D9FF",
-      strokeWeight: 4,
-      strokeOpacity: 0.8,
-      lineJoin: "round",
-    });
-
-    polyline.setMap(map);
-    polylineRef.current = polyline;
-
-    // 最后一个点作为当前位置标记
     if (markerRef.current) {
       markerRef.current.setMap(null);
       markerRef.current = null;
     }
 
-    const lastPoint = trackPoints[trackPoints.length - 1];
     const marker = new window.AMap.Marker({
-      position: [lastPoint.lon, lastPoint.lat],
+      position: [lon, lat],
       title: "当前位置",
       icon: new window.AMap.Icon({
         size: [19, 31],
         image: "https://webapi.amap.com/theme/v1.3/markers/n/mark_bs.png",
         imageSize: [19, 31],
       }),
-      offset: new window.AMap.Pixel(-9, -31)
+      offset: new window.AMap.Pixel(-9, -31),
     });
 
     marker.setMap(map);
     markerRef.current = marker;
+    map.setCenter([lon, lat]);
+    map.setZoom(zoom);
+  }
 
-    // 自动调整地图视图
-    map.setFitView([marker]);
-  }, [trackPoints]);
+  // 更新地图标记和轨迹线
+  useEffect(() => {
+    if (!mapLoaded || !amapRef.current || amapAuthFailedRef.current) return;
+
+    const map = amapRef.current;
+
+    if (polylineRef.current) {
+      polylineRef.current.setMap(null);
+      polylineRef.current = null;
+    }
+
+    const hasTrackPoints = Array.isArray(trackPoints) && trackPoints.length > 0;
+    const hasGps = Boolean(gps?.lat && gps?.lon);
+
+    if (hasTrackPoints) {
+      const path = trackPoints.map((point) => [point.lon, point.lat]);
+
+      if (path.length > 1) {
+        const polyline = new window.AMap.Polyline({
+          path,
+          strokeColor: "#00D9FF",
+          strokeWeight: 4,
+          strokeOpacity: 0.8,
+          lineJoin: "round",
+        });
+
+        polyline.setMap(map);
+        polylineRef.current = polyline;
+      }
+
+      const lastPoint = trackPoints[trackPoints.length - 1];
+      focusMapOnPosition(lastPoint.lat, lastPoint.lon, 16);
+      return;
+    }
+
+    if (hasGps) {
+      focusMapOnPosition(Number(gps.lat), Number(gps.lon), 16);
+    }
+  }, [mapLoaded, gps.lat, gps.lon, trackPoints]);
 
   // 开始实时定位和轨迹记录
   async function startTracking() {
@@ -631,47 +672,47 @@ export default function CheckinPage() {
       setIsStartingTrack(false);
       return;
     }
-    if (bgWatchId !== null) {
+    if (watchIdRef.current !== null) {
       setIsStartingTrack(false);
       return;
     }
 
-    bgWatchFallback = false;
+    watchFallbackRef.current = false;
+    setTrackingActive(sessionUsername, true);
 
     const startWatch = (options) => {
-      bgWatchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        bgTracking = true;
-        setIsStartingTrack(false);
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
-        applyBgGpsUpdate(lat, lon);
-      },
-      (error) => {
-        const canFallback = !bgWatchFallback && (error?.code === 2 || error?.code === 3);
-        if (canFallback) {
-          bgWatchFallback = true;
-          if (bgWatchId !== null) {
-            navigator.geolocation.clearWatch(bgWatchId);
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          setIsStartingTrack(false);
+          const lat = pos.coords.latitude;
+          const lon = pos.coords.longitude;
+          recordTrackingPoint(sessionUsername, lat, lon);
+        },
+        (error) => {
+          const canFallback = !watchFallbackRef.current && (error?.code === 2 || error?.code === 3);
+          if (canFallback) {
+            watchFallbackRef.current = true;
+            if (watchIdRef.current !== null) {
+              navigator.geolocation.clearWatch(watchIdRef.current);
+              watchIdRef.current = null;
+            }
+            Toast.show({ content: "高精度定位不稳定，已自动切换到普通精度" });
+            startWatch({ enableHighAccuracy: false, maximumAge: 30000, timeout: 20000 });
+            return;
           }
-          Toast.show({ content: "高精度定位不稳定，已自动切换到普通精度" });
-          startWatch({ enableHighAccuracy: false, maximumAge: 30000, timeout: 20000 });
-          return;
-        }
 
-        setIsStartingTrack(false);
-        if (error?.code === 1) {
-          bgTracking = false;
-          if (bgWatchId !== null) {
-            navigator.geolocation.clearWatch(bgWatchId);
-            bgWatchId = null;
+          setIsStartingTrack(false);
+          if (error?.code === 1) {
+            if (watchIdRef.current !== null) {
+              navigator.geolocation.clearWatch(watchIdRef.current);
+              watchIdRef.current = null;
+            }
+            setTrackingActive(sessionUsername, false);
           }
-          notifyBgTracking();
-        }
-        Toast.show({ content: getGeolocationErrorMessage(error, "实时定位失败") });
-      },
-      options
-    );
+          Toast.show({ content: getGeolocationErrorMessage(error, "实时定位失败") });
+        },
+        options
+      );
     };
 
     startWatch({ enableHighAccuracy: true, maximumAge: 0, timeout: 12000 });
@@ -679,12 +720,19 @@ export default function CheckinPage() {
 
   // 停止定位
   function stopTracking() {
-    stopBgTracking();
+    if (watchIdRef.current !== null && typeof navigator !== "undefined" && navigator.geolocation) {
+      navigator.geolocation.clearWatch(watchIdRef.current);
+      watchIdRef.current = null;
+    }
+    watchFallbackRef.current = false;
+    setIsStartingTrack(false);
+    setTrackingActive(sessionUsername, false);
   }
 
   // 重置轨迹
   function resetTrack() {
-    resetBgTrack();
+    stopTracking();
+    resetTrackingState(sessionUsername);
     if (polylineRef.current) {
       polylineRef.current.setMap(null);
       polylineRef.current = null;
@@ -708,30 +756,8 @@ export default function CheckinPage() {
       const pos = await getCurrentPositionWithFallback();
       const lat = pos.coords.latitude;
       const lon = pos.coords.longitude;
-      setGps({ lat: String(lat), lon: String(lon) });
-
-      if (amapRef.current) {
-        const map = amapRef.current;
-        map.setCenter([lon, lat]);
-        map.setZoom(16);
-
-        if (markerRef.current) {
-          markerRef.current.setMap(null);
-          markerRef.current = null;
-        }
-        const marker = new window.AMap.Marker({
-          position: [lon, lat],
-          title: "当前位置",
-          icon: new window.AMap.Icon({
-            size: [19, 31],
-            image: "https://webapi.amap.com/theme/v1.3/markers/n/mark_bs.png",
-            imageSize: [19, 31],
-          }),
-          offset: new window.AMap.Pixel(-9, -31)
-        });
-        marker.setMap(map);
-        markerRef.current = marker;
-      }
+      setTrackingLocation(sessionUsername, lat, lon);
+      focusMapOnPosition(lat, lon, 16);
     } catch (error) {
       Toast.show({ content: getGeolocationErrorMessage(error, "定位失败") });
     } finally {
@@ -939,6 +965,12 @@ export default function CheckinPage() {
 
   return (
     <ImmersivePage bgImage="/images/lugu-scenery.jpg" className="checkin-theme page-fade-in pb-[env(safe-area-inset-bottom)]">
+      <div className="mb-3">
+        <button type="button" className="app-glass-back-btn" onClick={handleBack} aria-label="返回上一页">
+          <LucideIcon name="ChevronLeft" size={18} color="currentColor" />
+        </button>
+      </div>
+
       <div className="hero-shell checkin-hero mb-3">
         <div className="hero-kicker">Check-in Trail</div>
         <h1 className="page-title m-0">地图打卡</h1>
@@ -1018,6 +1050,11 @@ export default function CheckinPage() {
             <p className="checkin-subtle-text text-xs">
               已记录轨迹点：{trackPoints.length} 个
             </p>
+            {trackingUpdatedAt ? (
+              <p className="checkin-subtle-text mt-1 text-[11px] opacity-75">
+                最近同步：{new Date(trackingUpdatedAt).toLocaleString()}
+              </p>
+            ) : null}
           </div>
         )}
       </CardComponent>

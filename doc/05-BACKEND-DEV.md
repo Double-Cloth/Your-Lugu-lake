@@ -68,8 +68,9 @@ uvicorn app.main:app --reload
 ## 鉴权与安全
 
 - 密码哈希：`pbkdf2_sha256`（`passlib`）
-- JWT：`python-jose`
-- 令牌内容：`sub`（username）, `role`, `exp`
+- 会话机制：HttpOnly Cookie（用户与管理员隔离）
+- CSRF：写请求校验 `X-CSRF-Token`
+- 兼容能力：保留 Bearer 头部校验链路（用于历史兼容）
 - 依赖注入：
 - `get_current_user`
 - `require_admin`
@@ -130,7 +131,7 @@ uvicorn app.main:app --reload
 
 ## 调试清单
 
-- 401：检查 Bearer token 与 `sub` 用户是否存在
-- 403：确认是否管理员 token
+- 401：优先检查会话 Cookie 是否存在；兼容链路再检查 Bearer
+- 403：确认权限角色与 CSRF Header 是否正确
 - 404（知识库）：确认 `knowledge-base/locations/{slug}/info.json`
 - 503（AI）：确认 `DASHSCOPE_API_KEY` 配置

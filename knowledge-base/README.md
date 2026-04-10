@@ -11,12 +11,14 @@ knowledge-base/
 │   ├── pages/
 │   │   ├── index.json              # 专题页面索引
 │   │   ├── lugu-lake.json          # 泸沽湖整体介绍（公共总览）
-│   │   └── mosuo-culture.json      # 摩梭文化介绍（公共总览）
+│   │   ├── mosuo-culture.json      # 摩梭文化介绍（公共总览）
+│   │   ├── eco-guide.json          # 生态导览主索引
+│   │   └── eco-guide/              # 生态导览子模块
 │   └── README.md                   # 公用文档
 │
 ├── locations/                       # 景点知识库文件夹
 │   ├── index.json                  # 具体景点索引（id/slug/name）
-│   ├── dapeng-island/              # 示例具体景点：大鹏岛
+│   ├── luyuan-cliff/               # 示例具体景点：泸源崖
 │   │   ├── info.json
 │   │   ├── images/
 │   │   └── audio/
@@ -55,6 +57,16 @@ knowledge-base/
 - 统一维护各专题页介绍文案（description、details.introduction）
 - 统一维护专题页分节标题（sections.highlightsTitle、sections.tipsTitle）
 - 前端页面不再在代码中写死介绍文本
+- 生态导览已采用模块化：`common/pages/eco-guide.json` 作为索引，具体内容拆分在 `common/pages/eco-guide/*.json`
+
+### 生态导览模块文件建议
+
+- `science.json`：基础生态科普导语
+- `rare-fauna.json`：珍稀动物列表及环境/人类价值
+- `rare-flora.json`：珍稀植物列表及环境/人类价值
+- `ecosystem-benefits.json`：总体价值汇总
+- `wellness-route.json`：康养路线分时段建议
+- `observation-tips.json`：低干扰观察守则
 
 ### locations/index.json - 具体景点索引
 - 统一维护具体景点的 `id/slug/name`
@@ -165,6 +177,8 @@ knowledge-base/
 
 - 泸沽湖整体介绍：编辑 `common/pages/lugu-lake.json`
 - 摩梭文化介绍：编辑 `common/pages/mosuo-culture.json`
+- 生态导览主索引：编辑 `common/pages/eco-guide.json`
+- 生态导览具体模块：编辑 `common/pages/eco-guide/*.json`
 - 首页景区一览入口：编辑 `common/overview.json`
 
 ## AI知识库应用
@@ -205,10 +219,10 @@ knowledge-base/
 const kbPath = '/data/knowledge-base'
 
 // 前端静态资源访问
-<img src="/knowledge-base/locations/lugu-lake/images/1.jpg" />
+<img src="/knowledge-base/locations/luyuan-cliff/images/1.jpeg" />
 
 // API 端点示例（知识库详情回退）
-fetch('/api/locations/knowledge-base/lugu-lake')
+fetch('/api/locations/knowledge-base/luyuan-cliff')
 ```
 
 ### Docker Compose 配置

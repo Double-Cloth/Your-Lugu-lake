@@ -4,6 +4,7 @@
 
 项目文旅内容链路已调整为：
 - 首页与专题介绍：knowledge-base 驱动
+- 生态导览：主索引 + 子模块文件驱动
 - 景点详情：knowledge-base 优先 + API/数据库回退
 - 文档与目录结构：已与当前代码实现对齐
 
@@ -15,11 +16,13 @@
 
 2. 数据结构优化
 - `knowledge-base/common/pages/*` 统一专题页
+- `knowledge-base/common/pages/eco-guide/*.json` 拆分生态导览模块
 - `knowledge-base/locations/index.json` 维护映射
 
 3. 接口能力增强
 - 后端新增知识库读取接口
 - 管理端支持二维码生成与批量导出
+- 前端会话链路升级为 Cookie + CSRF（Bearer 保留兼容）
 
 ## 影响范围
 

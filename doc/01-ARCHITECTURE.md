@@ -5,7 +5,7 @@
 ```text
 React (Vite + antd-mobile)
         |
-        | HTTP / JSON + Bearer Token
+        | HTTP / JSON + Cookie Session + CSRF
         v
 FastAPI (`/api/*`)
         |
@@ -77,17 +77,18 @@ backend/app/
 ### 1. 登录与鉴权
 
 1. 前端调用 `POST /api/auth/login`
-2. 后端签发 JWT（`sub=username`, `role`）
-3. 前端保存到 `localStorage.user_token`（管理员使用 `admin_token`）
-4. 后续请求带 `Authorization: Bearer <token>`
+2. 后端设置会话 Cookie（游客与管理员隔离）
+3. 写请求附带 CSRF Header（值来自 CSRF Cookie）
+4. 后续请求默认携带 Cookie，Bearer 仅保留兼容链路
 
 ### 2. 景点详情加载（前端混合策略）
 
 1. 前端进入 `/locations/:id`
 2. 调用 `fetchLocationDetail(id)`：
-3. 优先读取 `knowledge-base/locations/{slug}/info.json`
-4. 失败时回退 `GET /api/locations/knowledge-base/{slug}`
-5. 再失败回退 `GET /api/locations/{id}`
+3. 先由 `knowledge-base/locations/index.json` 把 `id -> slug` 映射
+4. 优先读取 `knowledge-base/locations/{slug}/info.json`
+5. 失败时回退 `GET /api/locations/knowledge-base/{slug}`
+6. 再失败回退 `GET /api/locations/{id}`
 
 ### 3. 地图打卡
 
@@ -126,3 +127,8 @@ backend/app/
 - `frontend`：Vite dev server
 
 知识库以宿主机目录挂载方式接入。
+
+## 文档同步说明
+
+- 首页生态导览已模块化到 `knowledge-base/common/pages/eco-guide/*.json`
+- 专题/景点文案优先维护在 knowledge-base，不再建议前端硬编码

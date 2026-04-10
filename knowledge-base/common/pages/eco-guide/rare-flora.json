@@ -1,0 +1,55 @@
+{
+  "items": [
+    {
+      "name": "海菜花",
+      "scientificName": "Ottelia acuminata",
+      "protectionLevel": "国家二级重点保护野生植物",
+      "habitat": "清澈缓流或静水湖湾",
+      "introduction": "对水质变化敏感，是高原湖泊水生态状况的重要参考植物。",
+      "benefits": {
+        "environment": [
+          "吸收富营养化物质并改善水体透明度",
+          "为小型水生生物提供栖息空间"
+        ],
+        "human": [
+          "有助于维持景观水质与亲水体验",
+          "支持湖泊生态修复示范"
+        ]
+      }
+    },
+    {
+      "name": "高原柳",
+      "scientificName": "Salix spp.",
+      "protectionLevel": "区域重要水岸植被",
+      "habitat": "湖岸缓坡与河口地带",
+      "introduction": "根系发达，适应高原昼夜温差，对岸线稳定作用明显。",
+      "benefits": {
+        "environment": [
+          "固土护岸，减少侵蚀",
+          "提供鸟类筑巢与停栖环境"
+        ],
+        "human": [
+          "缓冲风蚀并优化步道微气候",
+          "提升滨水景观连贯性"
+        ]
+      }
+    },
+    {
+      "name": "芦苇群落",
+      "scientificName": "Phragmites australis",
+      "protectionLevel": "湿地关键群落",
+      "habitat": "草海浅水与滩涂交界带",
+      "introduction": "构成湿地边界核心结构，是候鸟觅食和隐蔽的重要空间。",
+      "benefits": {
+        "environment": [
+          "拦截泥沙与污染物，净化入湖水体",
+          "稳定湿地边缘并减缓波浪冲刷"
+        ],
+        "human": [
+          "提升湿地观景层次与季相变化",
+          "为科普解说提供直观生态样本"
+        ]
+      }
+    }
+  ]
+}

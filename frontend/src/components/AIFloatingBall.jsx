@@ -925,7 +925,10 @@ export default function AIFloatingBall() {
                 tooltip.style.transform = 'translateY(8px)';
               }
             }}
-            style={{ boxShadow: "0 8px 22px rgba(35, 156, 201, 0.45)" }}
+            style={{
+              background: "rgba(186, 168, 117, 0.9)",
+              boxShadow: "0 8px 22px rgba(186, 168, 117, 0.45)",
+            }}
           >
               {/* 背景光晕效果 (心跳/呼吸灯效果) */}
               <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-ping opacity-20 group-hover:opacity-40"></div>

@@ -1,0 +1,55 @@
+{
+  "items": [
+    {
+      "name": "黑颈鹤",
+      "scientificName": "Grus nigricollis",
+      "protectionLevel": "国家一级保护野生动物",
+      "habitat": "草海湿地及浅水草甸",
+      "introduction": "高原湿地代表性鸟类，体态高大，常在开阔浅水区觅食或停歇。",
+      "benefits": {
+        "environment": [
+          "维持湿地食物网稳定",
+          "作为湿地健康度指示物种"
+        ],
+        "human": [
+          "推动生态教育与观鸟科普",
+          "提升湿地保护公众关注度"
+        ]
+      }
+    },
+    {
+      "name": "黑鹳",
+      "scientificName": "Ciconia nigra",
+      "protectionLevel": "国家一级保护野生动物",
+      "habitat": "湖湾岸线与湿地浅滩",
+      "introduction": "对栖息环境要求较高，通常出现在人为干扰较少的水域。",
+      "benefits": {
+        "environment": [
+          "参与水域鱼类与无脊椎动物种群调节",
+          "反映湖岸与湿地生态完整性"
+        ],
+        "human": [
+          "促进低干扰生态旅游发展",
+          "带动社区参与巡护与监测"
+        ]
+      }
+    },
+    {
+      "name": "斑头雁",
+      "scientificName": "Anser indicus",
+      "protectionLevel": "国家二级保护野生动物",
+      "habitat": "湖面开阔水域与周边草地",
+      "introduction": "高海拔迁徙能力突出的水鸟，在湖区迁徙季具有较高可见度。",
+      "benefits": {
+        "environment": [
+          "参与湿地营养循环",
+          "增强湖区生物多样性"
+        ],
+        "human": [
+          "丰富季节性观鸟体验",
+          "为自然课程提供典型案例"
+        ]
+      }
+    }
+  ]
+}
