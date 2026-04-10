@@ -96,10 +96,10 @@ export default function MosuoCulturePage() {
       {tips.length > 0 && (
         <CardComponent variant="glass" className="mb-6">
           <h2 className="text-lg font-bold text-white mb-4 flex items-center">
-            <LucideIcon name="Info" size={18} className="mr-2 text-cyan-200" />
+            <LucideIcon name="Info" size={18} className="mr-2 text-amber-200" />
             {sections.tipsTitle || sections.experienceTipsTitle || "参访建议"}
           </h2>
-          <ul className="text-sm text-white/80 mt-0 mb-0 pl-5 space-y-2 list-disc marker:text-cyan-200">
+          <ul className="text-sm text-white/80 mt-0 mb-0 pl-5 space-y-2 list-disc marker:text-amber-200">
             {tips.map((item, idx) => (
               <li key={`tip-${idx}`} className="pl-1">{item}</li>
             ))}

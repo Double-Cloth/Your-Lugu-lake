@@ -112,7 +112,7 @@ export default function ScrollPage() {
 
     return html2canvas(scrollRef.current, {
       scale: 2,
-      backgroundColor: "#0d3545",
+      backgroundColor: "#6f3217",
       useCORS: true,
       logging: false,
     });

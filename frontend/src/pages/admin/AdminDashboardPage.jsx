@@ -743,7 +743,7 @@ export default function AdminDashboardPage() {
             <CardComponent variant="glass" className="mb-3">
               <h3 className="m-0 mb-3">💾 上传文件导入景点</h3>
               <div className="space-y-2">
-                <div className="bg-blue-500/20 border border-blue-400 rounded-xl p-3 text-sm text-white mb-3">
+                <div className="bg-orange-500/20 border border-orange-400 rounded-xl p-3 text-sm text-white mb-3">
                   <div className="font-semibold mb-1">📋 支持的文件格式：</div>
                   <div className="text-xs opacity-80">文本文件（.txt, .md）、PDF 文档（.pdf）、Word 文档（.docx）</div>
                   <div className="text-xs opacity-80 mt-1">AI 将自动分析文件内容，严格按 knowledge-base 规范生成景点信息</div>

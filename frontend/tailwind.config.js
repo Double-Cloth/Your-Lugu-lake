@@ -5,17 +5,17 @@ export default {
     extend: {
       colors: {
         lake: {
-          25: "#f9fcff",
-          50: "#eef9ff",
-          100: "#d8f0ff",
-          200: "#b3e1ff",
-          300: "#7ec9ff",
-          400: "#49b4ff",
-          500: "#239cc9",
-          600: "#1a7da3",
-          700: "#176b89",
-          800: "#0f3d4d",
-          900: "#0a1f27",
+          25: "#fff8f1",
+          50: "#fff1e4",
+          100: "#ffe2c9",
+          200: "#ffc89b",
+          300: "#ffab66",
+          400: "#f68f46",
+          500: "#e67a2e",
+          600: "#c96424",
+          700: "#a44d1d",
+          800: "#7e3919",
+          900: "#512312",
         },
         wood: {
           50: "#fef9f3",
@@ -66,10 +66,10 @@ export default {
         85: "0.85",
       },
       boxShadow: {
-        card: "0 4px 12px rgba(23, 107, 137, 0.08)",
-        "card-hover": "0 8px 24px rgba(23, 107, 137, 0.12)",
-        smooth: "0 2px 8px rgba(35, 156, 201, 0.06)",
-        "smooth-lg": "0 4px 16px rgba(35, 156, 201, 0.1)",
+        card: "0 4px 12px rgba(166, 90, 39, 0.1)",
+        "card-hover": "0 8px 24px rgba(166, 90, 39, 0.16)",
+        smooth: "0 2px 8px rgba(199, 104, 45, 0.1)",
+        "smooth-lg": "0 4px 16px rgba(199, 104, 45, 0.16)",
       },
       backdropBlur: {
         xs: "2px",

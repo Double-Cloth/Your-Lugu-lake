@@ -55,7 +55,7 @@ export default function LuguLakeOverviewPage() {
       <div className="mb-4 pt-2 -mx-2">
         <button
           type="button"
-          className="px-2 py-1 inline-flex items-center text-sky-100/80 hover:text-white transition-colors"
+          className="px-2 py-1 inline-flex items-center text-amber-100/80 hover:text-white transition-colors"
           onClick={() => navigate("/home", { state: { openPanel: "overview" } })}
         >
           <LucideIcon name="ChevronLeft" size={20} className="mr-1" /> 返回
@@ -63,7 +63,7 @@ export default function LuguLakeOverviewPage() {
       </div>
 
       <div className="mb-6">
-        <div className="text-cyan-200 text-sm font-bold tracking-wider uppercase mb-1 drop-shadow-md text-shadow-sm">Lugu Lake Overview</div>
+        <div className="text-amber-200 text-sm font-bold tracking-wider uppercase mb-1 drop-shadow-md text-shadow-sm">Lugu Lake Overview</div>
         <h1 className="text-3xl font-bold text-white drop-shadow-lg m-0 text-shadow">{data.title || data.name}</h1>
       </div>
 
@@ -95,7 +95,7 @@ export default function LuguLakeOverviewPage() {
       {(details.bestSeasonToVisit || details.recommendedDuration || details.accommodationTips) && (
         <CardComponent variant="glass" className="mb-6">
           <h2 className="text-lg font-bold text-white mb-4 flex items-center">
-            <LucideIcon name="Info" size={18} className="mr-2 text-cyan-200" />
+            <LucideIcon name="Info" size={18} className="mr-2 text-amber-200" />
             {sections.tipsTitle || sections.visitTipsTitle || "游览建议"}
           </h2>
           <div className="space-y-3 text-sm text-white/80">

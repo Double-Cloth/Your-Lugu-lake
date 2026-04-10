@@ -526,7 +526,7 @@ export default function HomePage() {
             <div className="bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md text-center"><DotLoading color="primary" /></div>
           ) : (
             <>
-              <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md overview-module-card">
+              <Card className="bg-white/10 border border-[rgba(252,182,118,0.32)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md overview-module-card">
                 <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">{kbOverview?.lake?.title || "泸沽湖整体介绍"}</div>
                 {primaryLake ? (
                   <>
@@ -541,7 +541,7 @@ export default function HomePage() {
                       <Link
                         to={primaryLake.detailPath}
                         state={{ fromPanel: "overview" }}
-                        className="block mt-4 text-center text-sky-300 font-medium"
+                        className="block mt-4 text-center text-amber-300 font-medium"
                       >
                         查看泸沽湖整体详情 →
                       </Link>
@@ -552,7 +552,7 @@ export default function HomePage() {
                 )}
               </Card>
 
-              <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md overview-module-card">
+              <Card className="bg-white/10 border border-[rgba(252,182,118,0.32)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md overview-module-card">
                 <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">{kbOverview?.culture?.title || "摩梭文化介绍"}</div>
                 <p className="text-sm text-white/80 mt-2 mb-2">
                   {kbOverview?.culture?.description || ""}
@@ -566,7 +566,7 @@ export default function HomePage() {
                   <Link
                     to={kbOverview.culture.detailPath}
                     state={{ fromPanel: "overview" }}
-                    className="block mt-4 text-center text-sky-300 font-medium"
+                    className="block mt-4 text-center text-amber-300 font-medium"
                   >
                     查看摩梭文化详情 →
                   </Link>
@@ -587,14 +587,14 @@ export default function HomePage() {
         <div className="app-glass-popup p-5 min-h-[75vh] home-popup-scrollable">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-2xl font-bold text-white tracking-wide">文化导览</h3>
-            <button className="text-[rgba(189,232,250,0.8)] active:text-white px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm backdrop-blur-sm transition-all shadow-sm" onClick={closePanel}>← 返回</button>
+            <button className="text-[rgba(252,182,118,0.85)] active:text-white px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm backdrop-blur-sm transition-all shadow-sm" onClick={closePanel}>← 返回</button>
           </div>
-          <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md">
+          <Card className="bg-white/10 border border-[rgba(252,182,118,0.32)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md">
             <div className="text-sm text-white/90 leading-relaxed">
               这版文化导览会先建立你的出行画像，再生成可执行的摩梭文化路线。生成后会直接保存到“我的路线”。
             </div>
             <div className="flex flex-wrap gap-2 mt-3">
-              <span className="px-2.5 py-1 text-xs rounded-full bg-cyan-400/20 border border-cyan-300/30 text-cyan-100">画像驱动生成</span>
+              <span className="px-2.5 py-1 text-xs rounded-full bg-amber-400/20 border border-amber-300/30 text-amber-100">画像驱动生成</span>
               <span className="px-2.5 py-1 text-xs rounded-full bg-amber-300/20 border border-amber-200/30 text-amber-100">自动保存到我的</span>
             </div>
           </Card>
@@ -606,7 +606,7 @@ export default function HomePage() {
                 <button
                   key={template.id}
                   type="button"
-                  className={`text-left rounded-xl border px-3 py-2 transition ${selectedTemplateId === template.id ? "bg-cyan-300/25 border-cyan-200/40" : "bg-white/5 border-white/20 hover:bg-white/15"}`}
+                  className={`text-left rounded-xl border px-3 py-2 transition ${selectedTemplateId === template.id ? "bg-amber-300/25 border-amber-200/40" : "bg-white/5 border-white/20 hover:bg-white/15"}`}
                   onClick={() => applyCultureTemplate(template)}
                 >
                   <div className="text-sm font-semibold text-white">{template.title}</div>
@@ -615,7 +615,7 @@ export default function HomePage() {
               ))}
             </div>
             {selectedTemplateId ? (
-              <div className="text-xs text-cyan-100/80 mt-3">
+              <div className="text-xs text-amber-100/80 mt-3">
                 已将灵感模板同步到出行画像，你仍可继续微调画像选项。
               </div>
             ) : null}
@@ -631,7 +631,7 @@ export default function HomePage() {
                   <button
                     key={item.value}
                     type="button"
-                    className={`px-3 py-1.5 text-xs rounded-lg border transition ${cultureDraft.duration === item.value ? "bg-cyan-300/25 border-cyan-200/40 text-white" : "bg-white/5 border-white/20 text-white/85 hover:bg-white/15"}`}
+                    className={`px-3 py-1.5 text-xs rounded-lg border transition ${cultureDraft.duration === item.value ? "bg-amber-300/25 border-amber-200/40 text-white" : "bg-white/5 border-white/20 text-white/85 hover:bg-white/15"}`}
                     onClick={() => updateCultureDraft("duration", item.value)}
                   >
                     {item.label}
@@ -647,7 +647,7 @@ export default function HomePage() {
                   <button
                     key={item.value}
                     type="button"
-                    className={`px-3 py-1.5 text-xs rounded-lg border transition ${cultureDraft.groupType === item.value ? "bg-cyan-300/25 border-cyan-200/40 text-white" : "bg-white/5 border-white/20 text-white/85 hover:bg-white/15"}`}
+                    className={`px-3 py-1.5 text-xs rounded-lg border transition ${cultureDraft.groupType === item.value ? "bg-amber-300/25 border-amber-200/40 text-white" : "bg-white/5 border-white/20 text-white/85 hover:bg-white/15"}`}
                     onClick={() => updateCultureDraft("groupType", item.value)}
                   >
                     {item.label}
@@ -663,7 +663,7 @@ export default function HomePage() {
                   <button
                     key={item.value}
                     type="button"
-                    className={`px-3 py-1.5 text-xs rounded-lg border transition ${cultureDraft.preference === item.value ? "bg-cyan-300/25 border-cyan-200/40 text-white" : "bg-white/5 border-white/20 text-white/85 hover:bg-white/15"}`}
+                    className={`px-3 py-1.5 text-xs rounded-lg border transition ${cultureDraft.preference === item.value ? "bg-amber-300/25 border-amber-200/40 text-white" : "bg-white/5 border-white/20 text-white/85 hover:bg-white/15"}`}
                     onClick={() => updateCultureDraft("preference", item.value)}
                   >
                     {item.label}
@@ -679,7 +679,7 @@ export default function HomePage() {
                   <button
                     key={item.value}
                     type="button"
-                    className={`px-3 py-1.5 text-xs rounded-lg border transition ${cultureDraft.pace === item.value ? "bg-cyan-300/25 border-cyan-200/40 text-white" : "bg-white/5 border-white/20 text-white/85 hover:bg-white/15"}`}
+                    className={`px-3 py-1.5 text-xs rounded-lg border transition ${cultureDraft.pace === item.value ? "bg-amber-300/25 border-amber-200/40 text-white" : "bg-white/5 border-white/20 text-white/85 hover:bg-white/15"}`}
                     onClick={() => updateCultureDraft("pace", item.value)}
                   >
                     {item.label}
@@ -771,9 +771,9 @@ export default function HomePage() {
         <div className="app-glass-popup p-5 min-h-[75vh] home-popup-scrollable">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-2xl font-bold text-white tracking-wide">全域导览</h3>
-            <button className="text-[rgba(189,232,250,0.8)] active:text-white px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm backdrop-blur-sm transition-all shadow-sm" onClick={closePanel}>← 返回</button>
+            <button className="text-[rgba(252,182,118,0.85)] active:text-white px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm backdrop-blur-sm transition-all shadow-sm" onClick={closePanel}>← 返回</button>
           </div>
-          <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md global-section-card">
+          <Card className="bg-white/10 border border-[rgba(252,182,118,0.32)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md global-section-card">
             <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">景点总览（知识库全量）</div>
             {kbLocations.length === 0 ? (
               <div className="text-sm text-white/50 mt-2">暂未读取到知识库景点，已保留数据库数据作为回退。</div>
@@ -888,7 +888,7 @@ export default function HomePage() {
                         <div className="text-xs text-emerald-100/90 mt-2">生态益处：{item.benefits.environment.join("；")}</div>
                       ) : null}
                       {Array.isArray(item?.benefits?.human) && item.benefits.human.length > 0 ? (
-                        <div className="text-xs text-sky-100/90 mt-1">人类益处：{item.benefits.human.join("；")}</div>
+                        <div className="text-xs text-amber-100/90 mt-1">人类益处：{item.benefits.human.join("；")}</div>
                       ) : null}
                     </div>
                   ))}
@@ -912,7 +912,7 @@ export default function HomePage() {
                         <div className="text-xs text-emerald-100/90 mt-2">生态益处：{item.benefits.environment.join("；")}</div>
                       ) : null}
                       {Array.isArray(item?.benefits?.human) && item.benefits.human.length > 0 ? (
-                        <div className="text-xs text-sky-100/90 mt-1">人类益处：{item.benefits.human.join("；")}</div>
+                        <div className="text-xs text-amber-100/90 mt-1">人类益处：{item.benefits.human.join("；")}</div>
                       ) : null}
                     </div>
                   ))}
@@ -932,7 +932,7 @@ export default function HomePage() {
                   ) : null}
                   {ecoBenefitsHuman.length > 0 ? (
                     <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
-                      <div className="text-xs font-semibold text-sky-100/90 mb-1">对人类社会的价值</div>
+                      <div className="text-xs font-semibold text-amber-100/90 mb-1">对人类社会的价值</div>
                       <div className="text-xs text-white/75 leading-relaxed">{ecoBenefitsHuman.join("；")}</div>
                     </div>
                   ) : null}

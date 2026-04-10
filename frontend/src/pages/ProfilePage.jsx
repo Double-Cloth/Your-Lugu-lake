@@ -450,7 +450,7 @@ export default function ProfilePage() {
       ctx.arc(62, y - 6, 6, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = "#f2fbff";
+      ctx.fillStyle = "#fff7eb";
       ctx.fillText(`${item.title} · ${item.time.split(" ")[0]}`, 80, y);
       ctx.fillStyle = "rgba(213,236,247,0.85)";
       const mood = (item.mood || "完成打卡").slice(0, 24);
@@ -507,8 +507,8 @@ export default function ProfilePage() {
       </div>
 
       <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-[32px] p-6 shadow-2xl relative overflow-hidden shrink-0">
-        <div className="absolute -top-20 -right-20 w-40 h-40 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-blue-500/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute -top-20 -right-20 w-40 h-40 bg-amber-500/20 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-orange-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="flex relative mb-8 bg-black/40 rounded-2xl p-1 backdrop-blur-md">
           <div
@@ -584,9 +584,9 @@ export default function ProfilePage() {
   const renderAuth = () => (
     <div className="animate-[fadeIn_0.4s_ease-out] mx-auto w-full pt-4 pb-4">
       <CardComponent variant="immersive" className="relative overflow-hidden mb-6 border-white/20 p-6 flex-shrink-0">
-        <div className="absolute -right-8 -top-8 w-32 h-32 bg-cyan-400/20 blur-3xl rounded-full"></div>
+        <div className="absolute -right-8 -top-8 w-32 h-32 bg-amber-400/20 blur-3xl rounded-full"></div>
         <div className="flex items-center gap-5 relative z-10">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-cyan-400 to-blue-600 p-[2px] shadow-lg flex-shrink-0">
+          <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 p-[2px] shadow-lg flex-shrink-0">
             <div className="w-full h-full bg-slate-900 rounded-full flex items-center justify-center text-white text-2xl font-bold">
               {displayName.charAt(0).toUpperCase()}
             </div>
@@ -594,8 +594,8 @@ export default function ProfilePage() {
           <div className="flex-1 min-w-0">
             <h2 className="text-xl font-bold text-white truncate drop-shadow-md">{displayName}</h2>
             <p className="text-white/60 text-sm mt-0.5 truncate">你的泸沽湖行程正在记录</p>
-            <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 border border-white/10 text-xs text-cyan-300 font-medium tracking-wide">
-              <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></span>
+            <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/10 border border-white/10 text-xs text-amber-300 font-medium tracking-wide">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
               {profile?.role === "admin" ? "管理员" : "已登录"}
             </div>
           </div>
@@ -626,7 +626,7 @@ export default function ProfilePage() {
       <div className="profile-function-groups mb-6">
         <div className="profile-function-section">
           <h3 className="profile-function-title">
-            <span className="profile-function-dot bg-cyan-300"></span>
+            <span className="profile-function-dot bg-amber-300"></span>
             行程助手
           </h3>
           <div className="profile-function-grid profile-function-grid-main">
@@ -635,7 +635,7 @@ export default function ProfilePage() {
               className="profile-function-item"
             >
               <div className="profile-function-icon-wrap">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-cyan-300" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-amber-300" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
               </div>
               <span className="profile-function-text">打卡签到</span>
             </button>
@@ -644,7 +644,7 @@ export default function ProfilePage() {
               className="profile-function-item"
             >
               <div className="profile-function-icon-wrap">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-blue-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-orange-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
               </div>
               <span className="profile-function-text">旅行绘卷</span>
             </button>
@@ -694,7 +694,7 @@ export default function ProfilePage() {
 
       <div className="mb-6" ref={accountSectionRef}>
         <h3 className="text-sm font-bold text-white/90 mb-3 px-1 flex items-center">
-          <span className="w-1 h-3.5 bg-cyan-400 rounded-full mr-2"></span>
+          <span className="w-1 h-3.5 bg-amber-400 rounded-full mr-2"></span>
           账号设置
         </h3>
         <CardComponent variant="immersive" className="p-4 space-y-4 shrink-0">
@@ -748,7 +748,7 @@ export default function ProfilePage() {
 
       <div className="mb-6" ref={recordsSectionRef}>
         <h3 className="text-sm font-bold text-white/90 mb-3 px-1 flex items-center">
-          <span className="w-1 h-3.5 bg-blue-400 rounded-full mr-2"></span>
+          <span className="w-1 h-3.5 bg-orange-400 rounded-full mr-2"></span>
           游览记录
         </h3>
         <CardComponent variant="immersive" className="p-5 overflow-visible">
@@ -758,7 +758,7 @@ export default function ProfilePage() {
             <div className="relative border-l-2 border-white/10 ml-3 space-y-6">
               {records.map((item) => (
                 <div key={item.id} className="relative pl-5">
-                  <div className="absolute w-3 h-3 bg-cyan-400 rounded-full -left-[7px] top-1.5 shadow-[0_0_8px_rgba(34,211,238,0.5)] border-2 border-slate-900"></div>
+                  <div className="absolute w-3 h-3 bg-amber-400 rounded-full -left-[7px] top-1.5 shadow-[0_0_8px_rgba(251, 146, 60, 0.5)] border-2 border-slate-900"></div>
                   <div className="text-xs text-white/50 font-mono tracking-wider">{item.time}</div>
                   <div className="text-base font-bold text-white mt-1 mb-0.5">{item.title}</div>
                   <div className="text-sm text-white/70 leading-relaxed bg-white/5 p-2 rounded-lg mt-2 italic shadow-inner">"{item.mood}"</div>
@@ -805,7 +805,7 @@ export default function ProfilePage() {
                           </div>
                         ) : null}
                       </div>
-                      <span className="shrink-0 px-2 py-1 rounded-full text-[11px] bg-cyan-300/20 border border-cyan-200/30 text-cyan-100">
+                      <span className="shrink-0 px-2 py-1 rounded-full text-[11px] bg-amber-300/20 border border-amber-200/30 text-amber-100">
                         {timeline.length} 站
                       </span>
                     </div>
@@ -824,7 +824,7 @@ export default function ProfilePage() {
                       <div className="mt-3 space-y-2">
                         {timeline.map((stop, idx) => (
                           <div key={`route-${item.id}-stop-${idx}`} className="flex items-center justify-between text-xs">
-                            <span className="text-cyan-100/90">{stop.time || `第 ${idx + 1} 站`}</span>
+                            <span className="text-amber-100/90">{stop.time || `第 ${idx + 1} 站`}</span>
                             <span className="text-white/80 max-w-[60%] truncate">{stop.location || "景点"}</span>
                           </div>
                         ))}
@@ -908,7 +908,7 @@ export default function ProfilePage() {
           
           <div className="flex gap-3">
             <ButtonComponent variant="secondary" className="flex-1" onClick={drawPoster}>重新生成</ButtonComponent>
-            <ButtonComponent variant="primary" className="flex-1 shadow-lg shadow-cyan-500/30" onClick={savePoster}>一键保存</ButtonComponent>
+            <ButtonComponent variant="primary" className="flex-1 shadow-lg shadow-amber-500/30" onClick={savePoster}>一键保存</ButtonComponent>
           </div>
         </div>
       </Popup>

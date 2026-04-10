@@ -87,18 +87,18 @@ export default function LocationDetailPage() {
       </div>
 
       <div className="mb-6">
-        <div className="text-cyan-200 text-sm font-bold tracking-wider uppercase mb-1 drop-shadow-md text-shadow-sm">Location Detail</div>
+        <div className="text-amber-200 text-sm font-bold tracking-wider uppercase mb-1 drop-shadow-md text-shadow-sm">Location Detail</div>
         <h1 className="text-3xl font-bold text-white drop-shadow-lg m-0 text-shadow">{item.name}</h1>
       </div>
 
       {/* 基本信息卡片 */}
       <CardComponent variant="glass" className="mb-4 backdrop-blur-xl">
         <div className="flex items-center justify-between mb-3 border-b border-white/10 pb-3">
-          <span className="px-3 py-1 bg-cyan-400/25 text-cyan-100 rounded-full text-xs font-medium border border-cyan-300/40">
+          <span className="px-3 py-1 bg-amber-400/25 text-amber-100 rounded-full text-xs font-medium border border-amber-300/40">
             {item.category || "景点"}
           </span>
-          <span className="text-sky-100/80 text-xs flex items-center">
-            <LucideIcon name="MapPin" size={12} className="mr-1 text-cyan-200" />
+          <span className="text-amber-100/80 text-xs flex items-center">
+            <LucideIcon name="MapPin" size={12} className="mr-1 text-amber-200" />
             {item.latitude?.toFixed(4)}, {item.longitude?.toFixed(4)}
           </span>
         </div>
@@ -130,7 +130,7 @@ export default function LocationDetailPage() {
       {/* 景点图片 */}
       <CardComponent variant="glass" className="mb-4 backdrop-blur-xl">
         <h2 className="text-lg font-bold text-white mb-4 flex items-center">
-          <LucideIcon name="Image" size={18} className="mr-2 text-cyan-200" />
+          <LucideIcon name="Image" size={18} className="mr-2 text-amber-200" />
           {sections.galleryTitle || "景点图片"}
         </h2>
         {galleryImages.length > 0 ? (
@@ -147,7 +147,7 @@ export default function LocationDetailPage() {
           </div>
         ) : (
           <div className="text-center py-6 bg-white/5 rounded-xl border border-white/10">
-            <LucideIcon name="ImageOff" size={32} className="mx-auto text-sky-100/80 mb-2" />
+            <LucideIcon name="ImageOff" size={32} className="mx-auto text-amber-100/80 mb-2" />
             <p className="text-white/60 text-sm">当前景点图片待补充</p>
             <p className="text-white/40 text-xs mt-1">/knowledge-base/locations/{item.slug || item.id}/images/</p>
           </div>
@@ -158,7 +158,7 @@ export default function LocationDetailPage() {
       {(details.bestSeasonToVisit || details.recommendedDuration) && (
         <CardComponent variant="glass" className="mb-4 backdrop-blur-xl">
           <h2 className="text-lg font-bold text-white mb-4 flex items-center">
-            <LucideIcon name="Compass" size={18} className="mr-2 text-cyan-200" />
+            <LucideIcon name="Compass" size={18} className="mr-2 text-amber-200" />
             {sections.visitInfoTitle || "游览信息"}
           </h2>
           <div className="space-y-3 text-sm text-white/80">
@@ -188,25 +188,25 @@ export default function LocationDetailPage() {
       {(location.province || location.city || location.address) && (
         <CardComponent variant="glass" className="mb-4 backdrop-blur-xl">
           <h2 className="text-lg font-bold text-white mb-4 flex items-center">
-            <LucideIcon name="Map" size={18} className="mr-2 text-cyan-200" />
+            <LucideIcon name="Map" size={18} className="mr-2 text-amber-200" />
             {sections.locationTitle || "位置信息"}
           </h2>
           <div className="space-y-2 text-sm text-white/80">
             {location.province && (
               <div className="flex items-center">
-                <div className="w-[70px] flex items-center text-sky-100/80"><LucideIcon name="MapPin" size={14} className="mr-1 text-cyan-200" /> 省份</div>
+                <div className="w-[70px] flex items-center text-amber-100/80"><LucideIcon name="MapPin" size={14} className="mr-1 text-amber-200" /> 省份</div>
                 <div>{location.province}</div>
               </div>
             )}
             {location.city && (
               <div className="flex items-center">
-                <div className="w-[70px] flex items-center text-sky-100/80"><LucideIcon name="Building2" size={14} className="mr-1 text-cyan-200" /> 城市</div>
+                <div className="w-[70px] flex items-center text-amber-100/80"><LucideIcon name="Building2" size={14} className="mr-1 text-amber-200" /> 城市</div>
                 <div>{location.city} {location.district}</div>
               </div>
             )}
             {location.address && (
               <div className="flex items-start mt-3 pt-3 border-t border-white/10">
-                <div className="w-[70px] flex items-center text-sky-100/80"><LucideIcon name="Navigation" size={14} className="mr-1 text-cyan-200" /> 地址</div>
+                <div className="w-[70px] flex items-center text-amber-100/80"><LucideIcon name="Navigation" size={14} className="mr-1 text-amber-200" /> 地址</div>
                 <div className="flex-1 font-medium text-white">{location.address}</div>
               </div>
             )}
@@ -218,31 +218,31 @@ export default function LocationDetailPage() {
       {Object.keys(transportation).length > 0 && (
         <CardComponent variant="glass" className="mb-4 backdrop-blur-xl">
           <h2 className="text-lg font-bold text-white mb-4 flex items-center">
-            <LucideIcon name="CarFront" size={18} className="mr-2 text-cyan-200" />
+            <LucideIcon name="CarFront" size={18} className="mr-2 text-amber-200" />
             {sections.transportationTitle || "交通方式"}
           </h2>
           <div className="space-y-4 text-sm text-white/80">
             {transportation.byAir && (
               <div>
-                <div className="flex items-center text-white font-medium mb-1"><LucideIcon name="Plane" size={16} className="mr-1.5 text-cyan-200" /> 飞机</div>
+                <div className="flex items-center text-white font-medium mb-1"><LucideIcon name="Plane" size={16} className="mr-1.5 text-amber-200" /> 飞机</div>
                 <div className="pl-6">{transportation.byAir}</div>
               </div>
             )}
             {transportation.byTrain && (
               <div>
-                <div className="flex items-center text-white font-medium mb-1"><LucideIcon name="Train" size={16} className="mr-1.5 text-cyan-200" /> 火车</div>
+                <div className="flex items-center text-white font-medium mb-1"><LucideIcon name="Train" size={16} className="mr-1.5 text-amber-200" /> 火车</div>
                 <div className="pl-6">{transportation.byTrain}</div>
               </div>
             )}
             {transportation.byBus && (
               <div>
-                <div className="flex items-center text-white font-medium mb-1"><LucideIcon name="Bus" size={16} className="mr-1.5 text-cyan-200" /> 大巴</div>
+                <div className="flex items-center text-white font-medium mb-1"><LucideIcon name="Bus" size={16} className="mr-1.5 text-amber-200" /> 大巴</div>
                 <div className="pl-6">{transportation.byBus}</div>
               </div>
             )}
             {transportation.byBoat && (
               <div>
-                <div className="flex items-center text-white font-medium mb-1"><LucideIcon name="Ship" size={16} className="mr-1.5 text-cyan-200" /> 游船</div>
+                <div className="flex items-center text-white font-medium mb-1"><LucideIcon name="Ship" size={16} className="mr-1.5 text-amber-200" /> 游船</div>
                 <div className="pl-6">{transportation.byBoat}</div>
               </div>
             )}
@@ -254,14 +254,14 @@ export default function LocationDetailPage() {
       {Object.keys(facilities).length > 0 && (
         <CardComponent variant="glass" className="mb-4 backdrop-blur-xl">
           <h2 className="text-lg font-bold text-white mb-4 flex items-center">
-            <LucideIcon name="Coffee" size={18} className="mr-2 text-cyan-200" />
+            <LucideIcon name="Coffee" size={18} className="mr-2 text-amber-200" />
             {sections.facilitiesTitle || "设施服务"}
           </h2>
           <div className="grid grid-cols-2 gap-3 text-sm">
             {facilities.parking !== undefined && (
               <div className="flex items-center bg-white/5 p-2 rounded-lg border border-white/5">
                 <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center mr-2">
-                  <LucideIcon name="ParkingSquare" size={16} className="text-cyan-100" />
+                  <LucideIcon name="ParkingSquare" size={16} className="text-amber-100" />
                 </div>
                 <span className="flex-1 text-white/80">停车场</span>
                 {facilities.parking ? <LucideIcon name="CheckCircle2" size={16} className="text-emerald-300" /> : <LucideIcon name="XCircle" size={16} className="text-rose-300/80" />}
@@ -270,7 +270,7 @@ export default function LocationDetailPage() {
             {facilities.restroom !== undefined && (
               <div className="flex items-center bg-white/5 p-2 rounded-lg border border-white/5">
                 <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center mr-2">
-                  <LucideIcon name="Users" size={16} className="text-cyan-100" />
+                  <LucideIcon name="Users" size={16} className="text-amber-100" />
                 </div>
                 <span className="flex-1 text-white/80">卫生间</span>
                 {facilities.restroom ? <LucideIcon name="CheckCircle2" size={16} className="text-emerald-300" /> : <LucideIcon name="XCircle" size={16} className="text-rose-300/80" />}
@@ -279,7 +279,7 @@ export default function LocationDetailPage() {
             {facilities.foodAndDrink !== undefined && (
               <div className="flex items-center bg-white/5 p-2 rounded-lg border border-white/5">
                 <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center mr-2">
-                  <LucideIcon name="Utensils" size={16} className="text-cyan-100" />
+                  <LucideIcon name="Utensils" size={16} className="text-amber-100" />
                 </div>
                 <span className="flex-1 text-white/80">餐饮</span>
                 {facilities.foodAndDrink ? <LucideIcon name="CheckCircle2" size={16} className="text-emerald-300" /> : <LucideIcon name="XCircle" size={16} className="text-rose-300/80" />}
@@ -288,7 +288,7 @@ export default function LocationDetailPage() {
             {facilities.accommodation !== undefined && (
               <div className="flex items-center bg-white/5 p-2 rounded-lg border border-white/5">
                 <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center mr-2">
-                  <LucideIcon name="BedDouble" size={16} className="text-cyan-100" />
+                  <LucideIcon name="BedDouble" size={16} className="text-amber-100" />
                 </div>
                 <span className="flex-1 text-white/80">住宿</span>
                 {facilities.accommodation ? <LucideIcon name="CheckCircle2" size={16} className="text-emerald-300" /> : <LucideIcon name="XCircle" size={16} className="text-rose-300/80" />}
@@ -297,7 +297,7 @@ export default function LocationDetailPage() {
             {facilities.medicalService !== undefined && (
               <div className="flex items-center bg-white/5 p-2 rounded-lg border border-white/5">
                 <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center mr-2">
-                  <LucideIcon name="Stethoscope" size={16} className="text-cyan-100" />
+                  <LucideIcon name="Stethoscope" size={16} className="text-amber-100" />
                 </div>
                 <span className="flex-1 text-white/80">医疗</span>
                 {facilities.medicalService ? <LucideIcon name="CheckCircle2" size={16} className="text-emerald-300" /> : <LucideIcon name="XCircle" size={16} className="text-rose-300/80" />}
@@ -311,13 +311,13 @@ export default function LocationDetailPage() {
       {ticketInfo.price && (
         <CardComponent variant="glass" className="mb-6 backdrop-blur-xl">
           <h2 className="text-lg font-bold text-white mb-4 flex items-center">
-            <LucideIcon name="Ticket" size={18} className="mr-2 text-cyan-200" />
+            <LucideIcon name="Ticket" size={18} className="mr-2 text-amber-200" />
             {sections.ticketInfoTitle || "票务信息"}
           </h2>
           <div className="space-y-3 text-sm text-white/80">
             <div className="flex items-center">
               <span className="font-semibold text-white w-[70px]">门票：</span>
-              <span className="text-cyan-200 font-bold text-lg">{ticketInfo.price}</span>
+              <span className="text-amber-200 font-bold text-lg">{ticketInfo.price}</span>
             </div>
             {ticketInfo.openingHours && (
               <div className="flex items-center">

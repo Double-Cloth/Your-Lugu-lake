@@ -74,10 +74,10 @@ export const ButtonComponent = ({
   className = '',
 }) => {
   const variants = {
-    primary: 'bg-gradient-to-r from-lake-500 to-lake-600 text-white hover:from-lake-600 hover:to-lake-700 shadow-md',
-    immersive: 'bg-white/90 hover:bg-white text-slate-900 border-none shadow-[0_0_20px_rgba(255,255,255,0.15)]', // 新增深色模式主题主按钮
-    secondary: 'bg-white/10 text-white hover:bg-white/20 border border-white/20',
-    danger: 'bg-red-500/80 text-white hover:bg-red-500',
+    primary: 'bg-gradient-to-r from-orange-500 via-orange-500 to-orange-600 text-white hover:from-orange-600 hover:via-orange-600 hover:to-orange-700 shadow-lg hover:shadow-xl hover:shadow-orange-500/30 transition-all active:shadow-md',
+    immersive: 'bg-white/90 hover:bg-white text-slate-900 border-none shadow-[0_0_20px_rgba(255,255,255,0.15)]', // 深色模式主题主按钮
+    secondary: 'bg-white/10 text-white hover:bg-white/20 border border-white/20 hover:border-white/40',
+    danger: 'bg-red-500/80 text-white hover:bg-red-500 hover:shadow-lg hover:shadow-red-500/30',
   };
 
   const sizes = {
@@ -149,7 +149,7 @@ export const GlassInput = forwardRef(({
 
   return (
     <div
-      className={`flex items-center rounded-xl transition-all shadow-inner bg-white/10 border border-white/20 backdrop-blur-md px-4 py-2.5 focus-within:border-cyan-400 focus-within:ring-1 focus-within:ring-cyan-400/50 ${wrapperClassName}`}
+      className={`flex items-center rounded-xl transition-all shadow-inner bg-white/10 border border-white/20 backdrop-blur-md px-4 py-2.5 focus-within:border-orange-400 focus-within:ring-2 focus-within:ring-orange-400/60 focus-within:shadow-lg focus-within:shadow-orange-400/20 ${wrapperClassName}`}
     >
       {icon && (
         <div className="text-white/60 text-[20px] mr-3 flex-shrink-0" aria-hidden="true">
@@ -162,7 +162,7 @@ export const GlassInput = forwardRef(({
         type={currentInputType}
         value={value}
         onChange={handleChange}
-        className={`flex-1 bg-transparent text-[16px] text-white leading-normal caret-cyan-400 placeholder:text-white/50 outline-none border-none focus:ring-0 px-0 min-w-0 ${className}`}
+        className={`flex-1 bg-transparent text-[16px] text-white leading-normal caret-orange-400 placeholder:text-white/50 outline-none border-none focus:ring-0 px-0 min-w-0 ${className}`}
         style={{
           color: "white",
           "--placeholder-color": "rgba(255,255,255,0.5)",

@@ -906,7 +906,7 @@ export default function AIFloatingBall() {
             onPointerMove={handleBallPointerMove}
             onPointerUp={handleBallPointerUp}
             onPointerCancel={handleBallPointerUp}
-            className={`group relative flex items-center justify-center w-16 h-16 bg-gradient-to-br from-lake-500 to-lake-700 text-white rounded-full shadow-lg opacity-90 hover:opacity-100 ${isDragging ? "" : "hover:scale-105 active:scale-95 ai-animate-float"} transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-lake-300 cursor-grab active:cursor-grabbing`}
+            className={`group relative flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-500 to-orange-700 text-white rounded-full shadow-lg opacity-90 hover:opacity-100 ${isDragging ? "" : "hover:scale-105 active:scale-95 ai-animate-float"} transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-orange-400 cursor-grab active:cursor-grabbing`}
             aria-label="AI助手"
             title="AI助手"
             onMouseEnter={(e) => {
@@ -926,8 +926,8 @@ export default function AIFloatingBall() {
               }
             }}
             style={{
-              background: "rgba(186, 168, 117, 0.9)",
-              boxShadow: "0 8px 22px rgba(186, 168, 117, 0.45)",
+              background: "linear-gradient(135deg, rgba(230, 122, 46, 0.95), rgba(206, 100, 36, 0.95))",
+              boxShadow: "0 8px 24px rgba(230, 122, 46, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15)",
             }}
           >
               {/* 背景光晕效果 (心跳/呼吸灯效果) */}
