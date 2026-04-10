@@ -8,6 +8,7 @@ import {
   buildAssetUrl,
   deleteRoute,
   fetchCurrentUser,
+  fetchTrackingState,
   fetchLocations,
   fetchMyFootprints,
   fetchMyRoutes,
@@ -81,6 +82,107 @@ function delay(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+function normalizePosterTrackPoints(trackPoints) {
+  if (!Array.isArray(trackPoints)) {
+    return [];
+  }
+
+  return trackPoints
+    .map((item) => {
+      const lat = Number(item?.lat);
+      const lon = Number(item?.lon);
+      const t = Number(item?.t);
+      if (!Number.isFinite(lat) || !Number.isFinite(lon)) {
+        return null;
+      }
+      return {
+        lat,
+        lon,
+        t: Number.isFinite(t) ? t : Date.now(),
+      };
+    })
+    .filter(Boolean)
+    .slice(-600);
+}
+
+function drawTrackPreview(ctx, points, x, y, width, height) {
+  if (!points || points.length < 2) {
+    return;
+  }
+
+  const panelRadius = 20;
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(x, y, width, height, panelRadius);
+  ctx.fillStyle = "rgba(8, 30, 44, 0.46)";
+  ctx.fill();
+  ctx.strokeStyle = "rgba(151, 212, 236, 0.38)";
+  ctx.lineWidth = 1.4;
+  ctx.stroke();
+
+  const padding = 18;
+  const minLon = Math.min(...points.map((point) => point.lon));
+  const maxLon = Math.max(...points.map((point) => point.lon));
+  const minLat = Math.min(...points.map((point) => point.lat));
+  const maxLat = Math.max(...points.map((point) => point.lat));
+  const lonSpan = Math.max(0.00001, maxLon - minLon);
+  const latSpan = Math.max(0.00001, maxLat - minLat);
+
+  const gridColor = "rgba(181, 224, 244, 0.12)";
+  ctx.strokeStyle = gridColor;
+  ctx.lineWidth = 1;
+  for (let idx = 1; idx <= 3; idx += 1) {
+    const gx = x + padding + ((width - padding * 2) * idx) / 4;
+    const gy = y + padding + ((height - padding * 2) * idx) / 4;
+    ctx.beginPath();
+    ctx.moveTo(gx, y + padding);
+    ctx.lineTo(gx, y + height - padding);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + padding, gy);
+    ctx.lineTo(x + width - padding, gy);
+    ctx.stroke();
+  }
+
+  const plotPoints = points.map((point) => {
+    const px = x + padding + ((point.lon - minLon) / lonSpan) * (width - padding * 2);
+    const py = y + height - padding - ((point.lat - minLat) / latSpan) * (height - padding * 2);
+    return { x: px, y: py };
+  });
+
+  ctx.beginPath();
+  ctx.moveTo(plotPoints[0].x, plotPoints[0].y);
+  plotPoints.slice(1).forEach((point) => {
+    ctx.lineTo(point.x, point.y);
+  });
+  ctx.strokeStyle = "rgba(113, 229, 255, 0.95)";
+  ctx.lineWidth = 4;
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.shadowColor = "rgba(54, 196, 239, 0.6)";
+  ctx.shadowBlur = 8;
+  ctx.stroke();
+
+  const startPoint = plotPoints[0];
+  const endPoint = plotPoints[plotPoints.length - 1];
+
+  ctx.shadowBlur = 0;
+  ctx.fillStyle = "#bdfde6";
+  ctx.beginPath();
+  ctx.arc(startPoint.x, startPoint.y, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "#ffe4aa";
+  ctx.beginPath();
+  ctx.arc(endPoint.x, endPoint.y, 6, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = "rgba(226, 245, 255, 0.92)";
+  ctx.font = "600 18px 'PingFang SC', 'Noto Sans SC', sans-serif";
+  ctx.fillText(`轨迹点 ${points.length}`, x + 16, y + height - 14);
+  ctx.restore();
+}
+
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { username: usernameFromPath } = useParams();
@@ -105,6 +207,7 @@ export default function ProfilePage() {
   const [quickRefreshing, setQuickRefreshing] = useState(false);
   
   const [posterVisible, setPosterVisible] = useState(false);
+  const [posterTrackPoints, setPosterTrackPoints] = useState([]);
   const canvasRef = useRef(null);
   const accountSectionRef = useRef(null);
   const recordsSectionRef = useRef(null);
@@ -131,7 +234,7 @@ export default function ProfilePage() {
   useEffect(() => {
     if (!posterVisible) return;
     void drawPoster();
-  }, [posterVisible, records, savedRoutes, displayName]);
+  }, [posterVisible, records, savedRoutes, displayName, posterTrackPoints]);
 
   useEffect(() => {
     if (loggedIn) {
@@ -287,6 +390,7 @@ export default function ProfilePage() {
     setProfile(null);
     setRecords([]);
     setSavedRoutes([]);
+    setPosterTrackPoints([]);
     setEditName("");
     navigate("/me", { replace: true });
     Toast.show({ content: "已退出游客登录" });
@@ -324,15 +428,17 @@ export default function ProfilePage() {
     if (!token) {
       setRecords([]);
       setSavedRoutes([]);
+      setPosterTrackPoints([]);
       return;
     }
     setRecordLoading(true);
     setSavedRoutesLoading(true);
     try {
-      const [footprints, locations, routes] = await Promise.all([
+      const [footprints, locations, routes, trackingState] = await Promise.all([
         fetchMyFootprints(token),
         fetchLocations(),
         fetchMyRoutes(token),
+        fetchTrackingState().catch(() => null),
       ]);
       const locationMap = {};
       locations.forEach((item) => {
@@ -342,9 +448,11 @@ export default function ProfilePage() {
       const list = Array.isArray(footprints) ? toRecordList(footprints, locationMap) : [];
       setRecords(list);
       setSavedRoutes(Array.isArray(routes) ? routes : []);
+      setPosterTrackPoints(normalizePosterTrackPoints(trackingState?.track_points));
     } catch {
       setRecords([]);
       setSavedRoutes([]);
+      setPosterTrackPoints([]);
       Toast.show({ content: "加载游览数据失败" });
     } finally {
       setRecordLoading(false);
@@ -467,6 +575,8 @@ export default function ProfilePage() {
     const uniqueSpots = new Set(records.map((item) => item.title)).size;
     const firstWithPhoto = records.find((item) => Array.isArray(item.photoList) && item.photoList.length > 0);
     const topMood = records.find((item) => item.mood && item.mood !== "完成打卡");
+    const trackPointsForPoster = normalizePosterTrackPoints(posterTrackPoints);
+    const hasTrackPreview = trackPointsForPoster.length >= 2;
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
@@ -522,9 +632,13 @@ export default function ProfilePage() {
     ctx.fillStyle = "rgba(205,234,247,0.95)";
     ctx.fillText(`打卡 ${records.length} 次  ·  探索 ${uniqueSpots} 个景点  ·  路线 ${savedRoutes.length} 条`, 56, 510);
 
+    if (hasTrackPreview) {
+      drawTrackPreview(ctx, trackPointsForPoster, 56, 538, canvas.width - 112, 188);
+    }
+
     ctx.font = "500 21px 'PingFang SC', 'Noto Sans SC', sans-serif";
-    records.slice(0, 5).forEach((item, idx) => {
-      const y = 578 + idx * 72;
+    records.slice(0, hasTrackPreview ? 3 : 5).forEach((item, idx) => {
+      const y = (hasTrackPreview ? 780 : 578) + idx * 72;
       ctx.fillStyle = "#75daf3";
       ctx.beginPath();
       ctx.arc(62, y - 6, 6, 0, Math.PI * 2);
