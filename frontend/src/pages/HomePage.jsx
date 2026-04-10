@@ -75,32 +75,6 @@ const CULTURE_TEMPLATES = [
   },
 ];
 
-function IconSpark() {
-  return (
-    <svg viewBox="0 0 24 24" className="w-6 h-6 text-white drop-shadow-md" aria-hidden="true">
-      <path d="M12 2l2.2 5.2L19 9.4l-4.8 2.2L12 17l-2.2-5.4L5 9.4l4.8-2.2L12 2z" fill="currentColor" />
-    </svg>
-  );
-}
-
-function IconRoute() {
-  return (
-    <svg viewBox="0 0 24 24" className="w-6 h-6 text-white drop-shadow-md" aria-hidden="true">
-      <path d="M6 4a2 2 0 100 4 2 2 0 000-4zm12 12a2 2 0 100 4 2 2 0 000-4z" fill="currentColor" />
-      <path d="M7.8 6h4.9c2.6 0 4.3 1.6 4.3 3.8 0 2.1-1.5 3.3-3.8 3.3H9.6c-1.2 0-1.9.5-1.9 1.3S8.4 16 9.5 16H16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function IconGlobe() {
-  return (
-    <svg viewBox="0 0 24 24" className="w-6 h-6 text-white drop-shadow-md" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" strokeWidth="1.8" />
-      <path d="M3 12h18M12 3c2.8 2.6 2.8 15.4 0 18M12 3c-2.8 2.6-2.8 15.4 0 18" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
-    </svg>
-  );
-}
-
 function resolveOptionLabel(options, value, fallback) {
   return options.find((item) => item.value === value)?.label || fallback;
 }
@@ -125,6 +99,7 @@ export default function HomePage() {
   const [activePanel, setActivePanel] = useState("");
   const [travelNeed, setTravelNeed] = useState("");
   const [routeLoading, setRouteLoading] = useState(false);
+  const [myFootprints, setMyFootprints] = useState([]);
   const [routePlan, setRoutePlan] = useState({
     title: "",
     timeline: [],
@@ -149,7 +124,7 @@ export default function HomePage() {
     const panelFromState = location.state?.openPanel;
     const cultureSeedFromState = location.state?.cultureSeed;
     const panelFromQuery = new URLSearchParams(location.search).get("openPanel");
-    const validPanels = new Set(["overview", "global", "culture"]);
+    const validPanels = new Set(["overview", "global", "culture", "eco"]);
 
     const panel = validPanels.has(panelFromState)
       ? panelFromState
@@ -227,8 +202,10 @@ export default function HomePage() {
           const userToken = getUserToken();
           if (!userToken) {
             setCoverPhotoUrl("");
+            setMyFootprints([]);
           } else {
             const footprints = await fetchMyFootprints(userToken);
+            setMyFootprints(Array.isArray(footprints) ? footprints : []);
             const firstWithPhoto = Array.isArray(footprints)
               ? footprints.find((item) => item.photo_url)
               : null;
@@ -239,12 +216,14 @@ export default function HomePage() {
             clearUserSession();
           }
           setCoverPhotoUrl("");
+          setMyFootprints([]);
         }
       } catch {
         setLocations([]);
         setKbLocations([]);
         setNearbyGuides({ spots: [], hotels: [] });
         setKbOverview(null);
+        setMyFootprints([]);
       } finally {
         setLoading(false);
       }
@@ -298,6 +277,18 @@ export default function HomePage() {
     const list = kbOverview?.culture?.highlights;
     return Array.isArray(list) ? list : [];
   }, [kbOverview]);
+  const ecoLocations = useMemo(() => {
+    return kbLocations.filter((item) => {
+      const text = `${item.name || ""} ${item.category || ""} ${item.description || ""}`;
+      return /自然|生态|湿地|湖|山|观鸟|森林|nature|wetland/i.test(text);
+    });
+  }, [kbLocations]);
+  const footprintSummary = useMemo(() => {
+    const total = myFootprints.length;
+    const withPhoto = myFootprints.filter((item) => item.photo_url).length;
+    const locationCount = new Set(myFootprints.map((item) => item.location_id).filter(Boolean)).size;
+    return { total, withPhoto, locationCount };
+  }, [myFootprints]);
   const locationsWithAudio = useMemo(
     () => locations.filter((item) => item.audio_url),
     [locations]
@@ -421,44 +412,37 @@ export default function HomePage() {
         </div>
 
         <div className="w-full max-w-xl space-y-4 pb-4 z-10 relative">
-          <CardComponent variant="immersive" onClick={() => openPanel("overview")} className="cursor-pointer active:scale-95">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white/90 shadow-inner">
-                <IconSpark />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-white mb-1">景区一览</h3>
-                <p className="text-xs text-white/70">发现最美风景，探索摩梭文化</p>
-              </div>
-              <div className="text-white/40 text-2xl">›</div>
+          <button type="button" className="home-func-btn home-func-btn-1" onClick={() => openPanel("overview")}>
+            <img src="/images/buttons/func_1_icon.png" alt="" className="home-func-icon" aria-hidden="true" />
+            <div className="home-func-text">
+              <h3 className="home-func-title">景区一览</h3>
+              <p className="home-func-desc">发现最美风景，探索摩梭文化</p>
             </div>
-          </CardComponent>
+          </button>
 
-          <CardComponent variant="immersive" onClick={() => openPanel("culture")} className="cursor-pointer active:scale-95">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white/90 shadow-inner">
-                <IconRoute />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-white mb-1">文化导览</h3>
-                <p className="text-xs text-white/70">AI智能规划个性路线与解说</p>
-              </div>
-              <div className="text-white/40 text-2xl">›</div>
+          <button type="button" className="home-func-btn home-func-btn-2" onClick={() => openPanel("culture")}>
+            <img src="/images/buttons/func_2_icon.png" alt="" className="home-func-icon" aria-hidden="true" />
+            <div className="home-func-text">
+              <h3 className="home-func-title">文化导览</h3>
+              <p className="home-func-desc">AI智能规划个性路线与解说</p>
             </div>
-          </CardComponent>
+          </button>
 
-          <CardComponent variant="immersive" onClick={() => openPanel("global")} className="cursor-pointer active:scale-95">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white/90 shadow-inner">
-                <IconGlobe />
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-white mb-1">全域导览</h3>
-                <p className="text-xs text-white/70">景点/交通/餐饮/住宿规划</p>
-              </div>
-              <div className="text-white/40 text-2xl">›</div>
+          <button type="button" className="home-func-btn home-func-btn-3" onClick={() => openPanel("global")}>
+            <img src="/images/buttons/func_3_icon.png" alt="" className="home-func-icon" aria-hidden="true" />
+            <div className="home-func-text">
+              <h3 className="home-func-title">全域导览</h3>
+              <p className="home-func-desc">景点/交通/餐饮/住宿规划</p>
             </div>
-          </CardComponent>
+          </button>
+
+          <button type="button" className="home-func-btn home-func-btn-4" onClick={() => openPanel("eco")}>
+            <img src="/images/buttons/func_4_icon.png" alt="" className="home-func-icon" aria-hidden="true" />
+            <div className="home-func-text">
+              <h3 className="home-func-title">生态导览</h3>
+              <p className="home-func-desc">生态科普 / 康养路线 / 生态足迹</p>
+            </div>
+          </button>
         </div>
       </div>
 
@@ -797,6 +781,101 @@ export default function HomePage() {
                       <span className="px-2 py-1 text-xs rounded-full bg-white/20 text-white/90">{item.category}</span>
                     </div>
                     <div className="text-sm text-white/80 mt-1">{item.description}</div>
+                  </Link>
+                ))}
+              </div>
+            </Card>
+          ) : null}
+        </div>
+      </Popup>
+
+      <Popup visible={activePanel === "eco"} onMaskClick={closePanel} bodyStyle={{ minHeight: "75vh", width: "100%", maxWidth: "100%", overflowY: "auto", background: "transparent" }}>
+        <div className="app-glass-popup p-5 min-h-[75vh] home-popup-scrollable">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-2xl font-bold text-white tracking-wide">生态导览</h3>
+            <button className="text-[rgba(189,232,250,0.8)] active:text-white px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm backdrop-blur-sm transition-all shadow-sm" onClick={closePanel}>← 返回</button>
+          </div>
+
+          <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md">
+            <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">生态科普</div>
+            <div className="text-sm text-white/85 leading-relaxed">
+              泸沽湖既是高原湖泊景观，也是湿地与山地生态的复合场域。适合用“轻徒步 + 慢停留 + 少打扰”的方式去观察水体、候鸟、植被与地貌变化。
+            </div>
+            <div className="grid grid-cols-1 gap-2 mt-3">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-sm text-white/80">看点 1：优先选择清晨或傍晚的柔光时段，观察湖面与湿地层次。</div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-sm text-white/80">看点 2：尽量沿既有步道活动，减少对植被和栖息地的干扰。</div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3 text-sm text-white/80">看点 3：拍照、观鸟、讲解可以合并成一条低强度自然课程线。</div>
+            </div>
+          </Card>
+
+          <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md">
+            <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">康养路线</div>
+            <div className="space-y-2 text-sm text-white/85">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                <div className="font-semibold text-white">清晨 06:30 - 09:00</div>
+                <div className="mt-1">湖边慢走，做轻量呼吸练习，适合老人和亲子游客。</div>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                <div className="font-semibold text-white">上午 09:30 - 12:00</div>
+                <div className="mt-1">串联一个自然景观点和一个观景平台，减少赶路，增加停留。</div>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                <div className="font-semibold text-white">下午 15:30 - 17:30</div>
+                <div className="mt-1">轻徒步 + 观景拍照，回程保留休息时间，避免高强度拉满行程。</div>
+              </div>
+            </div>
+            <div className="text-xs text-white/55 mt-3">如果你想要更具体的路线，可以先去“全域导览”挑选景点，再回来组合成生态线。</div>
+          </Card>
+
+          <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md">
+            <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">生态足迹</div>
+            <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                <div className="text-lg font-bold text-white">{footprintSummary.total}</div>
+                <div className="text-xs text-white/65 mt-1">已记录足迹</div>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                <div className="text-lg font-bold text-white">{footprintSummary.locationCount}</div>
+                <div className="text-xs text-white/65 mt-1">涉及景点</div>
+              </div>
+              <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                <div className="text-lg font-bold text-white">{footprintSummary.withPhoto}</div>
+                <div className="text-xs text-white/65 mt-1">带照片记录</div>
+              </div>
+            </div>
+            <div className="text-sm text-white/80 mt-3 leading-relaxed">
+              记录足迹时可以优先选择少打扰的拍摄方式、减少一次性用品、优先步行或拼车，把旅程留在风景里，而不是留在消耗里。
+            </div>
+            {myFootprints.length > 0 ? (
+              <div className="mt-3 space-y-2">
+                {myFootprints.slice(0, 3).map((item, idx) => (
+                  <div key={`eco-footprint-${item.id || idx}`} className="bg-white/5 border border-white/10 rounded-2xl p-3">
+                    <div className="text-sm font-semibold text-white">{item.location_name || item.title || `足迹 ${idx + 1}`}</div>
+                    <div className="text-xs text-white/60 mt-1">{item.created_at ? new Date(item.created_at).toLocaleString() : "记录时间未知"}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-white/55 mt-3">登录后可在这里看到你的生态足迹摘要与最近记录。</div>
+            )}
+          </Card>
+
+          {ecoLocations.length > 0 ? (
+            <Card className="bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md mb-0">
+              <div className="font-semibold text-white/95">推荐自然点位</div>
+              <div className="space-y-2 mt-3">
+                {ecoLocations.slice(0, 4).map((item) => (
+                  <Link
+                    to={item.id ? `/locations/${item.id}` : "/home"}
+                    state={{ fromPanel: "eco" }}
+                    key={`eco-${item.slug || item.id}`}
+                    className="block bg-white/10 border border-white/20 rounded-2xl p-4 no-underline text-current"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="font-semibold text-white/95">{item.name}</div>
+                      <span className="px-2 py-1 text-xs rounded-full bg-white/20 text-white/90">{item.category || "自然"}</span>
+                    </div>
+                    <div className="text-sm text-white/75 mt-1">{item.description || "适合纳入生态线路的自然点位。"}</div>
                   </Link>
                 ))}
               </div>

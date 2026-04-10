@@ -39,6 +39,13 @@ function MobileShell() {
 
   return (
     <div className="app-mobile-shell w-full h-[100dvh] max-w-md sm:max-w-xl md:max-w-3xl landscape:max-w-screen-xl mx-auto relative overflow-hidden flex flex-col font-sans shadow-2xl bg-black">
+      <div className="app-bg-corners" aria-hidden="true">
+        <span className="app-bg-corner app-bg-corner-ul" />
+        <span className="app-bg-corner app-bg-corner-ur" />
+        <span className="app-bg-corner app-bg-corner-ll" />
+        <span className="app-bg-corner app-bg-corner-lr" />
+      </div>
+
       <div className="app-main-scroll flex-1 flex flex-col overflow-y-auto overflow-x-hidden scroll-smooth scrollbar-hide pb-[calc(84px+env(safe-area-inset-bottom))]">
         <Routes>
           <Route path="/home" element={<HomePage />} />

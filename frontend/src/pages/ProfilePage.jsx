@@ -5,6 +5,7 @@ import { UserOutline, LockOutline } from "antd-mobile-icons";
 import { useNavigate, useParams } from "react-router-dom";
 import { ImmersivePage, CardComponent, ButtonComponent, GlassInput, SkeletonComponent, EmptyStateComponent } from "../components/SharedUI";
 import {
+  buildAssetUrl,
   deleteRoute,
   fetchCurrentUser,
   fetchLocations,
@@ -32,7 +33,11 @@ function toRecordList(footprints, locationMap) {
     id: item.id,
     title: locationMap[item.location_id]?.name || `景点 #${item.location_id}`,
     time: new Date(item.check_in_time).toLocaleString(),
+    checkInTime: item.check_in_time,
     mood: item.mood_text || "完成打卡",
+    photoList: Array.isArray(item.photo_urls)
+      ? item.photo_urls
+      : (item.photo_url ? [item.photo_url] : []),
   }));
 }
 
@@ -88,9 +93,13 @@ export default function ProfilePage() {
   const [savedRoutes, setSavedRoutes] = useState([]);
   const [savedRoutesLoading, setSavedRoutesLoading] = useState(false);
   const [deletingRouteId, setDeletingRouteId] = useState(null);
+  const [quickRefreshing, setQuickRefreshing] = useState(false);
   
   const [posterVisible, setPosterVisible] = useState(false);
   const canvasRef = useRef(null);
+  const accountSectionRef = useRef(null);
+  const recordsSectionRef = useRef(null);
+  const routesSectionRef = useRef(null);
 
   const displayName = useMemo(() => {
     return profile?.username || "游客";
@@ -112,8 +121,8 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (!posterVisible) return;
-    drawPoster();
-  }, [posterVisible, records, displayName]);
+    void drawPoster();
+  }, [posterVisible, records, savedRoutes, displayName]);
 
   useEffect(() => {
     if (loggedIn) {
@@ -291,6 +300,20 @@ export default function ProfilePage() {
     }
   }
 
+  async function handleQuickRefresh() {
+    if (quickRefreshing || recordLoading || savedRoutesLoading) {
+      return;
+    }
+
+    setQuickRefreshing(true);
+    try {
+      await loadRecords();
+      Toast.show({ content: "已刷新最新数据" });
+    } finally {
+      setQuickRefreshing(false);
+    }
+  }
+
   async function saveProfile() {
     const nextName = editName.trim();
     if (!nextName) {
@@ -357,59 +380,106 @@ export default function ProfilePage() {
     });
   }
 
-  function drawPoster() {
+  async function loadImage(url) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.crossOrigin = "anonymous";
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error("图片加载失败"));
+      image.src = url;
+    });
+  }
+
+  async function drawPoster() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
+    canvas.width = 720;
+    canvas.height = 1080;
+
+    const uniqueSpots = new Set(records.map((item) => item.title)).size;
+    const firstWithPhoto = records.find((item) => Array.isArray(item.photoList) && item.photoList.length > 0);
+    const topMood = records.find((item) => item.mood && item.mood !== "完成打卡");
+
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    gradient.addColorStop(0, "#083344"); 
-    gradient.addColorStop(1, "#164e63"); 
+    gradient.addColorStop(0, "#0b3b4f");
+    gradient.addColorStop(1, "#0e3141");
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = "rgba(255,255,255,0.05)";
-    ctx.fillRect(20, 20, canvas.width - 40, canvas.height - 40);
-    ctx.strokeStyle = "rgba(255,255,255,0.2)";
-    ctx.strokeRect(20, 20, canvas.width - 40, canvas.height - 40);
+    ctx.fillStyle = "rgba(255,255,255,0.06)";
+    ctx.fillRect(32, 32, canvas.width - 64, canvas.height - 64);
+    ctx.strokeStyle = "rgba(196,231,246,0.35)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(32, 32, canvas.width - 64, canvas.height - 64);
 
-    ctx.fillStyle = "#fff";
-    ctx.font = "bold 26px sans-serif";
-    ctx.fillText("泸沽湖专属游览海报", 44, 72);
+    if (firstWithPhoto?.photoList?.[0]) {
+      try {
+        const photo = await loadImage(buildAssetUrl(firstWithPhoto.photoList[0]));
+        ctx.save();
+        ctx.beginPath();
+        ctx.roundRect(56, 68, canvas.width - 112, 300, 22);
+        ctx.clip();
+        ctx.drawImage(photo, 56, 68, canvas.width - 112, 300);
+        ctx.restore();
+      } catch {
+        // Ignore image rendering failures and keep text poster available.
+      }
+    }
 
-    ctx.font = "16px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.8)";
-    ctx.fillText(`旅行者：${displayName}`, 44, 108);
+    ctx.fillStyle = "#f3fbff";
+    ctx.font = "700 44px 'PingFang SC', 'Noto Sans SC', sans-serif";
+    ctx.fillText("泸沽湖旅行海报", 56, 430);
 
-    ctx.font = "14px sans-serif";
-    records.slice(0, 4).forEach((item, idx) => {
-      const y = 158 + idx * 60;
-      ctx.fillStyle = "#22d3ee"; 
+    ctx.font = "500 26px 'PingFang SC', 'Noto Sans SC', sans-serif";
+    ctx.fillStyle = "rgba(232,246,255,0.9)";
+    ctx.fillText(`旅行者：${displayName}`, 56, 472);
+
+    ctx.font = "500 22px 'PingFang SC', 'Noto Sans SC', sans-serif";
+    ctx.fillStyle = "rgba(205,234,247,0.95)";
+    ctx.fillText(`打卡 ${records.length} 次  ·  探索 ${uniqueSpots} 个景点  ·  路线 ${savedRoutes.length} 条`, 56, 510);
+
+    ctx.font = "500 21px 'PingFang SC', 'Noto Sans SC', sans-serif";
+    records.slice(0, 5).forEach((item, idx) => {
+      const y = 578 + idx * 72;
+      ctx.fillStyle = "#75daf3";
       ctx.beginPath();
-      ctx.arc(48, y - 4, 4, 0, Math.PI * 2);
+      ctx.arc(62, y - 6, 6, 0, Math.PI * 2);
       ctx.fill();
-      
-      ctx.fillStyle = "#fff";
-      ctx.fillText(`${item.title} · ${item.time.split(" ")[0]}`, 64, y);
-      ctx.fillStyle = "rgba(255,255,255,0.6)";
-      ctx.fillText(item.mood, 64, y + 22);
+
+      ctx.fillStyle = "#f2fbff";
+      ctx.fillText(`${item.title} · ${item.time.split(" ")[0]}`, 80, y);
+      ctx.fillStyle = "rgba(213,236,247,0.85)";
+      const mood = (item.mood || "完成打卡").slice(0, 24);
+      ctx.fillText(mood, 80, y + 30);
     });
 
-    ctx.fillStyle = "#22d3ee";
-    ctx.font = "italic 14px sans-serif";
-    ctx.fillText("Lugu Lake Memory", 44, canvas.height - 42);
+    if (topMood) {
+      ctx.fillStyle = "rgba(245, 227, 192, 0.95)";
+      ctx.font = "500 22px 'PingFang SC', 'Noto Sans SC', sans-serif";
+      ctx.fillText(`今日心情：${(topMood.mood || "湖畔风正好").slice(0, 26)}`, 56, 968);
+    }
+
+    ctx.fillStyle = "#9adff4";
+    ctx.font = "italic 20px 'Times New Roman', serif";
+    ctx.fillText(`Generated ${new Date().toLocaleDateString("zh-CN")}`, 56, canvas.height - 56);
   }
 
   function savePoster() {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const link = document.createElement("a");
-    link.href = canvas.toDataURL("image/png");
-    link.download = "lugu-poster.png";
-    link.click();
-    Toast.show({ content: "海报已导出为图片" });
+    try {
+      const link = document.createElement("a");
+      link.href = canvas.toDataURL("image/png");
+      link.download = `lugu-poster-${Date.now()}.png`;
+      link.click();
+      Toast.show({ content: "海报已导出为图片" });
+    } catch {
+      Toast.show({ content: "海报导出失败，请稍后重试" });
+    }
   }
 
   function openPoster() {
@@ -418,6 +488,11 @@ export default function ProfilePage() {
       return;
     }
     setPosterVisible(true);
+  }
+
+  function scrollToSection(sectionRef) {
+    if (!sectionRef?.current) return;
+    sectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   const renderUnauth = () => (
@@ -548,34 +623,76 @@ export default function ProfilePage() {
         </CardComponent>
       </div>
 
-      <div className="grid grid-cols-4 gap-3 mb-6">
-        <button onClick={() => navigate(withUserSessionPath("/checkin"))} className="flex flex-col items-center gap-2 group">
-          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-inner group-active:bg-white/10 transition-all">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-cyan-300" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+      <div className="profile-function-groups mb-6">
+        <div className="profile-function-section">
+          <h3 className="profile-function-title">
+            <span className="profile-function-dot bg-cyan-300"></span>
+            行程助手
+          </h3>
+          <div className="profile-function-grid profile-function-grid-main">
+            <button
+              onClick={() => navigate(withUserSessionPath("/checkin"))}
+              className="profile-function-item"
+            >
+              <div className="profile-function-icon-wrap">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-cyan-300" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+              </div>
+              <span className="profile-function-text">打卡签到</span>
+            </button>
+            <button
+              onClick={() => navigate(withUserSessionPath("/scroll"))}
+              className="profile-function-item"
+            >
+              <div className="profile-function-icon-wrap">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-blue-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
+              </div>
+              <span className="profile-function-text">旅行绘卷</span>
+            </button>
           </div>
-          <span className="text-xs text-white/70">打卡</span>
+        </div>
+
+        <div className="profile-function-section">
+          <h3 className="profile-function-title">
+            <span className="profile-function-dot bg-violet-300"></span>
+            工具与同步
+          </h3>
+          <div className="profile-function-grid profile-function-grid-tool">
+            <button onClick={openPoster} className="profile-function-item">
+              <div className="profile-function-icon-wrap">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-violet-300" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+              </div>
+              <span className="profile-function-text">生成海报</span>
+            </button>
+            <button
+              onClick={() => void handleQuickRefresh()}
+              disabled={quickRefreshing || recordLoading || savedRoutesLoading}
+              className="profile-function-item disabled:opacity-60"
+            >
+              <div className="profile-function-icon-wrap">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" className={`text-emerald-300 ${quickRefreshing || recordLoading || savedRoutesLoading ? "animate-spin" : ""}`} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+              </div>
+              <span className="profile-function-text">{quickRefreshing || recordLoading || savedRoutesLoading ? "刷新中" : "刷新数据"}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="profile-category-nav mb-6">
+        <button className="profile-category-item" onClick={() => scrollToSection(accountSectionRef)}>
+          <span className="profile-category-name">账号与安全</span>
+          <span className="profile-category-desc">修改资料与密码</span>
         </button>
-        <button onClick={() => navigate(withUserSessionPath("/scroll"))} className="flex flex-col items-center gap-2 group">
-          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-inner group-active:bg-white/10 transition-all">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-blue-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>
-          </div>
-          <span className="text-xs text-white/70">绘卷</span>
+        <button className="profile-category-item" onClick={() => scrollToSection(recordsSectionRef)}>
+          <span className="profile-category-name">足迹记录</span>
+          <span className="profile-category-desc">查看打卡时间线</span>
         </button>
-        <button onClick={openPoster} className="flex flex-col items-center gap-2 group">
-          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-inner group-active:bg-white/10 transition-all">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-purple-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-          </div>
-          <span className="text-xs text-white/70">海报</span>
-        </button>
-        <button onClick={loadRecords} className="flex flex-col items-center gap-2 group">
-          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center shadow-inner group-active:bg-white/10 transition-all">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="text-emerald-400" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-          </div>
-          <span className="text-xs text-white/70">刷新</span>
+        <button className="profile-category-item" onClick={() => scrollToSection(routesSectionRef)}>
+          <span className="profile-category-name">路线管理</span>
+          <span className="profile-category-desc">继续优化或删除路线</span>
         </button>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6" ref={accountSectionRef}>
         <h3 className="text-sm font-bold text-white/90 mb-3 px-1 flex items-center">
           <span className="w-1 h-3.5 bg-cyan-400 rounded-full mr-2"></span>
           账号设置
@@ -629,7 +746,7 @@ export default function ProfilePage() {
         </CardComponent>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6" ref={recordsSectionRef}>
         <h3 className="text-sm font-bold text-white/90 mb-3 px-1 flex items-center">
           <span className="w-1 h-3.5 bg-blue-400 rounded-full mr-2"></span>
           游览记录
@@ -659,7 +776,7 @@ export default function ProfilePage() {
         </CardComponent>
       </div>
 
-      <div className="mb-6">
+      <div className="mb-6" ref={routesSectionRef}>
         <h3 className="text-sm font-bold text-white/90 mb-3 px-1 flex items-center">
           <span className="w-1 h-3.5 bg-amber-300 rounded-full mr-2"></span>
           我的路线
@@ -785,8 +902,8 @@ export default function ProfilePage() {
           <h3 className="text-xl font-bold text-white mb-2 tracking-wide text-center">AI 个性化海报</h3>
           <p className="text-xs text-white/50 text-center mb-6">根据游览记录自动生成，可保存至相册</p>
           
-          <div className="flex justify-center mb-6">
-            <canvas ref={canvasRef} width={340} height={500} className="rounded-2xl border border-white/20 shadow-2xl max-w-full" />
+          <div className="poster-preview-wrap flex justify-center mb-6">
+            <canvas ref={canvasRef} width={720} height={1080} className="profile-poster-canvas rounded-2xl border border-white/20 shadow-2xl max-w-full" />
           </div>
           
           <div className="flex gap-3">

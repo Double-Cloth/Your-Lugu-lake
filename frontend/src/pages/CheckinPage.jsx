@@ -695,30 +695,30 @@ export default function CheckinPage() {
   }
 
   return (
-    <ImmersivePage bgImage="/images/lugu-scenery.jpg" className="page-fade-in pb-[env(safe-area-inset-bottom)]">
-      <div className="hero-shell mb-3">
+    <ImmersivePage bgImage="/images/lugu-scenery.jpg" className="checkin-theme page-fade-in pb-[env(safe-area-inset-bottom)]">
+      <div className="hero-shell checkin-hero mb-3">
         <div className="hero-kicker">Check-in Trail</div>
         <h1 className="page-title m-0">地图打卡</h1>
         <p className="hero-copy">使用高德地图实时定位绘制移动轨迹，通过二维码完成景点打卡。</p>
       </div>
 
       {/* 地图卡片 */}
-      <CardComponent variant="glass" className="p-0 overflow-hidden mb-4 h-64">
+      <CardComponent variant="glass" className="checkin-card p-0 overflow-hidden mb-4 h-64">
         <div 
           ref={mapRef} 
           style={{ width: "100%", height: "100%", borderRadius: "1rem" }}
-          className="relative"
+          className="checkin-map-stage relative"
         >
           {!mapLoaded && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-xl px-4">
-              <div className="w-full max-w-[18rem] text-center text-white text-sm leading-6 space-y-3">
+            <div className="checkin-map-overlay absolute inset-0 flex items-center justify-center rounded-xl px-4">
+              <div className="checkin-map-overlay-inner w-full max-w-[18rem] text-center text-sm leading-6 space-y-3">
                 <div>{mapError || (mapRequested ? "地图加载中..." : "地图未启用")}</div>
                 {!mapRequested && (
                   <Button
                     block
                     color="primary"
                     onClick={() => setMapRequested(true)}
-                    className="text-sm font-bold"
+                    className="checkin-map-enable-btn text-sm font-bold"
                   >
                     启用地图
                   </Button>
@@ -730,19 +730,19 @@ export default function CheckinPage() {
       </CardComponent>
 
       {ipHttpAccess && (
-        <div className="mb-4 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-xs leading-5 text-amber-100">
+        <div className="checkin-alert mb-4 rounded-2xl px-4 py-3 text-xs leading-5">
           当前是通过服务器 IP 的 HTTP 方式访问。地图需要高德控制台把这个 IP 加入白名单，摄像头和定位则需要 HTTPS 或 localhost。
         </div>
       )}
 
       {/* 定位控制卡片 */}
-      <CardComponent variant="glass" className="mb-4">
+      <CardComponent variant="glass" className="checkin-card mb-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-white font-bold flex items-center gap-2">
-            <LucideIcon name="Navigation" size={18} className="text-cyan-400" />
+          <h3 className="checkin-section-title font-bold flex items-center gap-2">
+            <LucideIcon name="Navigation" size={18} className="checkin-icon-cyan" />
             实时轨迹
           </h3>
-          <span className={`text-xs px-2 py-1 rounded-full ${tracking ? 'bg-green-500/30 text-green-200' : 'bg-slate-500/30 text-slate-300'}`}>
+          <span className={`checkin-status text-xs px-2 py-1 rounded-full ${tracking ? 'is-live' : 'is-idle'}`}>
             {tracking ? "定位中" : "未定位"}
           </span>
         </div>
@@ -760,14 +760,14 @@ export default function CheckinPage() {
             <Button
               block
               onClick={locateMe}
-              className="bg-white/10 text-white border border-white/20 text-sm font-bold"
+              className="checkin-ghost-btn text-sm font-bold"
             >
               定位我的位置
             </Button>
             <Button
               block
               onClick={resetTrack}
-              className="bg-white/10 text-white border border-white/20 text-sm font-bold"
+              className="checkin-ghost-btn text-sm font-bold"
               color="danger"
             >
               重置轨迹
@@ -776,8 +776,8 @@ export default function CheckinPage() {
         </div>
 
         {trackPoints.length > 0 && (
-          <div className="mt-3 p-2 bg-white/5 rounded-lg border border-white/10">
-            <p className="text-xs text-white/70">
+          <div className="checkin-soft-panel mt-3 p-2 rounded-lg">
+            <p className="checkin-subtle-text text-xs">
               已记录轨迹点：{trackPoints.length} 个
             </p>
           </div>
@@ -785,13 +785,13 @@ export default function CheckinPage() {
       </CardComponent>
 
       {/* 二维码扫描卡片 */}
-      <CardComponent variant="glass" className="mb-4">
+      <CardComponent variant="glass" className="checkin-card mb-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-white font-bold flex items-center gap-2">
-            <LucideIcon name="QrCode" size={18} className="text-amber-400" />
+          <h3 className="checkin-section-title font-bold flex items-center gap-2">
+            <LucideIcon name="QrCode" size={18} className="checkin-icon-amber" />
             扫码打卡
           </h3>
-          <span className="text-xs px-2 py-1 rounded-full bg-slate-500/30 text-slate-300">摄像头</span>
+          <span className="checkin-status is-idle text-xs px-2 py-1 rounded-full">摄像头</span>
         </div>
 
         <Button
@@ -807,22 +807,22 @@ export default function CheckinPage() {
         <div
           id="qr-reader"
           ref={qrReaderRef}
-          className="mt-3 min-h-[260px] rounded-lg overflow-hidden bg-black/20"
+          className="checkin-qr-reader mt-3 min-h-[260px] rounded-lg overflow-hidden"
           style={{ display: scanEnabled || scanLoading ? "block" : "none" }}
         />
 
         {!cameraSupported && (
-          <div className="mt-3 p-3 rounded-lg border border-amber-400/30 bg-amber-400/10 text-amber-100 text-xs leading-5">
+          <div className="checkin-alert mt-3 p-3 rounded-lg text-xs leading-5">
             当前浏览器无法直接启用摄像头。请使用 HTTPS 访问页面；如果是服务器 IP 访问，也需要配置 HTTPS 才能使用摄像头。
           </div>
         )}
       </CardComponent>
 
       {/* 景点选择卡片 */}
-      <CardComponent variant="glass" className="mb-4">
+      <CardComponent variant="glass" className="checkin-card mb-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-white font-bold flex items-center gap-2">
-            <LucideIcon name="MapPin" size={18} className="text-red-400" />
+          <h3 className="checkin-section-title font-bold flex items-center gap-2">
+            <LucideIcon name="MapPin" size={18} className="checkin-icon-coral" />
             景点信息
           </h3>
         </div>
@@ -835,10 +835,10 @@ export default function CheckinPage() {
         />
 
         {activeSpot && (
-          <div className="p-2 bg-white/5 rounded-lg border border-white/10 text-xs text-white/80">
-            <p className="font-bold text-white mb-1">{activeSpot.name}</p>
+          <div className="checkin-soft-panel p-2 rounded-lg text-xs">
+            <p className="checkin-section-title font-bold mb-1">{activeSpot.name}</p>
             {activeSpot.description && (
-              <p>{activeSpot.description.substring(0, 100)}...</p>
+              <p className="checkin-subtle-text">{activeSpot.description.substring(0, 100)}...</p>
             )}
           </div>
         )}
@@ -846,25 +846,25 @@ export default function CheckinPage() {
 
       {/* 定位信息卡片 */}
       {gps.lat && gps.lon && (
-        <CardComponent variant="glass" className="mb-4">
+        <CardComponent variant="glass" className="checkin-card mb-4">
           <div className="grid grid-cols-2 gap-2 text-xs">
-            <div className="p-2 bg-white/5 rounded border border-white/10">
-              <p className="text-white/60">纬度</p>
-              <p className="text-white font-bold text-sm">{parseFloat(gps.lat).toFixed(4)}</p>
+            <div className="checkin-soft-panel p-2 rounded border">
+              <p className="checkin-subtle-text">纬度</p>
+              <p className="checkin-section-title font-bold text-sm">{parseFloat(gps.lat).toFixed(4)}</p>
             </div>
-            <div className="p-2 bg-white/5 rounded border border-white/10">
-              <p className="text-white/60">经度</p>
-              <p className="text-white font-bold text-sm">{parseFloat(gps.lon).toFixed(4)}</p>
+            <div className="checkin-soft-panel p-2 rounded border">
+              <p className="checkin-subtle-text">经度</p>
+              <p className="checkin-section-title font-bold text-sm">{parseFloat(gps.lon).toFixed(4)}</p>
             </div>
           </div>
         </CardComponent>
       )}
 
       {/* 打卡表单卡片 */}
-      <CardComponent variant="glass" className="mb-4">
+      <CardComponent variant="glass" className="checkin-card mb-4">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-white font-bold flex items-center gap-2">
-            <LucideIcon name="Heart" size={18} className="text-pink-400" />
+          <h3 className="checkin-section-title font-bold flex items-center gap-2">
+            <LucideIcon name="Heart" size={18} className="checkin-icon-rose" />
             打卡内容
           </h3>
         </div>
@@ -878,7 +878,7 @@ export default function CheckinPage() {
         />
 
         <div className="mb-3">
-          <label className="text-xs text-white/70 block mb-2">上传照片</label>
+          <label className="checkin-subtle-text text-xs block mb-2">上传照片</label>
           <ImageUploader
             value={files}
             onChange={setFiles}
@@ -903,13 +903,14 @@ export default function CheckinPage() {
       </CardComponent>
 
       <Modal
+        className="checkin-modal"
         visible={scanModalVisible}
         content={
-          <div>
-            <div className="text-base font-semibold text-white/95">{activeSpot?.name || "当前景点"}</div>
+          <div className="checkin-modal-content">
+            <div className="checkin-modal-title text-base font-semibold">{activeSpot?.name || "当前景点"}</div>
             {activeSpot?.qr_code_url ? <img src={buildAssetUrl(activeSpot.qr_code_url)} alt="景点二维码" className="w-full rounded-xl mt-2" /> : null}
-            <div className="text-sm text-white/60 mt-2">{activeSpot?.description || "已完成扫码，欢迎继续探索。"}</div>
-            <div className="text-xs text-white/50 mt-3">分类：{activeSpot?.category || "景点"}</div>
+            <div className="checkin-modal-desc text-sm mt-2">{activeSpot?.description || "已完成扫码，欢迎继续探索。"}</div>
+            <div className="checkin-modal-meta text-xs mt-3">分类：{activeSpot?.category || "景点"}</div>
           </div>
         }
         closeOnMaskClick

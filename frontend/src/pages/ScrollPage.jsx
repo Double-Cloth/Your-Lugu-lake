@@ -1,25 +1,75 @@
-import { useMemo, useRef, useState } from "react";
-import { Button, Card, Toast } from "antd-mobile";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Button, Toast } from "antd-mobile";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import { useNavigate } from "react-router-dom";
 
 import { buildAssetUrl, fetchLocations, fetchMyFootprints, getUserToken } from "../api";
+import { ImmersivePage, CardComponent, GlassInput } from "../components/SharedUI";
 
 export default function ScrollPage() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [footprints, setFootprints] = useState([]);
   const [locationMap, setLocationMap] = useState({});
+  const [keyword, setKeyword] = useState("");
+  const [activeLocationId, setActiveLocationId] = useState("all");
   const scrollRef = useRef(null);
 
   const enriched = useMemo(() => {
-    return footprints.map((item) => ({
+    return footprints
+      .map((item) => ({
       ...item,
+      checkInTime: item.check_in_time ? new Date(item.check_in_time) : null,
       locationName: locationMap[item.location_id]?.name || `景点#${item.location_id}`,
       photoList: Array.isArray(item.photo_urls)
         ? item.photo_urls
         : (item.photo_url ? [item.photo_url] : []),
-    }));
+      }))
+      .sort((a, b) => {
+        const aTs = a.checkInTime ? a.checkInTime.getTime() : 0;
+        const bTs = b.checkInTime ? b.checkInTime.getTime() : 0;
+        return bTs - aTs;
+      });
   }, [footprints, locationMap]);
+
+  const filtered = useMemo(() => {
+    const normalizedKeyword = keyword.trim().toLowerCase();
+    return enriched.filter((item) => {
+      if (activeLocationId !== "all" && String(item.location_id) !== activeLocationId) {
+        return false;
+      }
+      if (!normalizedKeyword) {
+        return true;
+      }
+
+      const searchable = `${item.locationName} ${item.mood_text || ""}`.toLowerCase();
+      return searchable.includes(normalizedKeyword);
+    });
+  }, [activeLocationId, enriched, keyword]);
+
+  const locationOptions = useMemo(() => {
+    const usedIds = Array.from(new Set(enriched.map((item) => item.location_id).filter(Boolean)));
+    return usedIds
+      .map((id) => ({ id: String(id), name: locationMap[id]?.name || `景点#${id}` }))
+      .sort((a, b) => a.name.localeCompare(b.name, "zh-CN"));
+  }, [enriched, locationMap]);
+
+  const summary = useMemo(() => {
+    const latest = enriched[0];
+    const uniqueLocationCount = new Set(enriched.map((item) => item.locationName)).size;
+    return {
+      total: enriched.length,
+      uniqueLocationCount,
+      latestLabel: latest?.checkInTime ? latest.checkInTime.toLocaleString() : "暂无",
+    };
+  }, [enriched]);
+
+  useEffect(() => {
+    if (!getUserToken()) return;
+    void loadScroll();
+  }, []);
 
   async function loadScroll() {
     setLoading(true);
@@ -30,7 +80,7 @@ export default function ScrollPage() {
       ]);
 
       const map = {};
-      locations.forEach((loc) => {
+      (Array.isArray(locations) ? locations : []).forEach((loc) => {
         map[loc.id] = loc;
       });
 
@@ -47,18 +97,50 @@ export default function ScrollPage() {
     }
   }
 
+  async function snapshotScroll() {
+    if (!scrollRef.current) {
+      throw new Error("绘卷区域尚未渲染完成");
+    }
+
+    return html2canvas(scrollRef.current, {
+      scale: 2,
+      backgroundColor: "#0d3545",
+      useCORS: true,
+      logging: false,
+    });
+  }
+
   async function exportImage() {
-    if (!scrollRef.current) return;
-    const canvas = await html2canvas(scrollRef.current, { scale: 2 });
+    if (filtered.length === 0) {
+      Toast.show({ content: "当前无可导出的绘卷内容" });
+      return;
+    }
+
+    setExporting(true);
+    try {
+      const canvas = await snapshotScroll();
     const link = document.createElement("a");
     link.href = canvas.toDataURL("image/png");
-    link.download = "lugu-scroll.png";
+      link.download = `lugu-scroll-${Date.now()}.png`;
     link.click();
+      Toast.show({ content: "绘卷图片已导出" });
+    } catch (error) {
+      console.error("导出绘卷图片失败", error);
+      Toast.show({ content: "导出失败，请稍后重试" });
+    } finally {
+      setExporting(false);
+    }
   }
 
   async function exportPdf() {
-    if (!scrollRef.current) return;
-    const canvas = await html2canvas(scrollRef.current, { scale: 2 });
+    if (filtered.length === 0) {
+      Toast.show({ content: "当前无可导出的绘卷内容" });
+      return;
+    }
+
+    setExporting(true);
+    try {
+      const canvas = await snapshotScroll();
     const imgData = canvas.toDataURL("image/jpeg", 0.92);
 
     const pdf = new jsPDF("p", "mm", "a4");
@@ -78,45 +160,116 @@ export default function ScrollPage() {
       }
     }
 
-    pdf.save("lugu-scroll.pdf");
+      pdf.save(`lugu-scroll-${Date.now()}.pdf`);
+      Toast.show({ content: "绘卷 PDF 已导出" });
+    } catch (error) {
+      console.error("导出绘卷 PDF 失败", error);
+      Toast.show({ content: "导出失败，请稍后重试" });
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function copySummary() {
+    if (filtered.length === 0) {
+      Toast.show({ content: "当前没有可分享内容" });
+      return;
+    }
+    const top3 = filtered.slice(0, 3).map((item) => `- ${item.locationName}｜${item.mood_text || "完成打卡"}`);
+    const content = [
+      "我在泸沽湖的旅行绘卷",
+      `总打卡：${summary.total} 次`,
+      `探索景点：${summary.uniqueLocationCount} 个`,
+      "近期足迹：",
+      ...top3,
+    ].join("\n");
+
+    try {
+      await navigator.clipboard.writeText(content);
+      Toast.show({ content: "已复制分享文案" });
+    } catch {
+      Toast.show({ content: "复制失败，请手动复制" });
+    }
   }
 
   return (
-    <div className="page-fade-in">
-      <div className="hero-shell mb-3">
+    <ImmersivePage bgImage="/images/lugu-scenery.jpg" className="scroll-theme page-fade-in pb-6">
+      <div className="hero-shell scroll-hero mb-3">
         <div className="hero-kicker">Travel Scroll</div>
         <h1 className="page-title m-0">我的旅行绘卷</h1>
-        <p className="hero-copy">把脚步、心情和照片串成一卷可分享的旅行故事。</p>
+        <p className="hero-copy">把真实打卡记录整理成可筛选、可导出、可分享的旅程档案。</p>
+        <div className="scroll-hero-stats mt-3">
+          <span>打卡 {summary.total}</span>
+          <span>景点 {summary.uniqueLocationCount}</span>
+          <span>最近 {summary.latestLabel}</span>
+        </div>
       </div>
-      <Card className="card card-glass">
-        <Button color="primary" loading={loading} block onClick={loadScroll}>
-          汇总我的行程
-        </Button>
-      </Card>
 
-      <div ref={scrollRef} className="card card-glass">
-        <h3 className="m-0">泸沽湖足迹时间线</h3>
-        {enriched.length === 0 ? (
-          <p className="text-sm text-white/50 mt-3">暂无打卡记录，先去“打卡”页面完成行程记录。</p>
+      <CardComponent variant="glass" className="scroll-card mb-3">
+        <div className="space-y-3">
+          <GlassInput
+            value={keyword}
+            onChange={setKeyword}
+            placeholder="按景点名或心情关键词筛选"
+            clearable
+          />
+
+          <div className="scroll-chip-row">
+            <button
+              type="button"
+              className={`scroll-chip ${activeLocationId === "all" ? "is-active" : ""}`}
+              onClick={() => setActiveLocationId("all")}
+            >
+              全部景点
+            </button>
+            {locationOptions.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                className={`scroll-chip ${activeLocationId === item.id ? "is-active" : ""}`}
+                onClick={() => setActiveLocationId(item.id)}
+              >
+                {item.name}
+              </button>
+            ))}
+          </div>
+
+          <Button color="primary" loading={loading} block onClick={loadScroll}>
+            刷新绘卷数据
+          </Button>
+        </div>
+      </CardComponent>
+
+      <div ref={scrollRef} className="scroll-capture">
+        <div className="scroll-capture-header">
+          <h3 className="m-0">泸沽湖足迹时间线</h3>
+          <span>{filtered.length} 条记录</span>
+        </div>
+
+        {filtered.length === 0 ? (
+          <p className="text-sm text-white/60 mt-3">暂无符合条件的记录，可先去“打卡”页面完成行程记录。</p>
         ) : (
-          <div className="mt-3 space-y-3">
-            {enriched.map((item, idx) => (
+          <div className="mt-3 space-y-4">
+            {filtered.map((item, idx) => (
               <div
                 key={item.id}
-                className="timeline-item"
+                className="timeline-item scroll-timeline-item"
                 style={{ animationDelay: `${idx * 90}ms` }}
               >
-                <div className="text-xs text-white/95">{new Date(item.check_in_time).toLocaleString()}</div>
-                <div className="font-medium text-base">{item.locationName}</div>
-                <div className="text-sm text-white/60">{item.mood_text || "无心情记录"}</div>
+                <div className="text-xs text-white/90">
+                  {item.checkInTime ? item.checkInTime.toLocaleString() : "时间未知"}
+                </div>
+                <div className="font-medium text-base text-white mt-1">{item.locationName}</div>
+                <div className="text-sm text-white/70 mt-1 leading-relaxed">{item.mood_text || "无心情记录"}</div>
                 {item.photoList.length > 0 && (
-                  <div className="mt-2 grid grid-cols-2 gap-2">
-                    {item.photoList.map((url, photoIndex) => (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {item.photoList.slice(0, 6).map((url, photoIndex) => (
                       <img
                         key={`${item.id}-${photoIndex}`}
                         src={buildAssetUrl(url)}
                         alt="footprint"
-                        className="w-full rounded-lg"
+                        className="scroll-photo-thumb w-full rounded-lg"
+                        loading="lazy"
                       />
                     ))}
                   </div>
@@ -127,14 +280,25 @@ export default function ScrollPage() {
         )}
       </div>
 
-      {enriched.length > 0 && (
-        <Card className="card card-glass">
-          <Button block onClick={exportImage}>导出分享图</Button>
-          <Button className="mt-3" block color="primary" onClick={exportPdf}>
+      {filtered.length > 0 && (
+        <CardComponent variant="glass" className="scroll-card mb-4">
+          <Button block loading={exporting} disabled={exporting} onClick={exportImage}>
+            导出分享图
+          </Button>
+          <Button className="mt-3" block color="primary" loading={exporting} disabled={exporting} onClick={exportPdf}>
             导出 PDF
           </Button>
-        </Card>
+          <Button className="mt-3" block onClick={copySummary}>
+            复制分享文案
+          </Button>
+        </CardComponent>
       )}
-    </div>
+
+      {!getUserToken() && (
+        <CardComponent variant="glass" className="scroll-card mb-2">
+          <Button color="primary" block onClick={() => navigate("/me")}>登录后生成你的绘卷</Button>
+        </CardComponent>
+      )}
+    </ImmersivePage>
   );
 }

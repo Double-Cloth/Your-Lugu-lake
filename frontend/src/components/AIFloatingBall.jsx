@@ -195,7 +195,7 @@ const getScenePromptPackByRoute = (pathname) => {
   return {
     sceneLabel: "首页全局导览",
     capabilityHints: [
-      "可从首页三个模块（景区一览/文化导览/全域导览）组织回答。",
+      "可从首页四个模块（景区一览/文化导览/全域导览/生态导览）组织回答。",
       "可引导用户按目标快速跳转到对应模块。",
     ],
     domainHints: [
@@ -207,6 +207,7 @@ const getScenePromptPackByRoute = (pathname) => {
       "[景区一览](/home?openPanel=overview)",
       "[文化导览](/home?openPanel=culture)",
       "[全域导览](/home?openPanel=global)",
+      "[生态导览](/home?openPanel=eco)",
     ],
   };
 };
