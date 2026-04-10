@@ -149,6 +149,8 @@ export default function ScrollPage() {
       throw new Error("绘卷区域尚未渲染完成");
     }
 
+    await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+
     return html2canvas(scrollRef.current, {
       scale: 2.25,
       backgroundColor: "#f6ead8",
@@ -271,7 +273,7 @@ export default function ScrollPage() {
             ))}
           </div>
 
-          <div className="flex items-center justify-between text-xs text-white/60">
+          <div className="flex items-center justify-between text-xs text-[#7a5a3e]">
             <span>当前筛选 {filtered.length} 条</span>
             <span>覆盖 {locationOptions.length} 个景点</span>
           </div>
@@ -356,7 +358,6 @@ export default function ScrollPage() {
                 <article
                   key={item.id}
                   className="scroll-timeline-item"
-                  style={{ animationDelay: `${idx * 85}ms` }}
                 >
                   <div className="scroll-timeline-marker">{String(idx + 1).padStart(2, "0")}</div>
                   <div className="scroll-timeline-content">
