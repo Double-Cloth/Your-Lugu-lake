@@ -10,7 +10,7 @@ class Footprint(Base):
     __tablename__ = "footprints"
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     location_id: Mapped[int] = mapped_column(ForeignKey("locations.id"), index=True)
     check_in_time: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     gps_lat: Mapped[float] = mapped_column(Float)

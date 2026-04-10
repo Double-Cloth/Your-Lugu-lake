@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Button, Toast } from "antd-mobile";
+import { Toast } from "antd-mobile";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
 import { useNavigate } from "react-router-dom";
 
 import { buildAssetUrl, fetchLocations, fetchMyFootprints, getUserToken } from "../api";
-import { ImmersivePage, CardComponent, GlassInput } from "../components/SharedUI";
+import { ImmersivePage, CardComponent, ButtonComponent, GlassInput } from "../components/SharedUI";
 
 export default function ScrollPage() {
   const navigate = useNavigate();
@@ -234,9 +234,9 @@ export default function ScrollPage() {
             ))}
           </div>
 
-          <Button color="primary" loading={loading} block onClick={loadScroll}>
+          <ButtonComponent variant="primary" loading={loading} onClick={loadScroll} className="w-full">
             刷新绘卷数据
-          </Button>
+          </ButtonComponent>
         </div>
       </CardComponent>
 
@@ -282,21 +282,21 @@ export default function ScrollPage() {
 
       {filtered.length > 0 && (
         <CardComponent variant="glass" className="scroll-card mb-4">
-          <Button block loading={exporting} disabled={exporting} onClick={exportImage}>
+          <ButtonComponent loading={exporting} disabled={exporting} onClick={exportImage} className="w-full">
             导出分享图
-          </Button>
-          <Button className="mt-3" block color="primary" loading={exporting} disabled={exporting} onClick={exportPdf}>
+          </ButtonComponent>
+          <ButtonComponent variant="primary" loading={exporting} disabled={exporting} onClick={exportPdf} className="mt-3 w-full">
             导出 PDF
-          </Button>
-          <Button className="mt-3" block onClick={copySummary}>
+          </ButtonComponent>
+          <ButtonComponent onClick={copySummary} className="mt-3 w-full">
             复制分享文案
-          </Button>
+          </ButtonComponent>
         </CardComponent>
       )}
 
       {!getUserToken() && (
         <CardComponent variant="glass" className="scroll-card mb-2">
-          <Button color="primary" block onClick={() => navigate("/me")}>登录后生成你的绘卷</Button>
+          <ButtonComponent variant="primary" onClick={() => navigate("/me")} className="w-full">登录后生成你的绘卷</ButtonComponent>
         </CardComponent>
       )}
     </ImmersivePage>

@@ -26,6 +26,7 @@ from app.core.config import settings
 from app.core.security import get_password_hash
 from app.db.session import get_db
 from app.models.ai_route import AIRoute
+from app.models.chat import ChatMessage, ChatSession
 from app.models.footprint import Footprint
 from app.models.footprint_media import FootprintMedia
 from app.models.location import Location
@@ -458,13 +459,19 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_admin: User
     if user.role == "admin":
         raise HTTPException(status_code=400, detail="不能在游客管理中删除管理员账号")
     
-    # 删除用户的打卡记录
+    # 删除用户的全部业务数据，避免账号切换后残留在同一套记录里
+    session_ids = [item.id for item in db.query(ChatSession.id).filter(ChatSession.user_id == user_id).all()]
+    if session_ids:
+        db.query(ChatMessage).filter(ChatMessage.session_id.in_(session_ids)).delete(synchronize_session=False)
+        db.query(ChatSession).filter(ChatSession.id.in_(session_ids)).delete(synchronize_session=False)
+
+    db.query(AIRoute).filter(AIRoute.user_id == user_id).delete(synchronize_session=False)
     db.query(Footprint).filter(Footprint.user_id == user_id).delete()
     # 删除用户
     db.delete(user)
     db.commit()
     
-    return {"ok": True, "message": f"User {user.username} and related footprints deleted"}
+    return {"ok": True, "message": f"User {user.username} and related data deleted"}
 
 
 # ==================== 二维码管理 ====================

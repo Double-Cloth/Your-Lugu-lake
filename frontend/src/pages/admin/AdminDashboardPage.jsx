@@ -1,6 +1,8 @@
 import { useEffect, useState, useRef } from "react";
 import { Button, Card, DotLoading, Input, Popup, Selector, Toast, Tabs, List } from "antd-mobile";
 import { useNavigate } from "react-router-dom";
+import { ImmersivePage, CardComponent, ButtonComponent, GlassInput } from "../../components/SharedUI";
+import LucideIcon from "../../components/LucideIcon";
 
 import {
   buildAssetUrl,
@@ -631,22 +633,24 @@ export default function AdminDashboardPage() {
   };
 
   return (
-    <div className="app-mobile-shell mobile-shell admin-dashboard">
-      <div className="mobile-content page-fade-in">
-        <div className="px-4 pt-4 pb-20">
-      <div className="hero-shell mb-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="hero-kicker">Dashboard</div>
-            <h1 className="page-title m-0">管理中心</h1>
+    <ImmersivePage bgImage="/images/lugu-hero.png" className="admin-dashboard">
+      <div className="w-full max-w-4xl mx-auto pt-4 pb-20">
+        <div className="flex items-start justify-between mb-6 px-4">
+          <div className="text-white drop-shadow-md">
+            <div className="inline-block bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-white/90 text-xs tracking-widest mb-2 border border-white/20 shadow-lg">
+              Dashboard
+            </div>
+            <h1 className="text-2xl font-bold m-0 tracking-wider font-serif">管理中心</h1>
+            <p className="text-white/80 text-sm mt-2 tracking-wide drop-shadow mb-0">景点管理、游客统计、打卡数据...</p>
           </div>
+          <ButtonComponent variant="glass" className="text-sm px-4 py-1.5" onClick={logout}>
+            退出
+          </ButtonComponent>
         </div>
-        <p className="hero-copy">景点管理、游客统计、打卡数据、二维码生成</p>
-        <Button size="small" onClick={logout}>退出</Button>
-      </div>
+        <div className="px-2 pb-10">
 
       {!stats ? (
-        <div className="card card-glass text-center"><DotLoading color="primary" /></div>
+        <CardComponent variant="glass" className="text-center p-8"><DotLoading variant="primary" /></CardComponent>
       ) : (
         <Tabs activeKey={activeTab} onChange={setActiveTab}>
           <Tabs.Tab title="概览" key="overview">
@@ -670,26 +674,26 @@ export default function AdminDashboardPage() {
             </div>
 
             {footprintStats && (
-              <Card className="card card-glass mt-3">
+              <CardComponent variant="glass" className="mt-3">
                 <h3>打卡统计</h3>
                 <div className="text-sm space-y-1">
                   <div>周打卡: {footprintStats.this_week}</div>
                   <div>月打卡: {footprintStats.this_month}</div>
                 </div>
-              </Card>
+              </CardComponent>
             )}
           </Tabs.Tab>
 
           <Tabs.Tab title="游客管理" key="users">
-            <Card className="card card-glass mb-3">
+            <CardComponent variant="glass" className="mb-3">
               <div className="flex gap-2 mb-3">
-                <Input
+                <GlassInput
                   value={userSearch}
                   onChange={setUserSearch}
                   placeholder="按用户名搜索游客"
                   clearable
                 />
-                <Button size="small" onClick={handleSearchUsers}>搜索</Button>
+                <ButtonComponent size="sm" onClick={handleSearchUsers}>搜索</ButtonComponent>
               </div>
               <div className="mb-3">
                 <Selector
@@ -706,7 +710,7 @@ export default function AdminDashboardPage() {
               {users.length === 0 ? (
                 <div className="text-center text-sm text-white/50 py-4">暂无游客</div>
               ) : (
-                <List>
+                <div className="space-y-3">
                   {users.map((user) => (
                     <List.Item
                       key={user.id}
@@ -722,21 +726,21 @@ export default function AdminDashboardPage() {
                       }
                       extra={
                         <div className="flex gap-1">
-                          <Button size="mini" onClick={() => handleViewUserDetail(user)}>详情</Button>
-                          <Button size="mini" onClick={() => handleResetUserPassword(user)}>重置密码</Button>
-                          <Button size="mini" onClick={() => handleToggleUserRole(user)}>改角色</Button>
-                          <Button size="mini" color="danger" onClick={() => handleDeleteUser(user)}>删除</Button>
+                          <ButtonComponent size="sm" onClick={() => handleViewUserDetail(user)}>详情</ButtonComponent>
+                          <ButtonComponent size="sm" onClick={() => handleResetUserPassword(user)}>重置密码</ButtonComponent>
+                          <ButtonComponent size="sm" onClick={() => handleToggleUserRole(user)}>改角色</ButtonComponent>
+                          <ButtonComponent size="sm" variant="danger" onClick={() => handleDeleteUser(user)}>删除</ButtonComponent>
                         </div>
                       }
                     />
                   ))}
-                </List>
+                </div>
               )}
-            </Card>
+            </CardComponent>
           </Tabs.Tab>
 
           <Tabs.Tab title="景点管理" key="locations">
-            <Card className="card card-glass mb-3">
+            <CardComponent variant="glass" className="mb-3">
               <h3 className="m-0 mb-3">💾 上传文件导入景点</h3>
               <div className="space-y-2">
                 <div className="bg-blue-500/20 border border-blue-400 rounded-xl p-3 text-sm text-white mb-3">
@@ -755,14 +759,14 @@ export default function AdminDashboardPage() {
                     className="hidden"
                     id="file-input"
                   />
-                  <Button
-                      color="primary"
-                      block
+                  <ButtonComponent
+                      variant="primary"
+                      className="w-full"
                                           onClick={handleClickFileInput}
                       disabled={importingFile}
                     >
                       {importingFile ? "正在处理中..." : "📁 选择文件并上传"}
-                  </Button>
+                  </ButtonComponent>
                 </div>
 
                 {importResults && (
@@ -778,9 +782,9 @@ export default function AdminDashboardPage() {
                   </div>
                 )}
               </div>
-            </Card>
+            </CardComponent>
 
-            <Card className="card card-glass mb-3">
+            <CardComponent variant="glass" className="mb-3">
               <h3 className="m-0 mb-3">新增景点（选择 knowledge-base 中已有的）</h3>
               <div className="space-y-2">
                 <div>
@@ -808,14 +812,14 @@ export default function AdminDashboardPage() {
                           {selectedCreateKbLocation?.latitude}, {selectedCreateKbLocation?.longitude}
                         </div>
                       </div>
-                      <Button 
-                        size="small" 
-                        fill="outline"
-                        block
+                      <ButtonComponent 
+                        size="sm" 
+                        variant="secondary"
+                        className="w-full"
                         onClick={() => window.open(createKbMap.webMapUrl, "_blank")}
                       >
                         🗺️ 在 OpenStreetMap 中打开（完整地图）
-                      </Button>
+                      </ButtonComponent>
                       <div className="text-xs text-slate-500">
                         💡 点击按钮打开完整交互地图，可查看周边&设施
                       </div>
@@ -825,16 +829,16 @@ export default function AdminDashboardPage() {
                   )}
                 </div>
 
-                <Button color="primary" block onClick={handleCreateLocation}>按 knowledge-base 规范创建景点</Button>
+                <ButtonComponent variant="primary" className="w-full" onClick={handleCreateLocation}>按 knowledge-base 规范创建景点</ButtonComponent>
               </div>
-            </Card>
+            </CardComponent>
 
-            <Card className="card card-glass">
+            <CardComponent variant="glass" className="">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="m-0">景点列表</h3>
                 <div className="flex items-center gap-2">
-                  <Button size="small" onClick={handleAutoGenerateQrcodes}>自动生成全部二维码</Button>
-                  <Button size="small" onClick={handleDownloadZip}>批量下载二维码</Button>
+                  <ButtonComponent size="sm" onClick={handleAutoGenerateQrcodes}>自动生成全部二维码</ButtonComponent>
+                  <ButtonComponent size="sm" onClick={handleDownloadZip}>批量下载二维码</ButtonComponent>
                 </div>
               </div>
 
@@ -846,7 +850,7 @@ export default function AdminDashboardPage() {
               </div>
 
               <div className="space-y-2 mb-3">
-                <Input
+                <GlassInput
                   value={locationSearch}
                   onChange={setLocationSearch}
                   placeholder="搜索景点名称/slug/描述"
@@ -902,7 +906,7 @@ export default function AdminDashboardPage() {
                   />
                 </div>
                 <div className="flex justify-end">
-                  <Button size="small" fill="outline" onClick={resetLocationFilters}>清空筛选</Button>
+                  <ButtonComponent size="sm" variant="secondary" onClick={resetLocationFilters}>清空筛选</ButtonComponent>
                 </div>
               </div>
 
@@ -920,71 +924,63 @@ export default function AdminDashboardPage() {
                       <div className="text-xs text-amber-200 mt-1">仅存在于 knowledge-base，点击“自动生成全部二维码”后将自动入库。</div>
                     )}
                     <div className="mt-2 flex flex-wrap gap-2">
-                      <Button size="mini" disabled={!loc.id} onClick={() => startEditLocation(loc)}>编辑</Button>
-                      <Button size="mini" disabled={!loc.id} onClick={() => handleQuickUpdateCategory(loc)}>切换类别</Button>
-                      <Button size="mini" disabled={!loc.id} onClick={() => handleGenerateQrcode(loc.id)}>生成二维码</Button>
-                      <Button size="mini" onClick={() => handleDownloadSingleQr(loc)}>下载二维码</Button>
-                      <Button size="mini" color="danger" disabled={!loc.id} onClick={() => handleDeleteLocation(loc.id, loc.slug || "")}>删除</Button>
+                      <ButtonComponent size="sm" disabled={!loc.id} onClick={() => startEditLocation(loc)}>编辑</ButtonComponent>
+                      <ButtonComponent size="sm" disabled={!loc.id} onClick={() => handleQuickUpdateCategory(loc)}>切换类别</ButtonComponent>
+                      <ButtonComponent size="sm" disabled={!loc.id} onClick={() => handleGenerateQrcode(loc.id)}>生成二维码</ButtonComponent>
+                      <ButtonComponent size="sm" onClick={() => handleDownloadSingleQr(loc)}>下载二维码</ButtonComponent>
+                      <ButtonComponent size="sm" variant="danger" disabled={!loc.id} onClick={() => handleDeleteLocation(loc.id, loc.slug || "")}>删除</ButtonComponent>
                     </div>
                     {loc.qr_code_url && <div className="text-xs text-white/95 mt-2">{loc.qr_code_url}</div>}
                   </div>
                 ))}
               </div>
-            </Card>
+            </CardComponent>
           </Tabs.Tab>
 
           <Tabs.Tab title="打卡记录" key="footprints">
-            <Card className="card card-glass">
+            <CardComponent variant="glass" className="">
               <h3>打卡记录 ({footprints.length})</h3>
               {footprints.length === 0 ? (
                 <div className="text-center text-sm text-white/50 py-4">暂无打卡记录</div>
               ) : (
-                <List>
+                <div className="space-y-3">
                   {footprints.map((fp) => (
-                    <List.Item
-                      key={fp.id}
-                      title={
-                        <div className="font-medium">游客 #{fp.user_id} → 景点 #{fp.location_id}</div>
-                      }
-                      description={
-                        <div className="text-xs text-white/60">
-                          <div>{new Date(fp.check_in_time).toLocaleString()}</div>
-                          <div>位置: ({fp.gps_lat.toFixed(4)}, {fp.gps_lon.toFixed(4)})</div>
-                          {fp.mood_text && <div>心情: {fp.mood_text}</div>}
-                          {fp.photo_url && <div>📸 有照片</div>}
-                        </div>
-                      }
-                    />
+                    <div key={fp.id} className="p-3 bg-white/5 border border-white/10 rounded-xl">
+                      <div className="font-bold text-white mb-1">游客 #{fp.user_id} → 景点 #{fp.location_id}</div>
+                      <div className="text-xs text-white/60 space-y-0.5">
+                        <div>{new Date(fp.check_in_time).toLocaleString()}</div>
+                        <div>位置: ({fp.gps_lat.toFixed(4)}, {fp.gps_lon.toFixed(4)})</div>
+                        {fp.mood_text && <div>心情: {fp.mood_text}</div>}
+                        {fp.photo_url && <div>📸 有照片</div>}
+                      </div>
+                    </div>
                   ))}
-                </List>
+                </div>
               )}
-            </Card>
+            </CardComponent>
           </Tabs.Tab>
 
           <Tabs.Tab title="二维码管理" key="qrcodes">
-            <Card className="card card-glass">
+            <CardComponent variant="glass" className="">
               <h3>二维码 ({qrcodes.length})</h3>
               {qrcodes.length === 0 ? (
                 <div className="text-center text-sm text-white/50 py-4">暂无二维码</div>
               ) : (
-                <List>
+                <div className="space-y-3">
                   {qrcodes.map((qr) => (
-                    <List.Item
-                      key={qr.id}
-                      title={
-                        <div className="font-medium">景点 #{qr.location_id}</div>
-                      }
-                      description={
-                        <div className="text-xs text-white/60">
+                    <div key={qr.id} className="p-3 bg-white/5 border border-white/10 rounded-xl flex justify-between items-center">
+                      <div>
+                        <div className="font-bold text-white mb-1">景点 #{qr.location_id}</div>
+                        <div className="text-xs text-white/60 space-y-0.5">
                           <div>生成: {new Date(qr.generated_at).toLocaleString()}</div>
                           <div>状态: {qr.is_active ? "✓ 激活" : "✗ 禁用"}</div>
                         </div>
-                      }
-                    />
+                      </div>
+                    </div>
                   ))}
-                </List>
+                </div>
               )}
-            </Card>
+            </CardComponent>
           </Tabs.Tab>
         </Tabs>
       )}
@@ -992,7 +988,7 @@ export default function AdminDashboardPage() {
       <Popup
         visible={editVisible}
         onMaskClick={cancelEditLocation}
-        bodyStyle={{ borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16 }}
+        bodyClassName="popup-glass"
       >
         <h3 className="m-0 mb-3">编辑景点</h3>
         <div className="space-y-2">
@@ -1034,14 +1030,14 @@ export default function AdminDashboardPage() {
                     {editForm.latitude}, {editForm.longitude}
                   </div>
                 </div>
-                <Button 
-                  size="small" 
-                  fill="outline"
-                  block
+                <ButtonComponent 
+                  size="sm" 
+                  variant="secondary"
+                  className="w-full"
                   onClick={() => window.open(editMap.webMapUrl, "_blank")}
                 >
                   🗺️ 在 OpenStreetMap 中打开（完整地图）
-                </Button>
+                </ButtonComponent>
                 <div className="text-xs text-slate-500">
                   💡 点击按钮打开完整交互地图，可查看周边&设施
                 </div>
@@ -1053,10 +1049,10 @@ export default function AdminDashboardPage() {
 
           <Input value={editForm.qr_code_url} onChange={(val) => setEditForm((prev) => ({ ...prev, qr_code_url: val }))} placeholder="二维码路径" clearable />
           <div className="flex gap-2 pt-2">
-            <Button block color="primary" disabled={!editingId} onClick={() => saveEditLocation(editingId)}>
+            <ButtonComponent className="w-full" variant="primary" disabled={!editingId} onClick={() => saveEditLocation(editingId)}>
               保存修改
-            </Button>
-            <Button block onClick={cancelEditLocation}>取消</Button>
+            </ButtonComponent>
+            <ButtonComponent className="w-full" onClick={cancelEditLocation}>取消</ButtonComponent>
           </div>
         </div>
       </Popup>
@@ -1064,7 +1060,7 @@ export default function AdminDashboardPage() {
       <Popup
         visible={userDetailVisible}
         onMaskClick={() => setUserDetailVisible(false)}
-        bodyStyle={{ borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16, maxHeight: "78vh", overflowY: "auto" }}
+        bodyClassName="popup-glass"
       >
         <h3 className="m-0 mb-3">游客账号详情</h3>
         {selectedUserDetail ? (
@@ -1080,18 +1076,18 @@ export default function AdminDashboardPage() {
             <div className="pt-2 border-t border-white/20">
               <div className="text-xs text-white/70 mb-1">重置密码（可选填新密码，不填则自动生成）</div>
               <div className="flex gap-2">
-                <Input
+                <GlassInput
                   value={newPasswordInput}
                   onChange={setNewPasswordInput}
                   placeholder="输入新密码（可留空自动生成）"
                   clearable
                 />
-                <Button
-                  size="small"
+                <ButtonComponent
+                  size="sm"
                   onClick={() => selectedUserForOps && handleResetUserPassword(selectedUserForOps)}
                 >
                   重置密码
-                </Button>
+                </ButtonComponent>
               </div>
               {generatedPassword ? (
                 <div className="mt-2 text-xs text-amber-300">临时密码: {generatedPassword}</div>
@@ -1121,6 +1117,6 @@ export default function AdminDashboardPage() {
       </Popup>
         </div>
       </div>
-    </div>
+    </ImmersivePage>
   );
 }

@@ -1,9 +1,11 @@
 import { useState } from "react";
-import { Button, Card, Input, Toast } from "antd-mobile";
+import { Toast } from "antd-mobile";
 import { useNavigate } from "react-router-dom";
 
 import { loginUser } from "../../api";
 import { buildAdminDashboardPath, setAdminSession } from "../../auth";
+import { ImmersivePage, CardComponent, GlassInput, ButtonComponent } from "../../components/SharedUI";
+import LucideIcon from "../../components/LucideIcon";
 
 export default function AdminLoginPage() {
   const [username, setUsername] = useState("admin");
@@ -34,22 +36,45 @@ export default function AdminLoginPage() {
   }
 
   return (
-    <div className="mobile-shell p-4 page-fade-in">
-      <div className="hero-shell mb-3">
-        <div className="hero-kicker">Admin Access</div>
-        <h1 className="page-title m-0">管理员登录</h1>
-        <p className="hero-copy">进入后台进行景点、二维码与数据看板管理。</p>
-      </div>
-
-      <Card className="card card-glass">
-        <div className="space-y-3">
-          <Input value={username} onChange={setUsername} placeholder="管理员账号" clearable />
-          <Input value={password} onChange={setPassword} type="password" placeholder="密码" clearable />
-          <Button color="primary" loading={loading} block onClick={handleLogin}>
-            登录后台
-          </Button>
+    <ImmersivePage bgImage="/images/lugu-hero.png" className="items-center justify-center">
+      <div className="w-full max-w-sm px-4 flex flex-col justify-center min-h-[60vh]">
+        <div className="text-center mb-8">
+          <div className="inline-block bg-white/20 backdrop-blur-md px-4 py-1 rounded-full text-white/90 text-xs tracking-widest mb-4 border border-white/20 shadow-lg">
+            Admin Access
+          </div>
+          <h1 className="text-3xl font-bold text-white mb-2 tracking-wider font-serif drop-shadow-md">
+            管理员登录
+          </h1>
+          <p className="text-white/80 text-sm tracking-wide drop-shadow">
+            进入后台进行管理
+          </p>
         </div>
-      </Card>
-    </div>
+
+        <CardComponent variant="glass" className="p-6">
+          <div className="space-y-4">
+            <GlassInput
+              value={username}
+              onChange={setUsername}
+              placeholder="管理员账号"
+              icon={<LucideIcon name="User" size={16} strokeWidth={2} />}
+            />
+            <GlassInput
+              value={password}
+              onChange={setPassword}
+              inputType="password"
+              placeholder="密码"
+              icon={<LucideIcon name="Lock" size={16} strokeWidth={2} />}
+            />
+            <ButtonComponent
+              variant="primary"
+              className="w-full mt-2"
+              onClick={handleLogin}
+            >
+              {loading ? "登录中..." : "登录后台"}
+            </ButtonComponent>
+          </div>
+        </CardComponent>
+      </div>
+    </ImmersivePage>
   );
 }

@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { TextArea, Button, Toast, DotLoading, Dialog } from "antd-mobile";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { getUserSessionUsername } from "../auth";
 import { deleteChatSession, fetchChatHistory, sceneChat, getUserToken } from "../api";
 
 const createConversationId = () => `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -356,6 +357,7 @@ const appendReferencesToReply = (reply, references) => {
 export default function AIFloatingBall() {
   const location = useLocation();
   const navigate = useNavigate();
+  const sessionUsername = getUserSessionUsername();
   const [visible, setVisible] = useState(false);
   const [ballPosition, setBallPosition] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -568,6 +570,14 @@ export default function AIFloatingBall() {
   useEffect(() => {
     return () => cancelInertia();
   }, []);
+
+  useEffect(() => {
+    const nextConversation = createConversation();
+    setConversations([nextConversation]);
+    setActiveConversationId(nextConversation.id);
+    setInput("");
+    setLoadingConversationId(null);
+  }, [sessionUsername]);
 
   useEffect(() => {
     if (!visible) return;
