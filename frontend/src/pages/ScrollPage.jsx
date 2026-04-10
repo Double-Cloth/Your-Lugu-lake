@@ -237,10 +237,10 @@ export default function ScrollPage() {
         <h1 className="page-title m-0">我的旅行绘卷</h1>
         <p className="hero-copy">把真实打卡记录整理成一张更像旅行海报的长卷，方便保存、分享和回看。</p>
         <div className="scroll-hero-stats mt-3">
-          <span>打卡 {summary.total}</span>
-          <span>景点 {summary.uniqueLocationCount}</span>
-          <span>照片 {summary.photoCount}</span>
-          <span>最近 {summary.latestLabel}</span>
+          <span style={{color:white}}>打卡 {summary.total}</span>
+          <span style={{color:white}}>景点 {summary.uniqueLocationCount}</span>
+          <span style={{color:white}}>照片 {summary.photoCount}</span>
+          <span style={{color:white}}>最近 {summary.latestLabel}</span>
         </div>
       </div>
 
