@@ -382,6 +382,31 @@ function dataUrlToFile(dataUrl, fileName, mimeType) {
   }
 }
 
+async function normalizeUploadItemToFile(item, index = 0) {
+  const directFile = item?.file;
+  if (directFile instanceof File) {
+    return directFile;
+  }
+
+  const maybeBlob = item?.file;
+  if (maybeBlob instanceof Blob) {
+    return new File([maybeBlob], `checkin-photo-${index + 1}.jpg`, { type: maybeBlob.type || "image/jpeg" });
+  }
+
+  const url = String(item?.url || "").trim();
+  if (!url) {
+    return null;
+  }
+
+  try {
+    const response = await fetch(url);
+    const blob = await response.blob();
+    return new File([blob], `checkin-photo-${index + 1}.jpg`, { type: blob.type || "image/jpeg" });
+  } catch {
+    return null;
+  }
+}
+
 export default function CheckinPage() {
   const navigate = useNavigate();
   const sessionUsername = getUserSessionUsername();
@@ -1300,10 +1325,19 @@ export default function CheckinPage() {
     if (normalizedQrContent) {
       formData.append("qr_content", normalizedQrContent);
     }
-    for (const item of files) {
-      if (item?.file) {
-        formData.append("photos", item.file);
+    let appendedPhotos = 0;
+    for (let index = 0; index < files.length; index += 1) {
+      const normalizedFile = await normalizeUploadItemToFile(files[index], index);
+      if (!normalizedFile) {
+        continue;
       }
+      formData.append("photos", normalizedFile);
+      appendedPhotos += 1;
+    }
+
+    if (files.length > 0 && appendedPhotos === 0) {
+      Toast.show({ content: "照片读取失败，请重新选择后再试" });
+      return false;
     }
 
     setSubmitting(true);

@@ -790,6 +790,20 @@ export async function updateAdminQrcode(qrcodeId, payload, token) {
   return data;
 }
 
+export async function regenerateAdminQrcode(qrcodeId, token) {
+  const { data } = await api.post(`/api/admin/qrcodes/${qrcodeId}/regenerate`, {}, {
+    headers: authHeader(token),
+  });
+  return data;
+}
+
+export async function regenerateAllAdminQrcodes(token) {
+  const { data } = await api.post("/api/admin/qrcodes/regenerate-all", {}, {
+    headers: authHeader(token),
+  });
+  return data;
+}
+
 export async function fetchKnowledgeBaseHotels() {
   try {
     const response = await fetch("/knowledge-base/hotels/index.json");

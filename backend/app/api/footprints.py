@@ -1,6 +1,7 @@
 import json
 from datetime import datetime
 from pathlib import Path
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
@@ -84,9 +85,10 @@ def _resolve_location_for_checkin(
 
 def _save_upload_file(upload_dir: Path, file: UploadFile) -> str:
     original_name = Path(str(file.filename or "upload.jpg")).name
-    if not original_name:
-        original_name = "upload.jpg"
-    safe_name = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}_{original_name}"
+    suffix = Path(original_name).suffix.lower()
+    if not suffix or len(suffix) > 10:
+        suffix = ".jpg"
+    safe_name = f"{datetime.utcnow().strftime('%Y%m%d%H%M%S%f')}_{uuid4().hex}{suffix}"
     target = upload_dir / safe_name
     with target.open("wb") as f:
         f.write(file.file.read())

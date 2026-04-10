@@ -241,6 +241,59 @@ def _build_qr_meta(location_id: int, location_name: str, slug: str | None = None
     }
 
 
+def _regenerate_location_qrcode(location_id: int, admin_id: int, db: Session) -> dict:
+    location = db.query(Location).filter(Location.id == location_id).first()
+    if not location:
+        raise HTTPException(status_code=404, detail="Location not found")
+
+    kb_item = _kb_item_by_name(location.name)
+    if kb_item is None:
+        raise HTTPException(status_code=422, detail="该景点不在 knowledge-base 中，禁止生成二维码")
+
+    # 以 knowledge-base 为准同步景点信息
+    location = _ensure_location_from_kb_item(kb_item, db)
+
+    qr_dir = Path(settings.upload_dir) / "qrcodes"
+    qr_dir.mkdir(parents=True, exist_ok=True)
+
+    qr_data = _build_qr_meta(location.id, location.name, kb_item.get("slug"))
+    file_name = _safe_qr_file_name(location.id)
+    file_path = qr_dir / file_name
+
+    qr_image = _build_labeled_qr_image(qr_data["scan_content"], location.name, kb_item.get("slug", ""))
+    qr_image.save(str(file_path), format="PNG")
+
+    location.qr_code_url = f"/uploads/qrcodes/{file_name}"
+    db.commit()
+
+    qr_code = db.query(QrCode).filter(QrCode.location_id == location.id).first()
+    if not qr_code:
+        qr_code = QrCode(
+            location_id=location.id,
+            qr_code_url=location.qr_code_url,
+            qr_code_data=json.dumps(qr_data, ensure_ascii=False),
+            generated_by=admin_id,
+            is_active=True,
+        )
+        db.add(qr_code)
+    else:
+        qr_code.qr_code_url = location.qr_code_url
+        qr_code.qr_code_data = json.dumps(qr_data, ensure_ascii=False)
+        qr_code.generated_by = admin_id
+        qr_code.generated_at = datetime.utcnow()
+        qr_code.is_active = True
+
+    db.commit()
+    db.refresh(qr_code)
+
+    return {
+        "id": qr_code.id,
+        "location_id": location.id,
+        "location_name": location.name,
+        "qr_code_url": location.qr_code_url,
+    }
+
+
 # ==================== 仪表板统计 ====================
 @router.get("/stats")
 def dashboard_stats(db: Session = Depends(get_db)):
@@ -478,52 +531,76 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_admin: User
 @router.post("/qrcodes/generate/{location_id}")
 def generate_location_qrcode(location_id: int, admin: User = Depends(get_current_user), db: Session = Depends(get_db)):
     """生成打卡二维码并存储到数据库"""
-    location = db.query(Location).filter(Location.id == location_id).first()
-    if not location:
-        raise HTTPException(status_code=404, detail="Location not found")
+    return _regenerate_location_qrcode(location_id=location_id, admin_id=admin.id, db=db)
 
-    kb_item = _kb_item_by_name(location.name)
-    if kb_item is None:
-        raise HTTPException(status_code=422, detail="该景点不在 knowledge-base 中，禁止生成二维码")
 
-    # 以 knowledge-base 为准同步景点信息
-    location = _ensure_location_from_kb_item(kb_item, db)
+@router.post("/qrcodes/{qrcode_id}/regenerate")
+def regenerate_qrcode_by_id(qrcode_id: int, admin: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """按二维码记录重新生成，修复二维码与景点数据不匹配场景。"""
+    qr = db.query(QrCode).filter(QrCode.id == qrcode_id).first()
+    if not qr:
+        raise HTTPException(status_code=404, detail="QrCode not found")
+    return _regenerate_location_qrcode(location_id=qr.location_id, admin_id=admin.id, db=db)
 
-    qr_dir = Path(settings.upload_dir) / "qrcodes"
-    qr_dir.mkdir(parents=True, exist_ok=True)
 
-    qr_data = _build_qr_meta(location.id, location.name, kb_item.get("slug"))
-    file_name = _safe_qr_file_name(location.id)
-    file_path = qr_dir / file_name
+@router.post("/qrcodes/regenerate-all")
+def regenerate_all_qrcodes(admin: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    """批量重生成全部二维码，返回逐条结果，避免单条失败中断整体流程。"""
+    qrcodes = db.query(QrCode).order_by(QrCode.id.asc()).all()
+    if not qrcodes:
+        return {
+            "ok": True,
+            "total": 0,
+            "success": 0,
+            "failed": 0,
+            "items": [],
+        }
 
-    # 生成可扫码（/locations/{id}）且带景点名称标签的二维码。
-    qr_image = _build_labeled_qr_image(qr_data["scan_content"], location.name, kb_item.get("slug", ""))
-    qr_image.save(str(file_path), format="PNG")
+    items: list[dict] = []
+    success_count = 0
+    failed_count = 0
 
-    # 更新Location表和QrCode表
-    location.qr_code_url = f"/uploads/qrcodes/{file_name}"
-    db.commit()
-    
-    # 更新或创建QrCode记录
-    qr_code = db.query(QrCode).filter(QrCode.location_id == location_id).first()
-    if not qr_code:
-        qr_code = QrCode(
-            location_id=location_id,
-            qr_code_url=location.qr_code_url,
-            qr_code_data=json.dumps(qr_data, ensure_ascii=False),
-            generated_by=admin.id,
-        )
-        db.add(qr_code)
-    else:
-        qr_code.qr_code_url = location.qr_code_url
-        qr_code.qr_code_data = json.dumps(qr_data, ensure_ascii=False)
-        qr_code.generated_by = admin.id
-        qr_code.generated_at = datetime.utcnow()
-    
-    db.commit()
-    db.refresh(qr_code)
+    for qr in qrcodes:
+        try:
+            result = _regenerate_location_qrcode(location_id=qr.location_id, admin_id=admin.id, db=db)
+            success_count += 1
+            items.append(
+                {
+                    "qrcode_id": qr.id,
+                    "location_id": result.get("location_id"),
+                    "location_name": result.get("location_name"),
+                    "qr_code_url": result.get("qr_code_url"),
+                    "ok": True,
+                }
+            )
+        except HTTPException as exc:
+            failed_count += 1
+            items.append(
+                {
+                    "qrcode_id": qr.id,
+                    "location_id": qr.location_id,
+                    "ok": False,
+                    "detail": str(exc.detail or "重生成失败"),
+                }
+            )
+        except Exception as exc:
+            failed_count += 1
+            items.append(
+                {
+                    "qrcode_id": qr.id,
+                    "location_id": qr.location_id,
+                    "ok": False,
+                    "detail": str(exc),
+                }
+            )
 
-    return {"location_id": location.id, "qr_code_url": location.qr_code_url}
+    return {
+        "ok": failed_count == 0,
+        "total": len(qrcodes),
+        "success": success_count,
+        "failed": failed_count,
+        "items": items,
+    }
 
 
 @router.post("/qrcodes/generate-from-knowledge-base")

@@ -25,6 +25,8 @@ import {
   fetchAdminFootprints,
   fetchFootprintStats,
   fetchAdminQrcodes,
+  regenerateAdminQrcode,
+  regenerateAllAdminQrcodes,
   importLocationsFromFile,
 } from "../../api";
 import { clearAdminSession } from "../../auth";
@@ -512,6 +514,40 @@ export default function AdminDashboardPage() {
     }
   }
 
+  async function handleRegenerateQrcodeRecord(qrcodeId) {
+    const token = getAdminToken();
+    if (!token) return;
+
+    try {
+      const result = await regenerateAdminQrcode(qrcodeId, token);
+      const locationLabel = result?.location_name ? `（${result.location_name}）` : "";
+      Toast.show({ content: `二维码已重新生成${locationLabel}` });
+      await loadDashboard(token);
+    } catch (error) {
+      Toast.show({ content: error?.response?.data?.detail || "重新生成失败" });
+    }
+  }
+
+  async function handleRegenerateAllQrcodes() {
+    const token = getAdminToken();
+    if (!token) return;
+
+    if (!window.confirm("确认批量重新生成当前全部二维码吗？")) {
+      return;
+    }
+
+    try {
+      const result = await regenerateAllAdminQrcodes(token);
+      Toast.show({
+        content: `批量完成：成功 ${result?.success || 0}，失败 ${result?.failed || 0}`,
+        duration: 3000,
+      });
+      await loadDashboard(token);
+    } catch (error) {
+      Toast.show({ content: error?.response?.data?.detail || "批量重生成失败" });
+    }
+  }
+
   async function handleImportFromFile(e) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -962,7 +998,10 @@ export default function AdminDashboardPage() {
 
           <Tabs.Tab title="二维码管理" key="qrcodes">
             <CardComponent variant="glass" className="">
-              <h3>二维码 ({qrcodes.length})</h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="m-0">二维码 ({qrcodes.length})</h3>
+                <ButtonComponent size="sm" onClick={handleRegenerateAllQrcodes}>一键重生成全部</ButtonComponent>
+              </div>
               {qrcodes.length === 0 ? (
                 <div className="text-center text-sm text-white/50 py-4">暂无二维码</div>
               ) : (
@@ -975,6 +1014,19 @@ export default function AdminDashboardPage() {
                           <div>生成: {new Date(qr.generated_at).toLocaleString()}</div>
                           <div>状态: {qr.is_active ? "✓ 激活" : "✗ 禁用"}</div>
                         </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <ButtonComponent size="sm" onClick={() => handleRegenerateQrcodeRecord(qr.id)}>
+                          重新生成
+                        </ButtonComponent>
+                        <ButtonComponent
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => qr.qr_code_url && window.open(buildAssetUrl(qr.qr_code_url), "_blank")}
+                          disabled={!qr.qr_code_url}
+                        >
+                          查看
+                        </ButtonComponent>
                       </div>
                     </div>
                   ))}
