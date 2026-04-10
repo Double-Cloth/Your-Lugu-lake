@@ -398,6 +398,13 @@ async function normalizeUploadItemToFile(item, index = 0) {
     return null;
   }
 
+  if (url.startsWith("data:")) {
+    const restored = dataUrlToFile(url, `checkin-photo-${index + 1}.jpg`, "image/jpeg");
+    if (restored) {
+      return restored;
+    }
+  }
+
   try {
     const response = await fetch(url);
     const blob = await response.blob();
@@ -1743,10 +1750,13 @@ export default function CheckinPage() {
             onChange={setFiles}
             disabled={!isAuthenticated}
             maxCount={9}
-            upload={async (file) => ({
-              url: URL.createObjectURL(file),
-              file,
-            })}
+            upload={async (file) => {
+              const stableUrl = await fileToDataUrl(file);
+              return {
+                url: typeof stableUrl === "string" ? stableUrl : URL.createObjectURL(file),
+                file,
+              };
+            }}
           />
         </div>
 
