@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Toast, Modal, ImageUploader } from "antd-mobile";
 import { ImmersivePage, CardComponent, ButtonComponent, GlassInput } from "../components/SharedUI";
 import { Html5Qrcode } from "html5-qrcode";
-import { getUserSessionUsername, withUserSessionPath } from "../auth";
+import { getUserSessionUsername, hasUserSession, withUserSessionPath } from "../auth";
 import { buildAssetUrl, createFootprint, fetchLocationById, fetchTrackingState, getUserToken, saveTrackingState } from "../api";
 import {
   getTrackingState,
@@ -385,6 +385,7 @@ function dataUrlToFile(dataUrl, fileName, mimeType) {
 export default function CheckinPage() {
   const navigate = useNavigate();
   const sessionUsername = getUserSessionUsername();
+  const isAuthenticated = hasUserSession();
   const persistedTrackingState = getTrackingState(sessionUsername);
 
   const mapRef = useRef(null);
@@ -436,7 +437,7 @@ export default function CheckinPage() {
   const resolvedApiBaseUrl = resolveApiBaseUrl(import.meta.env.VITE_API_BASE_URL || "");
 
   function flushTrackingSyncOnPageHide() {
-    if (!trackingSyncReadyRef.current || typeof window === "undefined") {
+    if (!isAuthenticated || !trackingSyncReadyRef.current || typeof window === "undefined") {
       return;
     }
 
@@ -489,7 +490,7 @@ export default function CheckinPage() {
   }
 
   async function flushTrackingSync() {
-    if (!trackingSyncReadyRef.current || trackingSyncInFlightRef.current) {
+    if (!isAuthenticated || !trackingSyncReadyRef.current || trackingSyncInFlightRef.current) {
       return;
     }
 
@@ -544,6 +545,15 @@ export default function CheckinPage() {
       return;
     }
     navigate(withUserSessionPath("/home"), { replace: true });
+  }
+
+  function ensureAuthenticated(actionLabel = "使用该功能") {
+    if (isAuthenticated) {
+      return true;
+    }
+    Toast.show({ content: `请先登录后再${actionLabel}` });
+    navigate("/me", { replace: false });
+    return false;
   }
 
   useEffect(() => {
@@ -613,6 +623,14 @@ export default function CheckinPage() {
   useEffect(() => {
     let cancelled = false;
 
+    if (!isAuthenticated) {
+      trackingSyncReadyRef.current = false;
+      trackingSyncDirtyRef.current = false;
+      return () => {
+        cancelled = true;
+      };
+    }
+
     async function hydrateRemoteTrackingState() {
       try {
         const remoteState = await fetchTrackingState();
@@ -646,9 +664,10 @@ export default function CheckinPage() {
     return () => {
       cancelled = true;
     };
-  }, [sessionUsername]);
+  }, [sessionUsername, isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) return undefined;
     if (!trackingSyncReadyRef.current) return undefined;
     trackingSyncDirtyRef.current = true;
     const pointsLength = Array.isArray(trackPoints) ? trackPoints.length : 0;
@@ -663,9 +682,13 @@ export default function CheckinPage() {
         trackingSyncRetryTimerRef.current = null;
       }
     };
-  }, [tracking, gps, trackPoints, sessionUsername]);
+  }, [tracking, gps, trackPoints, sessionUsername, isAuthenticated]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      return undefined;
+    }
+
     const handleVisibilityChange = () => {
       if (document.visibilityState === "hidden") {
         flushTrackingSyncOnPageHide();
@@ -684,7 +707,7 @@ export default function CheckinPage() {
       window.removeEventListener("pagehide", handlePageHide);
       window.removeEventListener("beforeunload", handlePageHide);
     };
-  }, [sessionUsername]);
+  }, [sessionUsername, isAuthenticated]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1105,6 +1128,10 @@ export default function CheckinPage() {
 
   // 开始实时定位和轨迹记录
   async function startTracking() {
+    if (!ensureAuthenticated("记录轨迹")) {
+      return;
+    }
+
     setIsStartingTrack(true);
     setMapRequested(true);
     const permissionGranted = await requestLocationPermission();
@@ -1225,6 +1252,10 @@ export default function CheckinPage() {
 
   // 定位到当前位置
   async function locateMe() {
+    if (!ensureAuthenticated("定位并打卡")) {
+      return;
+    }
+
     setIsLocating(true);
     setMapRequested(true);
     try {
@@ -1246,6 +1277,10 @@ export default function CheckinPage() {
   }
 
   async function submitCheckin(qrContent = scannedQrText) {
+    if (!ensureAuthenticated("打卡")) {
+      return false;
+    }
+
     if (!canSubmit) {
       Toast.show({ content: "请至少填写景点ID或心情" });
       return false;
@@ -1341,6 +1376,10 @@ export default function CheckinPage() {
   }
 
   async function startScan() {
+    if (!ensureAuthenticated("扫码打卡")) {
+      return;
+    }
+
     if (scanEnabled) {
       await stopScan();
       return;
@@ -1459,6 +1498,19 @@ export default function CheckinPage() {
         <p className="hero-copy">使用高德地图实时定位绘制移动轨迹，通过二维码完成景点打卡。</p>
       </div>
 
+      {!isAuthenticated && (
+        <div className="checkin-alert mb-4 rounded-2xl px-4 py-3 text-xs leading-5">
+          当前未登录，轨迹记录、扫码打卡和打卡提交均已禁用。请先登录游客账号后再使用。
+          <ButtonComponent
+            variant="primary"
+            onClick={() => navigate("/me")}
+            className="mt-3 text-xs font-bold"
+          >
+            去登录
+          </ButtonComponent>
+        </div>
+      )}
+
       {/* 地图卡片 */}
       <CardComponent
         variant="glass"
@@ -1519,6 +1571,7 @@ export default function CheckinPage() {
           <ButtonComponent
             variant={tracking ? "danger" : "primary"}
             loading={isStartingTrack}
+            disabled={!isAuthenticated}
             onClick={tracking ? stopTracking : startTracking}
            className="text-sm font-bold w-full">
             {tracking ? "停止实时轨迹" : "开始实时轨迹"}
@@ -1527,12 +1580,14 @@ export default function CheckinPage() {
             <ButtonComponent
               onClick={locateMe}
               loading={isLocating}
+              disabled={!isAuthenticated}
              className="w-full checkin-ghost-btn text-sm font-bold">
               定位我的位置
             </ButtonComponent>
             <ButtonComponent
               onClick={resetTrack}
               variant="danger"
+              disabled={!isAuthenticated}
              className="w-full checkin-ghost-btn text-sm font-bold">
               重置轨迹
             </ButtonComponent>
@@ -1566,6 +1621,7 @@ export default function CheckinPage() {
         <ButtonComponent
           variant="primary"
           loading={scanLoading}
+          disabled={!isAuthenticated}
           onClick={startScan}
          className="text-sm font-bold w-full">
           {scanEnabled ? "关闭扫码" : "扫描管理员二维码"}
@@ -1597,6 +1653,7 @@ export default function CheckinPage() {
         <GlassInput
           placeholder="景点ID（选填，扫码后自动填充）"
           value={locationId}
+          disabled={!isAuthenticated}
           onChange={setLocationId}
           wrapperClassName="mb-2"
         />
@@ -1640,6 +1697,7 @@ export default function CheckinPage() {
           placeholder="分享你的感受（选填）"
           inputType="text"
           value={moodText}
+          disabled={!isAuthenticated}
           onChange={setMoodText}
           wrapperClassName="mb-3"
         />
@@ -1649,6 +1707,7 @@ export default function CheckinPage() {
           <ImageUploader
             value={files}
             onChange={setFiles}
+            disabled={!isAuthenticated}
             maxCount={9}
             upload={async (file) => ({
               url: URL.createObjectURL(file),
@@ -1660,10 +1719,10 @@ export default function CheckinPage() {
         <ButtonComponent
           variant="primary"
           loading={submitting}
-          disabled={!canSubmit}
+          disabled={!isAuthenticated || !canSubmit}
           onClick={() => void submitCheckin()}
           className="w-full font-bold text-base py-2">
-          {canSubmit ? "确认打卡" : "请填写景点ID或心情"}
+          {!isAuthenticated ? "请先登录" : (canSubmit ? "确认打卡" : "请填写景点ID或心情")}
         </ButtonComponent>
       </CardComponent>
 
