@@ -573,7 +573,6 @@ export default function ProfilePage() {
     canvas.height = 1080;
 
     const uniqueSpots = new Set(records.map((item) => item.title)).size;
-    const firstWithPhoto = records.find((item) => Array.isArray(item.photoList) && item.photoList.length > 0);
     const topMood = records.find((item) => item.mood && item.mood !== "完成打卡");
     const trackPointsForPoster = normalizePosterTrackPoints(posterTrackPoints);
     const hasTrackPreview = trackPointsForPoster.length >= 2;
@@ -605,20 +604,6 @@ export default function ProfilePage() {
     ctx.strokeStyle = "rgba(196,231,246,0.35)";
     ctx.lineWidth = 2;
     ctx.strokeRect(32, 32, canvas.width - 64, canvas.height - 64);
-
-    if (firstWithPhoto?.photoList?.[0]) {
-      try {
-        const photo = await loadImage(buildAssetUrl(firstWithPhoto.photoList[0]));
-        ctx.save();
-        ctx.beginPath();
-        ctx.roundRect(56, 68, canvas.width - 112, 300, 22);
-        ctx.clip();
-        ctx.drawImage(photo, 56, 68, canvas.width - 112, 300);
-        ctx.restore();
-      } catch {
-        // Ignore image rendering failures and keep text poster available.
-      }
-    }
 
     ctx.fillStyle = "#f3fbff";
     ctx.font = "700 44px 'PingFang SC', 'Noto Sans SC', sans-serif";

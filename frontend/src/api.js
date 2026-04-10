@@ -599,6 +599,7 @@ export async function createFootprint(formData, token) {
       ...authHeader(token),
       "Content-Type": "multipart/form-data",
     },
+    timeout: 120000,
   });
   return data;
 }

@@ -367,6 +367,92 @@ async function fileToDataUrl(file) {
   });
 }
 
+async function compressImageFile(file, maxSize = 1600, quality = 0.82, targetBytes = 1.2 * 1024 * 1024) {
+  if (!(file instanceof File) || !String(file.type || "").startsWith("image/")) {
+    return file;
+  }
+
+  // HEIC/HEIF 在浏览器端兼容性较差，保持原文件上传。
+  if (/image\/(heic|heif)/i.test(file.type)) {
+    return file;
+  }
+
+  // 小图直接保留，避免无损图片被反复重编码。
+  if (file.size <= targetBytes) {
+    return file;
+  }
+
+  try {
+    const sourceUrl = await fileToDataUrl(file);
+    if (typeof sourceUrl !== "string") {
+      return file;
+    }
+
+    const img = await new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = sourceUrl;
+    });
+
+    const srcWidth = Number(img.width) || 0;
+    const srcHeight = Number(img.height) || 0;
+    if (srcWidth <= 0 || srcHeight <= 0) {
+      return file;
+    }
+
+    let scale = Math.min(1, maxSize / Math.max(srcWidth, srcHeight));
+    let jpegQuality = quality;
+    let bestBlob = null;
+
+    for (let attempt = 0; attempt < 6; attempt += 1) {
+      const targetWidth = Math.max(1, Math.round(srcWidth * scale));
+      const targetHeight = Math.max(1, Math.round(srcHeight * scale));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        break;
+      }
+
+      ctx.drawImage(img, 0, 0, targetWidth, targetHeight);
+      const blob = await new Promise((resolve) => {
+        canvas.toBlob((value) => resolve(value), "image/jpeg", jpegQuality);
+      });
+
+      if (!(blob instanceof Blob) || blob.size <= 0) {
+        continue;
+      }
+
+      if (!bestBlob || blob.size < bestBlob.size) {
+        bestBlob = blob;
+      }
+
+      if (blob.size <= targetBytes) {
+        bestBlob = blob;
+        break;
+      }
+
+      // 先降质量，再缩尺寸，逐步逼近目标大小。
+      if (jpegQuality > 0.58) {
+        jpegQuality = Math.max(0.58, jpegQuality - 0.08);
+      } else {
+        scale *= 0.85;
+      }
+    }
+
+    if (!(bestBlob instanceof Blob) || bestBlob.size <= 0 || bestBlob.size >= file.size) {
+      return file;
+    }
+
+    return new File([bestBlob], file.name.replace(/\.[^.]+$/, ".jpg"), { type: "image/jpeg" });
+  } catch {
+    return file;
+  }
+}
+
 function dataUrlToFile(dataUrl, fileName, mimeType) {
   try {
     const arr = dataUrl.split(",");
@@ -1367,6 +1453,14 @@ export default function CheckinPage() {
         Toast.show({ content: "请先在“我的”页面登录游客账号" });
         return false;
       }
+      if (error?.code === "ECONNABORTED") {
+        Toast.show({ content: "图片上传超时，请压缩图片或稍后重试" });
+        return false;
+      }
+      if (error?.response?.status === 413) {
+        Toast.show({ content: "图片过大，请压缩后再上传" });
+        return false;
+      }
       Toast.show({ content: error?.response?.data?.detail || "打卡失败，请稍后再试" });
       return false;
     } finally {
@@ -1751,10 +1845,11 @@ export default function CheckinPage() {
             disabled={!isAuthenticated}
             maxCount={9}
             upload={async (file) => {
-              const stableUrl = await fileToDataUrl(file);
+              const normalizedFile = await compressImageFile(file);
+              const stableUrl = await fileToDataUrl(normalizedFile);
               return {
                 url: typeof stableUrl === "string" ? stableUrl : URL.createObjectURL(file),
-                file,
+                file: normalizedFile,
               };
             }}
           />
