@@ -116,8 +116,6 @@ export default function HomePage() {
     pace: "balanced",
   });
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
-  const [coverPhotoUrl, setCoverPhotoUrl] = useState("");
-  const [heroBgUrl, setHeroBgUrl] = useState("");
   const [kbLocations, setKbLocations] = useState([]);
   const [nearbyGuides, setNearbyGuides] = useState({ spots: [], hotels: [] });
   const [kbOverview, setKbOverview] = useState(null);
@@ -243,21 +241,15 @@ export default function HomePage() {
         try {
           const userToken = getUserToken();
           if (!userToken) {
-            setCoverPhotoUrl("");
             setMyFootprints([]);
           } else {
             const footprints = await fetchMyFootprints(userToken);
             setMyFootprints(Array.isArray(footprints) ? footprints : []);
-            const firstWithPhoto = Array.isArray(footprints)
-              ? footprints.find((item) => item.photo_url)
-              : null;
-            setCoverPhotoUrl(firstWithPhoto?.photo_url ? buildAssetUrl(firstWithPhoto.photo_url) : "");
           }
         } catch (error) {
           if (error?.response?.status === 401) {
             clearUserSession();
           }
-          setCoverPhotoUrl("");
           setMyFootprints([]);
         }
       } catch {
@@ -276,42 +268,8 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    const candidates = [coverPhotoUrl, LUGU_LAKE_BG_URL].filter(Boolean);
-    if (candidates.length === 0) {
-      setHeroBgUrl("");
-      return;
-    }
-
-    let canceled = false;
-    let idx = 0;
-
-    function tryNext() {
-      if (idx >= candidates.length) {
-        if (!canceled) {
-          setHeroBgUrl("");
-        }
-        return;
-      }
-
-      const url = candidates[idx];
-      const img = new Image();
-      img.onload = () => {
-        if (!canceled) {
-          setHeroBgUrl(url);
-        }
-      };
-      img.onerror = () => {
-        idx += 1;
-        tryNext();
-      };
-      img.src = url;
-    }
-
-    tryNext();
-    return () => {
-      canceled = true;
-    };
-  }, [coverPhotoUrl]);
+    return undefined;
+  }, []);
 
   const primaryLake = useMemo(() => {
     return kbOverview?.lake || null;
@@ -467,7 +425,7 @@ export default function HomePage() {
   }
 
   return (
-    <ImmersivePage bgImage={heroBgUrl || LUGU_LAKE_BG_URL} className="page-fade-in pt-0 pb-0 flex-1">
+    <ImmersivePage bgImage={LUGU_LAKE_BG_URL} className="page-fade-in pt-0 pb-0 flex-1">
       <div className="flex-1 flex flex-col justify-center items-center h-full w-full px-4 py-6 sm:py-8">
         <div className="w-full max-w-xl text-center mb-6 z-10 relative text-shadow-md">
           <div className="inline-block bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-white/95 text-xs tracking-widest mb-4 border border-white/20 shadow-lg">

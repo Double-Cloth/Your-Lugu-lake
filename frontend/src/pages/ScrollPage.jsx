@@ -1,17 +1,41 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Toast } from "antd-mobile";
 import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 import { useNavigate } from "react-router-dom";
 
 import { buildAssetUrl, fetchLocations, fetchMyFootprints, getUserToken } from "../api";
 import { ImmersivePage, CardComponent, ButtonComponent, GlassInput } from "../components/SharedUI";
 
+function formatDateTime(value) {
+  if (!value) {
+    return "暂无";
+  }
+
+  return value.toLocaleString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function formatDateOnly(value) {
+  if (!value) {
+    return "暂无";
+  }
+
+  return value.toLocaleDateString("zh-CN", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+}
+
 export default function ScrollPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [exportingImage, setExportingImage] = useState(false);
-  const [exportingPdf, setExportingPdf] = useState(false);
   const [copyingSummary, setCopyingSummary] = useState(false);
   const [footprints, setFootprints] = useState([]);
   const [locationMap, setLocationMap] = useState({});
@@ -30,12 +54,14 @@ export default function ScrollPage() {
   const enriched = useMemo(() => {
     return footprints
       .map((item) => ({
-      ...item,
-      checkInTime: item.check_in_time ? new Date(item.check_in_time) : null,
-      locationName: locationMap[item.location_id]?.name || `景点#${item.location_id}`,
-      photoList: Array.isArray(item.photo_urls)
-        ? item.photo_urls
-        : (item.photo_url ? [item.photo_url] : []),
+        ...item,
+        checkInTime: item.check_in_time ? new Date(item.check_in_time) : null,
+        locationName: locationMap[item.location_id]?.name || `景点#${item.location_id}`,
+        photoList: Array.isArray(item.photo_urls)
+          ? item.photo_urls
+          : item.photo_url
+            ? [item.photo_url]
+            : [],
       }))
       .sort((a, b) => {
         const aTs = a.checkInTime ? a.checkInTime.getTime() : 0;
@@ -68,11 +94,22 @@ export default function ScrollPage() {
 
   const summary = useMemo(() => {
     const latest = enriched[0];
+    const earliest = enriched.length > 0 ? enriched[enriched.length - 1] : null;
     const uniqueLocationCount = new Set(enriched.map((item) => item.locationName)).size;
+    const photoCount = enriched.reduce((total, item) => total + item.photoList.length, 0);
+    const topLocations = Array.from(new Set(enriched.map((item) => item.locationName))).slice(0, 4);
     return {
       total: enriched.length,
       uniqueLocationCount,
-      latestLabel: latest?.checkInTime ? latest.checkInTime.toLocaleString() : "暂无",
+      photoCount,
+      latestLabel: latest?.checkInTime ? formatDateTime(latest.checkInTime) : "暂无",
+      latestLocation: latest?.locationName || "暂无",
+      latestMood: latest?.mood_text || "记录下第一段旅程感受",
+      travelSpan:
+        latest?.checkInTime && earliest?.checkInTime
+          ? `${formatDateOnly(earliest.checkInTime)} - ${formatDateOnly(latest.checkInTime)}`
+          : "暂无",
+      topLocations,
     };
   }, [enriched]);
 
@@ -113,8 +150,8 @@ export default function ScrollPage() {
     }
 
     return html2canvas(scrollRef.current, {
-      scale: 2,
-      backgroundColor: "#6f3217",
+      scale: 2.25,
+      backgroundColor: "#f6ead8",
       useCORS: true,
       logging: false,
     });
@@ -126,18 +163,20 @@ export default function ScrollPage() {
       return;
     }
 
-    if (exportingImage || exportingPdf || copyingSummary) {
+    if (exportingImage || copyingSummary) {
       return;
     }
 
     setExportingImage(true);
     try {
       const canvas = await snapshotScroll();
-    const link = document.createElement("a");
-    link.href = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.href = canvas.toDataURL("image/png");
       link.download = `lugu-scroll-${Date.now()}.png`;
-    link.click();
-      Toast.show({ content: "绘卷图片已导出" });
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      Toast.show({ content: "绘卷图片已生成" });
     } catch (error) {
       console.error("导出绘卷图片失败", error);
       Toast.show({ content: "导出失败，请稍后重试" });
@@ -146,63 +185,24 @@ export default function ScrollPage() {
     }
   }
 
-  async function exportPdf() {
-    if (filtered.length === 0) {
-      Toast.show({ content: "当前无可导出的绘卷内容" });
-      return;
-    }
-
-    if (exportingImage || exportingPdf || copyingSummary) {
-      return;
-    }
-
-    setExportingPdf(true);
-    try {
-      const canvas = await snapshotScroll();
-    const imgData = canvas.toDataURL("image/jpeg", 0.92);
-
-    const pdf = new jsPDF("p", "mm", "a4");
-    const pageWidth = 210;
-    const pageHeight = 297;
-    const imgWidth = pageWidth;
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-    let yOffset = 0;
-    let heightLeft = imgHeight;
-    while (heightLeft > 0) {
-      pdf.addImage(imgData, "JPEG", 0, yOffset, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-      if (heightLeft > 0) {
-        pdf.addPage();
-        yOffset -= pageHeight;
-      }
-    }
-
-      pdf.save(`lugu-scroll-${Date.now()}.pdf`);
-      Toast.show({ content: "绘卷 PDF 已导出" });
-    } catch (error) {
-      console.error("导出绘卷 PDF 失败", error);
-      Toast.show({ content: "导出失败，请稍后重试" });
-    } finally {
-      setExportingPdf(false);
-    }
-  }
-
   async function copySummary() {
     if (filtered.length === 0) {
       Toast.show({ content: "当前没有可分享内容" });
       return;
     }
-    if (exportingImage || exportingPdf || copyingSummary) {
+    if (exportingImage || copyingSummary) {
       return;
     }
 
     setCopyingSummary(true);
     const top3 = filtered.slice(0, 3).map((item) => `- ${item.locationName}｜${item.mood_text || "完成打卡"}`);
+    const topLocations = summary.topLocations.length > 0 ? summary.topLocations.join("、") : "暂无";
     const content = [
       "我在泸沽湖的旅行绘卷",
       `总打卡：${summary.total} 次`,
       `探索景点：${summary.uniqueLocationCount} 个`,
+      `足迹跨度：${summary.travelSpan}`,
+      `重点地点：${topLocations}`,
       "近期足迹：",
       ...top3,
     ].join("\n");
@@ -233,10 +233,11 @@ export default function ScrollPage() {
       <div className="hero-shell scroll-hero mb-3">
         <div className="hero-kicker">Travel Scroll</div>
         <h1 className="page-title m-0">我的旅行绘卷</h1>
-        <p className="hero-copy">把真实打卡记录整理成可筛选、可导出、可分享的旅程档案。</p>
+        <p className="hero-copy">把真实打卡记录整理成一张更像旅行海报的长卷，方便保存、分享和回看。</p>
         <div className="scroll-hero-stats mt-3">
           <span>打卡 {summary.total}</span>
           <span>景点 {summary.uniqueLocationCount}</span>
+          <span>照片 {summary.photoCount}</span>
           <span>最近 {summary.latestLabel}</span>
         </div>
       </div>
@@ -270,6 +271,11 @@ export default function ScrollPage() {
             ))}
           </div>
 
+          <div className="flex items-center justify-between text-xs text-white/60">
+            <span>当前筛选 {filtered.length} 条</span>
+            <span>覆盖 {locationOptions.length} 个景点</span>
+          </div>
+
           <ButtonComponent variant="primary" loading={loading} onClick={loadScroll} className="w-full">
             刷新绘卷数据
           </ButtonComponent>
@@ -277,72 +283,153 @@ export default function ScrollPage() {
       </CardComponent>
 
       <div ref={scrollRef} className="scroll-capture">
-        <div className="scroll-capture-header">
-          <h3 className="m-0">泸沽湖足迹时间线</h3>
-          <span>{filtered.length} 条记录</span>
+        <div className="scroll-capture-cover">
+          <div className="scroll-capture-badge">Travel Scroll</div>
+          <div className="scroll-capture-cover-top">
+            <div>
+              <h2 className="scroll-capture-title m-0">我的旅行绘卷</h2>
+              <p className="scroll-capture-lead m-0">把真实足迹整理成一张能保存、能分享、能回看的长卷。</p>
+            </div>
+            <div className="scroll-capture-stamp">
+              <span className="text-[11px] uppercase tracking-[0.24em]">Total</span>
+              <strong>{filtered.length}</strong>
+            </div>
+          </div>
+
+          <div className="scroll-capture-meta">
+            <span>最近更新 {summary.latestLabel}</span>
+            <span>足迹跨度 {summary.travelSpan}</span>
+            <span>打卡景点 {summary.uniqueLocationCount}</span>
+          </div>
+
+          <div className="scroll-capture-highlight">
+            <div className="scroll-capture-highlight-label">最近一站</div>
+            <div className="scroll-capture-highlight-title">{summary.latestLocation}</div>
+            <div className="scroll-capture-highlight-copy">{summary.latestMood}</div>
+          </div>
         </div>
 
-        {filtered.length === 0 ? (
-          <p className="text-sm text-white/60 mt-3">暂无符合条件的记录，可先去“打卡”页面完成行程记录。</p>
-        ) : (
-          <div className="mt-3 space-y-4">
-            {filtered.map((item, idx) => (
-              <div
-                key={item.id}
-                className="timeline-item scroll-timeline-item"
-                style={{ animationDelay: `${idx * 90}ms` }}
-              >
-                <div className="text-xs text-white/90">
-                  {item.checkInTime ? item.checkInTime.toLocaleString() : "时间未知"}
-                </div>
-                <div className="font-medium text-base text-white mt-1">{item.locationName}</div>
-                <div className="text-sm text-white/70 mt-1 leading-relaxed">{item.mood_text || "无心情记录"}</div>
-                {item.photoList.length > 0 && (
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    {item.photoList.slice(0, 6).map((url, photoIndex) => (
-                      <img
-                        key={`${item.id}-${photoIndex}`}
-                        src={buildAssetUrl(url)}
-                        alt="footprint"
-                        className="scroll-photo-thumb w-full rounded-lg"
-                        loading="lazy"
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
+        <div className="scroll-capture-section">
+          <div className="scroll-section-head">
+            <h3 className="m-0">旅程速览</h3>
+            <span>由真实打卡自动生成</span>
           </div>
-        )}
+
+          <div className="scroll-metrics-grid">
+            <div className="scroll-metric-card">
+              <span className="scroll-metric-label">总打卡</span>
+              <strong>{summary.total}</strong>
+              <p>记录你在泸沽湖留下的全部瞬间。</p>
+            </div>
+            <div className="scroll-metric-card">
+              <span className="scroll-metric-label">探索景点</span>
+              <strong>{summary.uniqueLocationCount}</strong>
+              <p>覆盖的景点越多，绘卷越丰富。</p>
+            </div>
+            <div className="scroll-metric-card">
+              <span className="scroll-metric-label">随行影像</span>
+              <strong>{summary.photoCount}</strong>
+              <p>照片会让这一段旅程更有质感。</p>
+            </div>
+            <div className="scroll-metric-card">
+              <span className="scroll-metric-label">重点地点</span>
+              <strong>{summary.topLocations[0] || "暂无"}</strong>
+              <p>{summary.topLocations.slice(0, 3).join(" · ") || "继续去打卡，系统会自动补全。"}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="scroll-capture-section">
+          <div className="scroll-section-head">
+            <h3 className="m-0">足迹时间线</h3>
+            <span>{filtered.length} 条记录</span>
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="scroll-empty-state">
+              <div className="scroll-empty-state-title">暂无符合条件的记录</div>
+              <div className="scroll-empty-state-copy">可以切换筛选条件，或者先去“打卡”页面补充足迹。</div>
+            </div>
+          ) : (
+            <div className="scroll-timeline-list">
+              {filtered.map((item, idx) => (
+                <article
+                  key={item.id}
+                  className="scroll-timeline-item"
+                  style={{ animationDelay: `${idx * 85}ms` }}
+                >
+                  <div className="scroll-timeline-marker">{String(idx + 1).padStart(2, "0")}</div>
+                  <div className="scroll-timeline-content">
+                    <div className="scroll-timeline-head">
+                      <div>
+                        <div className="scroll-timeline-time">
+                          {item.checkInTime ? formatDateTime(item.checkInTime) : "时间未知"}
+                        </div>
+                        <div className="scroll-timeline-title">{item.locationName}</div>
+                      </div>
+                      <div className="scroll-timeline-badge">{item.photoList.length > 0 ? `${item.photoList.length} 图` : "无图"}</div>
+                    </div>
+
+                    <div className="scroll-timeline-copy">{item.mood_text || "无心情记录"}</div>
+
+                    {item.photoList.length > 0 && (
+                      <div className="scroll-photo-grid">
+                        {item.photoList.slice(0, 6).map((url, photoIndex) => (
+                          <img
+                            key={`${item.id}-${photoIndex}`}
+                            src={buildAssetUrl(url)}
+                            alt={`${item.locationName} 打卡照片 ${photoIndex + 1}`}
+                            className="scroll-photo-thumb"
+                            loading="lazy"
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="scroll-capture-footer">
+          <div>
+            <div className="scroll-footer-label">精选地点</div>
+            <div className="scroll-footer-tags">
+              {summary.topLocations.length > 0 ? (
+                summary.topLocations.map((name) => (
+                  <span key={name} className="scroll-footer-tag">{name}</span>
+                ))
+              ) : (
+                <span className="scroll-footer-tag">等待下一段旅程</span>
+              )}
+            </div>
+          </div>
+          <div className="scroll-footer-note">由真实打卡自动生成，适合导出分享图。</div>
+        </div>
       </div>
 
       {filtered.length > 0 && (
         <CardComponent variant="glass" className="scroll-card mb-4">
-          <ButtonComponent
-            loading={exportingImage}
-            disabled={exportingImage || exportingPdf || copyingSummary}
-            onClick={exportImage}
-            className="w-full"
-          >
-            导出分享图
-          </ButtonComponent>
-          <ButtonComponent
-            variant="primary"
-            loading={exportingPdf}
-            disabled={exportingImage || exportingPdf || copyingSummary}
-            onClick={exportPdf}
-            className="mt-3 w-full"
-          >
-            导出 PDF
-          </ButtonComponent>
-          <ButtonComponent
-            loading={copyingSummary}
-            disabled={exportingImage || exportingPdf || copyingSummary}
-            onClick={copySummary}
-            className="mt-3 w-full"
-          >
-            复制分享文案
-          </ButtonComponent>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <ButtonComponent
+              loading={exportingImage}
+              disabled={exportingImage || copyingSummary}
+              onClick={exportImage}
+              className="w-full"
+            >
+              生成绘卷图片
+            </ButtonComponent>
+            <ButtonComponent
+              variant="primary"
+              loading={copyingSummary}
+              disabled={exportingImage || copyingSummary}
+              onClick={copySummary}
+              className="w-full"
+            >
+              复制分享文案
+            </ButtonComponent>
+          </div>
         </CardComponent>
       )}
 
