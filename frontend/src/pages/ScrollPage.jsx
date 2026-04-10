@@ -10,7 +10,9 @@ import { ImmersivePage, CardComponent, ButtonComponent, GlassInput } from "../co
 export default function ScrollPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [exporting, setExporting] = useState(false);
+  const [exportingImage, setExportingImage] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [copyingSummary, setCopyingSummary] = useState(false);
   const [footprints, setFootprints] = useState([]);
   const [locationMap, setLocationMap] = useState({});
   const [keyword, setKeyword] = useState("");
@@ -124,7 +126,11 @@ export default function ScrollPage() {
       return;
     }
 
-    setExporting(true);
+    if (exportingImage || exportingPdf || copyingSummary) {
+      return;
+    }
+
+    setExportingImage(true);
     try {
       const canvas = await snapshotScroll();
     const link = document.createElement("a");
@@ -136,7 +142,7 @@ export default function ScrollPage() {
       console.error("导出绘卷图片失败", error);
       Toast.show({ content: "导出失败，请稍后重试" });
     } finally {
-      setExporting(false);
+      setExportingImage(false);
     }
   }
 
@@ -146,7 +152,11 @@ export default function ScrollPage() {
       return;
     }
 
-    setExporting(true);
+    if (exportingImage || exportingPdf || copyingSummary) {
+      return;
+    }
+
+    setExportingPdf(true);
     try {
       const canvas = await snapshotScroll();
     const imgData = canvas.toDataURL("image/jpeg", 0.92);
@@ -174,7 +184,7 @@ export default function ScrollPage() {
       console.error("导出绘卷 PDF 失败", error);
       Toast.show({ content: "导出失败，请稍后重试" });
     } finally {
-      setExporting(false);
+      setExportingPdf(false);
     }
   }
 
@@ -183,6 +193,11 @@ export default function ScrollPage() {
       Toast.show({ content: "当前没有可分享内容" });
       return;
     }
+    if (exportingImage || exportingPdf || copyingSummary) {
+      return;
+    }
+
+    setCopyingSummary(true);
     const top3 = filtered.slice(0, 3).map((item) => `- ${item.locationName}｜${item.mood_text || "完成打卡"}`);
     const content = [
       "我在泸沽湖的旅行绘卷",
@@ -197,6 +212,8 @@ export default function ScrollPage() {
       Toast.show({ content: "已复制分享文案" });
     } catch {
       Toast.show({ content: "复制失败，请手动复制" });
+    } finally {
+      setCopyingSummary(false);
     }
   }
 
@@ -301,13 +318,29 @@ export default function ScrollPage() {
 
       {filtered.length > 0 && (
         <CardComponent variant="glass" className="scroll-card mb-4">
-          <ButtonComponent loading={exporting} disabled={exporting} onClick={exportImage} className="w-full">
+          <ButtonComponent
+            loading={exportingImage}
+            disabled={exportingImage || exportingPdf || copyingSummary}
+            onClick={exportImage}
+            className="w-full"
+          >
             导出分享图
           </ButtonComponent>
-          <ButtonComponent variant="primary" loading={exporting} disabled={exporting} onClick={exportPdf} className="mt-3 w-full">
+          <ButtonComponent
+            variant="primary"
+            loading={exportingPdf}
+            disabled={exportingImage || exportingPdf || copyingSummary}
+            onClick={exportPdf}
+            className="mt-3 w-full"
+          >
             导出 PDF
           </ButtonComponent>
-          <ButtonComponent onClick={copySummary} className="mt-3 w-full">
+          <ButtonComponent
+            loading={copyingSummary}
+            disabled={exportingImage || exportingPdf || copyingSummary}
+            onClick={copySummary}
+            className="mt-3 w-full"
+          >
             复制分享文案
           </ButtonComponent>
         </CardComponent>
