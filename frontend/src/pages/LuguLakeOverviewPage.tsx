@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ReactElement } from "react";
 import LucideIcon from "../components/LucideIcon";
 import { DotLoading } from "antd-mobile";
 import { useNavigate } from "react-router-dom";
@@ -23,7 +24,7 @@ type LuguLakeOverviewData = {
 	};
 };
 
-export default function LuguLakeOverviewPage(): JSX.Element {
+export default function LuguLakeOverviewPage(): ReactElement {
 	const navigate = useNavigate();
 	const [loading, setLoading] = useState<boolean>(true);
 	const [data, setData] = useState<LuguLakeOverviewData | null>(null);

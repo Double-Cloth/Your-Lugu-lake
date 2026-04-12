@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ReactElement } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { DotLoading } from "antd-mobile";
 import LucideIcon from "../components/LucideIcon";
@@ -68,7 +69,7 @@ type LocationDetail = {
 	sections?: SectionsInfo;
 };
 
-export default function LocationDetailPage(): JSX.Element {
+export default function LocationDetailPage(): ReactElement {
 	const { id } = useParams<{ id: string }>();
 	const navigate = useNavigate();
 	const locationState = useLocation();

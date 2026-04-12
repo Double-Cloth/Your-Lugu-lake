@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ReactElement } from "react";
 import { Button, Card, Selector, Toast } from "antd-mobile";
 
 import { generateRoute, getUserToken } from "../api";
@@ -41,7 +42,7 @@ const groupOptions = [
 	{ label: "独行", value: "solo" },
 ];
 
-export default function GuidePage(): JSX.Element {
+export default function GuidePage(): ReactElement {
 	const [duration, setDuration] = useState<string[]>(["one-day"]);
 	const [preference, setPreference] = useState<string[]>(["mixed"]);
 	const [groupType, setGroupType] = useState<string[]>(["friends"]);

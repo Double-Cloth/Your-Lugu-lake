@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { ReactElement } from "react";
 import { Toast } from "antd-mobile";
 import { useNavigate } from "react-router-dom";
 
@@ -12,7 +13,7 @@ type LoginResponse = {
 	role?: string;
 };
 
-export default function AdminLoginPage(): JSX.Element {
+export default function AdminLoginPage(): ReactElement {
 	const [username, setUsername] = useState<string>("admin");
 	const [password, setPassword] = useState<string>("");
 	const [loading, setLoading] = useState<boolean>(false);

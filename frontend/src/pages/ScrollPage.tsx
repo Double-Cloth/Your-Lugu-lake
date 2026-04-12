@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactElement } from "react";
 import { Toast } from "antd-mobile";
 import html2canvas from "html2canvas";
 import { useNavigate } from "react-router-dom";
@@ -52,7 +53,7 @@ function formatDateOnly(value: Date | null): string {
 	});
 }
 
-export default function ScrollPage(): JSX.Element {
+export default function ScrollPage(): ReactElement {
 	const navigate = useNavigate();
 	const [loading, setLoading] = useState<boolean>(false);
 	const [exportingImage, setExportingImage] = useState<boolean>(false);
