@@ -239,17 +239,17 @@ updateAdminQrcode(qrcodeId, payload, token)
 
 ---
 
-## 📝 文件清单
+## 文件清单
 
 ### 后端新增/修改
-- ✨ `backend/app/models/qrcode.py` (新建)
-- 📝 `backend/app/models/__init__.py` (修改)
-- ✨ `backend/app/schemas/admin.py` (新建)
-- 🔄 `backend/app/api/admin.py` (大幅扩展)
+- `backend/app/models/qrcode.py` (新建)
+- `backend/app/models/__init__.py` (修改)
+- `backend/app/schemas/admin.py` (新建)
+- `backend/app/api/admin.py` (大幅扩展)
 
 ### 前端新增/修改  
-- 🔄 `frontend/src/pages/admin/AdminDashboardPage.jsx` (完全重构)
-- 🔄 `frontend/src/api.js` (新增API调用)
+- `frontend/src/pages/admin/AdminDashboardPage.tsx` (完全重构)
+- `frontend/src/api.js` (新增 API 调用)
 
 ---
 

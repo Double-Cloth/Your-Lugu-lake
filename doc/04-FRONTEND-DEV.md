@@ -22,7 +22,7 @@ frontend/src/
    ├─ ProfilePage.jsx
    └─ admin/
       ├─ AdminLoginPage.jsx
-      └─ AdminDashboardPage.jsx
+      └─ AdminDashboardPage.tsx
 ```
 
 ## 路由

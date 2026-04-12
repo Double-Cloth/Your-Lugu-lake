@@ -37,7 +37,7 @@ frontend/src/
 │  ├─ ProfilePage.jsx
 │  └─ admin/
 │     ├─ AdminLoginPage.jsx
-│     └─ AdminDashboardPage.jsx
+│     └─ AdminDashboardPage.tsx
 └─ components/
    ├─ PageHeader.jsx
    └─ AIFloatingBall.jsx

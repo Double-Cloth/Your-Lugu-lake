@@ -24,7 +24,6 @@ frontend/
 │   ├── pages/
 │   │   ├── HomePage.jsx             # 首页 (待优化)
 │   │   ├── ProfilePage.jsx          # 个人资料页
-│   │   ├── profilePage-optimized.jsx # 优化参考版本
 │   │   └── ...其他页面
 │   ├── styles.css                   # 全局样式 (已现代化)
 │   ├── App.jsx
@@ -35,7 +34,7 @@ frontend/
 └── vite.config.js
 ```
 
-## 🎯 核心设计系统
+## 核心设计系统
 
 ### 1. 色彩系统
 
@@ -184,18 +183,18 @@ import LucideIcon, { IconNames } from '../components/LucideIcon';
 // 更多图标见 lucide-react 官方文档
 ```
 
-## 🎯 迁移指南
+## 迁移指南
 
 ### 从旧 CSS 迁移到 Tailwind
 
-#### ❌ 旧方式
+#### 旧方式
 ```jsx
 <div className="custom-card-style">
   <h2 className="custom-title">标题</h2>
 </div>
 ```
 
-#### ✅ 新方式
+#### 新方式
 ```jsx
 import { CardComponent } from '../components/SharedUI';
 
@@ -218,7 +217,7 @@ import { CardComponent } from '../components/SharedUI';
 | `display: flex` | `flex` |
 | `justify-content: center` | `justify-center` |
 
-## 📝 样式优先级
+## 样式优先级
 
 1. **Tailwind 实用类** - 优先使用 (布局、间距、颜色)
 2. **自定义组件类** - 复杂交互和状态 (.card, .hero-shell)
@@ -250,23 +249,23 @@ animation: {
 }
 ```
 
-## 💡 最佳实践
+## 最佳实践
 
-### ✅ Do's
+### 推荐做法
 1. **使用 Tailwind 类** 而不是自写 CSS
 2. **复用共享组件** (CardComponent, ButtonComponent)
 3. **保持响应式** - 使用 `sm:`, `md:`, `lg:` 断点
 4. **使用色彩系统** - lake-*, wood-*, accent-* 颜色
 5. **配合 Lucide 图标** - 保持视觉一致
 
-### ❌ Don'ts
+### 避免事项
 1. ❌ 不要创建新的全局 CSS 样式
 2. ❌ 不要使用 inline styles
 3. ❌ 不要硬编码颜色值
 4. ❌ 不要重复编写相同的组件
 5. ❌ 不要混合多个 UI 库的样式
 
-## 📱 响应式设计
+## 响应式设计
 
 ### 断点
 
@@ -289,7 +288,7 @@ lg: '1024px'
 </div>
 ```
 
-## 🧪 测试和QA
+## 测试和QA
 
 ### 检查清单
 
@@ -300,7 +299,7 @@ lg: '1024px'
 - [ ] 动画帧率稳定 (60fps)
 - [ ] 响应式断点正确
 
-## 📧 支持和问题
+## 支持和问题
 
 ### 常见问题
 
@@ -313,7 +312,7 @@ A: 在 `tailwind.config.js` 的 `colors` 部分添加新的色彩定义。
 **Q: 能否混合使用 Ant Design 和 Tailwind？**
 A: 可以，但优先使用 Tailwind 类，避免样式冲突。需在 `postcss.config.js` 中正确配置。
 
-## 🚀 部署
+## 部署
 
 确保以下步骤在部署前已完成：
 
@@ -331,7 +330,7 @@ ls dist/
 # Dockerfile 已配置，直接部署即可
 ```
 
-## 📚 参考资源
+## 参考资源
 
 - [Tailwind CSS 官方文档](https://tailwindcss.com/docs)
 - [Ant Design Mobile 组件库](https://mobile.ant.design/)

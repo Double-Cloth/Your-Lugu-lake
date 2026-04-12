@@ -158,11 +158,29 @@ Windows PowerShell：
 
 说明：前端通过 VITE_PROXY_TARGET 将 /api 和 /uploads 代理到后端。
 
-## 9. 关键配置说明
+## 9. 前端代码现状与规范
+
+本仓库保留渐进式前端语言迁移的历史记录，当前不再继续扩大迁移范围。历史记录见 [TYPESCRIPT-MIGRATION.md](./TYPESCRIPT-MIGRATION.md)。
+
+### 9.1 代码约定
+- 新增代码优先使用 TypeScript（`.ts` / `.tsx` 文件）
+- 类型定义优先使用 `interface`，避免不必要的 `any`
+- 既有页面按当前实现保持兼容，避免为了统一格式引入额外风险
+
+### 9.2 构建与检查
+```bash
+# 增量检查（快速反馈）
+npm run build
+
+# 完整类型检查（开发时可选）
+npx tsc --noEmit
+```
+
+## 10. 关键配置说明
 
 配置文件来源：根目录 .env.example。
 
-### 9.1 基础运行配置
+### 10.1 基础运行配置
 
 - APP_ENV：环境标识（development 或 production）
 - ALLOWED_HOSTS：允许访问的 Host 白名单
@@ -170,12 +188,12 @@ Windows PowerShell：
 - BACKEND_PORT、FRONTEND_PORT：服务端口
 - BACKEND_BIND_HOST、FRONTEND_BIND_HOST：服务绑定地址（生产建议后端绑定 127.0.0.1）
 
-### 9.2 数据库配置
+### 10.2 数据库配置
 
 - POSTGRES_DB、POSTGRES_USER、POSTGRES_PASSWORD
 - DB_HOST、DB_PORT（Compose 场景建议 DB_HOST=db、DB_PORT=5432）
 
-### 9.3 安全配置
+### 10.3 安全配置
 
 - SESSION_COOKIE_SECURE：生产环境需设为 true
 - SESSION_COOKIE_SAMESITE、SESSION_COOKIE_DOMAIN
@@ -184,12 +202,12 @@ Windows PowerShell：
 - PASSWORD_TRANSPORT_PRIVATE_KEY_PEM
 - PASSWORD_TRANSPORT_ALLOW_PLAINTEXT_FALLBACK（生产建议 false）
 
-### 9.4 AI 配置
+### 10.4 AI 配置
 
 - DASHSCOPE_API_KEY
 - DASHSCOPE_MODEL（默认 qwen-plus）
 
-## 10. 鉴权与权限模型
+## 11. 鉴权与权限模型
 
 - 会话载体：HttpOnly Cookie
 - CSRF：对写请求强制校验 Header
@@ -200,13 +218,13 @@ Windows PowerShell：
 
 兼容说明：后端保留 Bearer Header 兼容能力，推荐优先使用 Cookie 会话。
 
-## 11. API 能力概览
+## 12. API 能力概览
 
-### 11.1 健康检查
+### 12.1 健康检查
 
 - GET /health
 
-### 11.2 认证与用户
+### 12.2 认证与用户
 
 - POST /api/auth/register
 - POST /api/auth/login
@@ -215,19 +233,19 @@ Windows PowerShell：
 - PUT /api/auth/me
 - GET /api/auth/password-public-key
 
-### 11.3 景点与知识库
+### 12.3 景点与知识库
 
 - GET /api/locations
 - GET /api/locations/{location_id}
 - GET /api/locations/knowledge-base/{slug}
 - GET /api/locations/knowledge-base/{slug}/images
 
-### 11.4 打卡
+### 12.4 打卡
 
 - POST /api/footprints
 - GET /api/footprints/me
 
-### 11.5 AI 与路线
+### 12.5 AI 与路线
 
 - POST /api/routes/generate
 - GET /api/routes/my
@@ -235,7 +253,7 @@ Windows PowerShell：
 - GET /api/routes/chat/history
 - DELETE /api/routes/chat/history/{session_key}
 
-### 11.6 管理端
+### 12.6 管理端
 
 - GET /api/admin/stats
 - POST /api/admin/locations
@@ -247,9 +265,9 @@ Windows PowerShell：
 
 完整参数与响应示例见文档中心中的 API 指南。
 
-## 12. 数据初始化与内容维护
+## 13. 数据初始化与内容维护
 
-### 12.1 启动初始化
+### 13.1 启动初始化
 
 容器启动命令会自动执行 seed 脚本，初始化管理员账号与基础景点数据。
 
@@ -258,7 +276,7 @@ Windows PowerShell：
 
 生产环境应在首次部署前设置强口令（建议在 `.env` 中配置 `SEED_ADMIN_PASSWORD`）。
 
-### 12.2 知识库维护规范
+### 13.2 知识库维护规范
 
 知识库目录：knowledge-base。
 
@@ -280,9 +298,9 @@ Windows PowerShell：
 - 新增景点时同步维护 locations/index.json 与对应 slug 目录。
 - 发布前对 JSON 做格式校验，避免运行期解析错误。
 
-## 13. 运维与发布建议
+## 14. 运维与发布建议
 
-### 13.1 生产部署最低要求
+### 14.1 生产部署最低要求
 
 - APP_ENV=production
 - SESSION_COOKIE_SECURE=true
@@ -291,7 +309,7 @@ Windows PowerShell：
 - 使用强 SECRET_KEY 与强数据库密码
 - 关闭密码明文回退：PASSWORD_TRANSPORT_ALLOW_PLAINTEXT_FALLBACK=false
 
-### 13.2 启动后验证清单
+### 14.2 启动后验证清单
 
 	curl http://localhost:18000/health
 	curl http://localhost:18000/docs
@@ -302,7 +320,7 @@ Windows PowerShell：
 - 登录后浏览器存在会话 Cookie 与 CSRF Cookie
 - 管理端统计接口可正常返回
 
-## 14. 常见问题与排障
+## 15. 常见问题与排障
 
 - 新增接口后仍返回 404：确认容器已重启并加载新代码。
 - 写接口返回 403：核对 X-CSRF-Token Header 与 CSRF Cookie 是否一致。
@@ -310,7 +328,7 @@ Windows PowerShell：
 - AI 接口超时：可为 AI 请求配置更长单独超时，避免受全局超时限制。
 - 登录异常：优先检查数据库是否就绪及 seed 是否成功执行。
 
-## 15. 文档索引
+## 16. 文档索引
 
 - [文档总览](doc/README.md)
 - [架构设计](doc/01-ARCHITECTURE.md)
@@ -320,7 +338,8 @@ Windows PowerShell：
 - [后端开发指南](doc/05-BACKEND-DEV.md)
 - [部署与运维](doc/06-DEPLOYMENT.md)
 - [知识库接入规范](doc/07-KNOWLEDGE-BASE-INTEGRATION.md)
+- [TypeScript 迁移进度](TYPESCRIPT-MIGRATION.md)
 
-## 16. 许可证
+## 17. 许可证
 
 本项目采用 MIT 许可证，详见 [LICENSE](LICENSE)。
