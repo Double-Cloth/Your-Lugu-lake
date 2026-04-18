@@ -554,9 +554,25 @@ export default function HomePage() {
 
   return (
     <ImmersivePage bgImage={LUGU_LAKE_BG_URL} className="page-fade-in pt-0 pb-0 flex-1 flex flex-col relative w-full">
-      {/* 顶部紧凑栏：天气与外部服务 */}
-      <div className="w-full pt-4 sm:pt-6 z-20 flex justify-center shrink-0">
-        <div className="w-full max-w-xl flex flex-wrap justify-between items-center gap-y-3">
+      {/* 顶部标题：泸沽湖智慧文旅 */}
+      <div className="w-full pt-8 sm:pt-10 z-20 flex justify-center shrink-0">
+        <div className="w-full max-w-xl text-center relative text-shadow-md">
+          <div className="inline-block bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-white/95 text-xs tracking-widest mb-4 border border-white/20 shadow-lg">
+            欢迎来到泸沽湖景区
+          </div>
+          <h1 className="text-[34px] md:text-[40px] font-bold text-white mb-4 tracking-[0.15em] font-serif drop-shadow-lg">
+            泸沽湖智慧文旅
+          </h1>
+          <p className="text-white/85 text-[15px] tracking-[0.3em] font-light drop-shadow-md pl-1">
+            看风景 · 懂文化 · 走路线
+          </p>
+        </div>
+      </div>
+
+      {/* 主体小组件 + 导航选项区域 */}
+      <div className="flex-1 flex flex-col justify-center items-center w-full pb-8 sm:pb-10 mt-safe">
+        {/* 天气与外部服务组件置于卡片上方 */}
+        <div className="w-full max-w-xl flex flex-wrap justify-between items-center gap-y-3 mb-6 sm:mb-8 px-4 z-20 shrink-0">
           <div className="group flex items-center gap-2.5 px-1.5 py-1.5 pr-4 rounded-full bg-black/20 backdrop-blur-md border border-white/20 shadow-[0_4px_24px_rgba(0,0,0,0.15)] hover:bg-black/30 transition-all cursor-pointer"
                onClick={() => openExternalLink(officialServiceLinks.weather?.url, "查看完整天气预报")}>
             {weatherInfo.loading ? (
@@ -634,20 +650,8 @@ export default function HomePage() {
             </button>
           </div>
         </div>
-      </div>
 
-      {/* 主体自适应滑动/居中区域 */}
-      <div className="flex-1 flex flex-col justify-center items-center w-full pt-1 pb-8 sm:pb-10 mt-safe">
-        <div className="w-full max-w-xl text-center mb-8 sm:mb-12 z-10 relative text-shadow-md shrink-0">
-          <h1 className="text-[34px] md:text-[40px] font-bold text-white mb-4 tracking-[0.15em] font-serif drop-shadow-lg">
-            泸沽湖智慧文旅
-          </h1>
-          <p className="text-white/85 text-[15px] tracking-[0.3em] font-light drop-shadow-md pl-1">
-            看风景 · 懂文化 · 走路线
-          </p>
-        </div>
-
-        <div className="w-full max-w-xl space-y-4 pb-4 z-10 relative">
+        <div className="w-full max-w-xl space-y-4 pb-4 z-10 relative px-4">
           <button type="button" className="home-func-btn home-func-btn-1" onClick={() => openPanel("overview")}>
             <img src="/images/buttons/func_1_icon.png" alt="" className="home-func-icon" aria-hidden="true" />
             <div className="home-func-text">
