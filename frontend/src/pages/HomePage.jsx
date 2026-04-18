@@ -19,6 +19,33 @@ import {
 import { clearUserSession, withUserSessionPath } from "../auth";
 
 const LUGU_LAKE_BG_URL = "/images/lugu-hero.png";
+const LUGU_LAKE_WEATHER_POINT = {
+  latitude: 27.6931,
+  longitude: 100.7883,
+  name: "泸沽湖",
+};
+
+const WEATHER_CODE_LABELS = {
+  0: "晴朗",
+  1: "大部晴朗",
+  2: "局部多云",
+  3: "多云",
+  45: "有雾",
+  48: "冻雾",
+  51: "小毛毛雨",
+  53: "中毛毛雨",
+  55: "大毛毛雨",
+  61: "小雨",
+  63: "中雨",
+  65: "大雨",
+  71: "小雪",
+  73: "中雪",
+  75: "大雪",
+  80: "阵雨",
+  81: "较强阵雨",
+  82: "强阵雨",
+  95: "雷暴",
+};
 
 const CULTURE_DURATION_OPTIONS = [
   { label: "半天", value: "half-day" },
@@ -93,6 +120,25 @@ function buildNeedFromDraft(draft) {
   return `我计划${durationText}出游，同行人群是${groupText}，希望以${focusText}为主，节奏偏${paceText}。`;
 }
 
+function resolveWeatherLabel(code) {
+  const numericCode = Number(code);
+  return WEATHER_CODE_LABELS[numericCode] || "天气更新中";
+}
+
+function formatTemperature(value) {
+  return Number.isFinite(value) ? `${Math.round(value)}℃` : "--";
+}
+
+function openExternalLink(url, fallbackMessage) {
+  const targetUrl = typeof url === "string" ? url.trim() : "";
+  if (!targetUrl) {
+    Toast.show({ content: fallbackMessage });
+    return;
+  }
+
+  window.open(targetUrl, "_blank", "noopener,noreferrer");
+}
+
 export default function HomePage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -120,6 +166,16 @@ export default function HomePage() {
   const [nearbyGuides, setNearbyGuides] = useState({ spots: [], hotels: [] });
   const [kbOverview, setKbOverview] = useState(null);
   const [kbEcoGuide, setKbEcoGuide] = useState(null);
+  const [weatherInfo, setWeatherInfo] = useState({
+    loading: true,
+    temperature: null,
+    condition: "",
+    windSpeed: null,
+    high: null,
+    low: null,
+    updatedAt: "",
+    note: "",
+  });
 
   useEffect(() => {
     const panelFromState = location.state?.openPanel;
@@ -268,6 +324,71 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadWeather() {
+      setWeatherInfo((prev) => ({ ...prev, loading: true }));
+
+      try {
+        const params = new URLSearchParams({
+          latitude: String(LUGU_LAKE_WEATHER_POINT.latitude),
+          longitude: String(LUGU_LAKE_WEATHER_POINT.longitude),
+          current: "temperature_2m,weather_code,wind_speed_10m",
+          daily: "temperature_2m_max,temperature_2m_min",
+          timezone: "Asia/Shanghai",
+          forecast_days: "1",
+        });
+
+        const response = await fetch(`https://api.open-meteo.com/v1/forecast?${params.toString()}`, {
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error("weather request failed");
+        }
+
+        const data = await response.json();
+        const current = data?.current || {};
+        const daily = data?.daily || {};
+        const maxTemperature = Array.isArray(daily.temperature_2m_max) ? daily.temperature_2m_max[0] : null;
+        const minTemperature = Array.isArray(daily.temperature_2m_min) ? daily.temperature_2m_min[0] : null;
+
+        setWeatherInfo({
+          loading: false,
+          temperature: Number.isFinite(current.temperature_2m) ? current.temperature_2m : null,
+          condition: resolveWeatherLabel(current.weather_code),
+          windSpeed: Number.isFinite(current.wind_speed_10m) ? current.wind_speed_10m : null,
+          high: Number.isFinite(maxTemperature) ? maxTemperature : null,
+          low: Number.isFinite(minTemperature) ? minTemperature : null,
+          updatedAt: current.time || "",
+          note: "湖区昼夜温差通常较明显，建议随身带一件薄外套。",
+        });
+      } catch (error) {
+        if (error?.name === "AbortError") {
+          return;
+        }
+
+        setWeatherInfo({
+          loading: false,
+          temperature: null,
+          condition: "天气暂不可用",
+          windSpeed: null,
+          high: null,
+          low: null,
+          updatedAt: "",
+          note: "建议以手机天气 App 的实时数据为准。",
+        });
+      }
+    }
+
+    void loadWeather();
+
+    return () => {
+      controller.abort();
+    };
+  }, []);
+
+  useEffect(() => {
     return undefined;
   }, []);
 
@@ -321,6 +442,13 @@ export default function HomePage() {
     () => locations.filter((item) => item.audio_url),
     [locations]
   );
+  const officialServiceLinks = useMemo(() => {
+    return {
+      ticket: kbOverview?.ticketing || {},
+      shop: kbOverview?.shop || {},
+      weather: { url: "https://m.baidu.com/s?word=泸沽湖风景区天气预报" } // 适配移动端和PC端的普适版
+    };
+  }, [kbOverview]);
 
   function openPanel(name) {
     setActivePanel(name);
@@ -426,8 +554,85 @@ export default function HomePage() {
 
   return (
     <ImmersivePage bgImage={LUGU_LAKE_BG_URL} className="page-fade-in pt-0 pb-0 flex-1">
-      <div className="flex-1 flex flex-col justify-center items-center h-full w-full px-4 py-6 sm:py-8">
-        <div className="w-full max-w-xl text-center mb-6 z-10 relative text-shadow-md">
+      {/* 顶部紧凑栏：天气与外部服务 */}
+      <div className="absolute top-4 sm:top-6 left-0 w-full px-4 z-20 flex justify-center">
+        <div className="w-full max-w-xl flex justify-between items-center">
+          <div className="home-top-pill home-top-pill-weather shadow-lg border border-white/20 hover:border-white/40 transition-colors backdrop-blur-md bg-black/40 flex items-center gap-2 pl-3 pr-4 py-1.5 rounded-full cursor-pointer hover:bg-black/50"
+               onClick={() => openExternalLink(officialServiceLinks.weather?.url, "查看完整天气预报")}>
+            {weatherInfo.loading ? (
+              <span className="text-[11px] text-white/90 px-1 py-0.5 flex items-center gap-1">
+                <DotLoading color="white" />
+              </span>
+            ) : (
+              <>
+                <div className="flex items-center justify-center bg-black/30 p-1 rounded-full">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-400 drop-shadow-md">
+                    <circle cx="12" cy="12" r="4"/>
+                    <path d="M12 2v2"/>
+                    <path d="M12 20v2"/>
+                    <path d="m4.93 4.93 1.41 1.41"/>
+                    <path d="m17.66 17.66 1.41 1.41"/>
+                    <path d="M2 12h2"/>
+                    <path d="M20 12h2"/>
+                    <path d="m6.34 17.66-1.41 1.41"/>
+                    <path d="m19.07 4.93-1.41 1.41"/>
+                  </svg>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-sm font-bold text-white tracking-wide leading-tight drop-shadow-md flex items-center gap-1">
+                    {formatTemperature(weatherInfo.temperature)}
+                    <span className="text-[10px] font-normal opacity-90 drop-shadow-md">泸沽湖</span>
+                  </span>
+                  <span className="text-[10px] sm:text-xs text-white/95 leading-none drop-shadow-md">
+                    {weatherInfo.condition}
+                  </span>
+                </div>
+              </>
+            )}
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <button 
+              type="button" 
+              className="home-top-pill home-top-pill-action flex items-center justify-center gap-1.5 shadow-md bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 border border-white/20 px-4 py-1.5 rounded-full text-white transition-all transform hover:scale-105 active:scale-95"
+              onClick={() => {
+                openExternalLink(
+                  officialServiceLinks.ticket?.url,
+                  officialServiceLinks.ticket?.hint || "开发中"
+                );
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-100 drop-shadow-md">
+                <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"></path>
+                <path d="M13 5v2"></path>
+                <path d="M13 17v2"></path>
+                <path d="M13 11v2"></path>
+              </svg>
+              <span className="font-semibold text-xs drop-shadow-md tracking-wide">购票</span>
+            </button>
+            <button 
+              type="button" 
+              className="home-top-pill home-top-pill-action flex items-center justify-center gap-1.5 shadow-md bg-black/40 hover:bg-black/50 border border-white/20 px-3 py-1.5 rounded-full text-white transition-all transform hover:scale-105 active:scale-95 backdrop-blur-md"
+              onClick={() => {
+                openExternalLink(
+                  officialServiceLinks.shop?.url,
+                  officialServiceLinks.shop?.hint || "开发中"
+                );
+              }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-90 drop-shadow-md">
+                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"></path>
+                <path d="M3 6h18"></path>
+                <path d="M16 10a4 4 0 0 1-8 0"></path>
+              </svg>
+              <span className="font-medium text-xs tracking-wide drop-shadow-md">商城</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex-1 flex flex-col justify-center items-center h-full w-full px-4 py-8 sm:py-10 mt-6 mt-safe">
+        <div className="w-full max-w-xl text-center mb-8 z-10 relative text-shadow-md">
           <div className="inline-block bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-white/95 text-xs tracking-widest mb-4 border border-white/20 shadow-lg">
             欢迎来到泸沽湖景区
           </div>

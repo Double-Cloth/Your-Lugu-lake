@@ -844,6 +844,24 @@ body,
   color: #46523a;
 }
 
+.home-top-pill {
+  @apply flex items-center gap-1.5 px-3 sm:px-4 py-[5px] sm:py-1.5 rounded-full transition-all duration-300;
+  /* Background properties are now handled mostly by Tailwind classes where appropriate */
+}
+
+.home-top-pill-weather {
+  /* No special styles needed anymore, driven by Tailwind */
+}
+
+.home-top-pill-action {
+  @apply text-[11px] sm:text-xs font-medium text-white/90 cursor-pointer active:scale-95;
+}
+
+.home-top-pill-action:hover, .home-top-pill-action:active {
+  /* Background hover is handled by tailwind */
+  @apply text-white;
+}
+
 @media (max-width: 420px) {
   .home-func-btn {
     min-height: 86px;
