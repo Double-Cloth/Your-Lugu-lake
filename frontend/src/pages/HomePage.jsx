@@ -553,10 +553,10 @@ export default function HomePage() {
   }
 
   return (
-    <ImmersivePage bgImage={LUGU_LAKE_BG_URL} className="page-fade-in pt-0 pb-0 flex-1">
+    <ImmersivePage bgImage={LUGU_LAKE_BG_URL} className="page-fade-in pt-0 pb-0 flex-1 flex flex-col relative w-full h-full overflow-hidden">
       {/* 顶部紧凑栏：天气与外部服务 */}
-      <div className="absolute top-4 sm:top-6 left-0 w-full px-4 z-20 flex justify-center">
-        <div className="w-full max-w-xl flex justify-between items-center">
+      <div className="w-full px-4 pt-4 sm:pt-6 z-20 flex justify-center shrink-0">
+        <div className="w-full max-w-xl flex flex-wrap justify-between items-center gap-y-3">
           <div className="home-top-pill home-top-pill-weather shadow-lg border border-white/20 hover:border-white/40 transition-colors backdrop-blur-md bg-black/40 flex items-center gap-2 pl-3 pr-4 py-1.5 rounded-full cursor-pointer hover:bg-black/50"
                onClick={() => openExternalLink(officialServiceLinks.weather?.url, "查看完整天气预报")}>
             {weatherInfo.loading ? (
@@ -631,8 +631,9 @@ export default function HomePage() {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col justify-center items-center h-full w-full px-4 py-8 sm:py-10 mt-6 mt-safe">
-        <div className="w-full max-w-xl text-center mb-8 z-10 relative text-shadow-md">
+      {/* 主体自适应滑动/居中区域 */}
+      <div className="flex-1 flex flex-col justify-center items-center w-full px-4 pt-6 pb-8 sm:py-10 mt-safe overflow-y-auto no-scrollbar">
+        <div className="w-full max-w-xl text-center mb-6 sm:mb-8 z-10 relative text-shadow-md shrink-0">
           <div className="inline-block bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-white/95 text-xs tracking-widest mb-4 border border-white/20 shadow-lg">
             欢迎来到泸沽湖景区
           </div>
