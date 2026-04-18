@@ -557,16 +557,16 @@ export default function HomePage() {
       {/* 顶部紧凑栏：天气与外部服务 */}
       <div className="w-full pt-4 sm:pt-6 z-20 flex justify-center shrink-0">
         <div className="w-full max-w-xl flex flex-wrap justify-between items-center gap-y-3">
-          <div className="home-top-pill home-top-pill-weather shadow-lg border border-white/20 hover:border-white/40 transition-colors backdrop-blur-md bg-black/40 flex items-center gap-2 pl-3 pr-4 py-1.5 rounded-full cursor-pointer hover:bg-black/50"
+          <div className="group flex items-center gap-2.5 px-1.5 py-1.5 pr-4 rounded-full bg-black/20 backdrop-blur-md border border-white/20 shadow-[0_4px_24px_rgba(0,0,0,0.15)] hover:bg-black/30 transition-all cursor-pointer"
                onClick={() => openExternalLink(officialServiceLinks.weather?.url, "查看完整天气预报")}>
             {weatherInfo.loading ? (
-              <span className="text-[11px] text-white/90 px-1 py-0.5 flex items-center gap-1">
+              <span className="text-[11px] text-white/90 px-3 py-1 flex items-center gap-1">
                 <DotLoading color="white" />
               </span>
             ) : (
               <>
-                <div className="flex items-center justify-center bg-black/30 p-1 rounded-full">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-yellow-400 drop-shadow-md">
+                <div className="w-8 h-8 shrink-0 flex items-center justify-center rounded-full bg-gradient-to-br from-blue-400/80 to-sky-500/80 shadow-inner group-hover:scale-105 transition-transform">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white drop-shadow-sm">
                     <circle cx="12" cy="12" r="4"/>
                     <path d="M12 2v2"/>
                     <path d="M12 20v2"/>
@@ -579,12 +579,13 @@ export default function HomePage() {
                   </svg>
                 </div>
                 <div className="flex flex-col">
-                  <span className="text-sm font-bold text-white tracking-wide leading-tight drop-shadow-md flex items-center gap-1">
-                    {formatTemperature(weatherInfo.temperature)}
-                    <span className="text-[10px] font-normal opacity-90 drop-shadow-md">泸沽湖</span>
-                  </span>
-                  <span className="text-[10px] sm:text-xs text-white/95 leading-none drop-shadow-md">
-                    {weatherInfo.condition}
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-sm font-extrabold text-white tracking-wide drop-shadow-sm">
+                      {formatTemperature(weatherInfo.temperature)}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-white/90 leading-none tracking-wide drop-shadow-sm">
+                    {weatherInfo.condition} 泸沽湖
                   </span>
                 </div>
               </>
@@ -594,7 +595,7 @@ export default function HomePage() {
           <div className="flex items-center gap-2">
             <button 
               type="button" 
-              className="home-top-pill home-top-pill-action flex items-center justify-center gap-1.5 shadow-md bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 border border-white/20 px-4 py-1.5 rounded-full text-white transition-all transform hover:scale-105 active:scale-95"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/20 backdrop-blur-md border border-white/20 shadow-[0_4px_24px_rgba(0,0,0,0.15)] hover:bg-black/30 transition-all active:scale-95 group"
               onClick={() => {
                 openExternalLink(
                   officialServiceLinks.ticket?.url,
@@ -602,17 +603,19 @@ export default function HomePage() {
                 );
               }}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-100 drop-shadow-md">
-                <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"></path>
-                <path d="M13 5v2"></path>
-                <path d="M13 17v2"></path>
-                <path d="M13 11v2"></path>
-              </svg>
-              <span className="font-semibold text-xs drop-shadow-md tracking-wide">购票</span>
+              <div className="w-6 h-6 flex items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-red-500 shadow-inner group-hover:scale-105 transition-transform text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-sm">
+                  <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"></path>
+                  <path d="M13 5v2"></path>
+                  <path d="M13 17v2"></path>
+                  <path d="M13 11v2"></path>
+                </svg>
+              </div>
+              <span className="text-xs font-bold text-white tracking-wider pr-1 drop-shadow-sm">购票</span>
             </button>
             <button 
               type="button" 
-              className="home-top-pill home-top-pill-action flex items-center justify-center gap-1.5 shadow-md bg-black/40 hover:bg-black/50 border border-white/20 px-3 py-1.5 rounded-full text-white transition-all transform hover:scale-105 active:scale-95 backdrop-blur-md"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/20 backdrop-blur-md border border-white/20 shadow-[0_4px_24px_rgba(0,0,0,0.15)] hover:bg-black/30 transition-all active:scale-95 group"
               onClick={() => {
                 openExternalLink(
                   officialServiceLinks.shop?.url,
@@ -620,27 +623,26 @@ export default function HomePage() {
                 );
               }}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="opacity-90 drop-shadow-md">
-                <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"></path>
-                <path d="M3 6h18"></path>
-                <path d="M16 10a4 4 0 0 1-8 0"></path>
-              </svg>
-              <span className="font-medium text-xs tracking-wide drop-shadow-md">商城</span>
+              <div className="w-6 h-6 flex items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 shadow-inner group-hover:scale-105 transition-transform text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-sm">
+                  <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"></path>
+                  <path d="M3 6h18"></path>
+                  <path d="M16 10a4 4 0 0 1-8 0"></path>
+                </svg>
+              </div>
+              <span className="text-xs font-bold text-white tracking-wider pr-1 drop-shadow-sm">商城</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* 主体自适应滑动/居中区域 */}
-      <div className="flex-1 flex flex-col justify-center items-center w-full pt-6 pb-8 sm:py-10 mt-safe">
-        <div className="w-full max-w-xl text-center mb-6 sm:mb-8 z-10 relative text-shadow-md shrink-0">
-          <div className="inline-block bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-white/95 text-xs tracking-widest mb-4 border border-white/20 shadow-lg">
-            欢迎来到泸沽湖景区
-          </div>
-          <h1 className="text-[32px] md:text-4xl font-bold text-white mb-3 tracking-[0.1em] font-serif drop-shadow-md">
+      <div className="flex-1 flex flex-col justify-center items-center w-full pt-1 pb-8 sm:pb-10 mt-safe">
+        <div className="w-full max-w-xl text-center mb-8 sm:mb-12 z-10 relative text-shadow-md shrink-0">
+          <h1 className="text-[34px] md:text-[40px] font-bold text-white mb-4 tracking-[0.15em] font-serif drop-shadow-lg">
             泸沽湖智慧文旅
           </h1>
-          <p className="text-white/80 text-sm tracking-widest drop-shadow">
+          <p className="text-white/85 text-[15px] tracking-[0.3em] font-light drop-shadow-md pl-1">
             看风景 · 懂文化 · 走路线
           </p>
         </div>
