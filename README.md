@@ -320,15 +320,7 @@ npx tsc --noEmit
 - 登录后浏览器存在会话 Cookie 与 CSRF Cookie
 - 管理端统计接口可正常返回
 
-## 15. 常见问题与排障
-
-- 新增接口后仍返回 404：确认容器已重启并加载新代码。
-- 写接口返回 403：核对 X-CSRF-Token Header 与 CSRF Cookie 是否一致。
-- Docker 中 AI 回复泛化或空内容：确认知识库挂载到 /knowledge-base。
-- AI 接口超时：可为 AI 请求配置更长单独超时，避免受全局超时限制。
-- 登录异常：优先检查数据库是否就绪及 seed 是否成功执行。
-
-## 16. 文档索引
+## 15. 文档索引
 
 - [文档总览](doc/README.md)
 - [架构设计](doc/01-ARCHITECTURE.md)
@@ -340,6 +332,6 @@ npx tsc --noEmit
 - [知识库接入规范](doc/07-KNOWLEDGE-BASE-INTEGRATION.md)
 - [TypeScript 迁移进度](TYPESCRIPT-MIGRATION.md)
 
-## 17. 许可证
+## 16. 许可证
 
 本项目采用 MIT 许可证，详见 [LICENSE](LICENSE)。
