@@ -8,7 +8,7 @@
 ![React](https://img.shields.io/badge/react-18-61dafb)
 ![FastAPI](https://img.shields.io/badge/fastapi-0.115-009485)
 
-面向泸沽湖文旅场景的全栈导览系统，提供游客端导览、AI 交互、足迹沉淀和管理端运维能力。
+面向泸沽湖文旅场景的全栈导览系统，提供游客端导览、AI 交互、足迹沉淀和管理端运维能力
 
 </div>
 
