@@ -955,35 +955,6 @@ def _build_product_prompt(scene_context: dict | None) -> str:
     )
 
 
-def _extract_dashscope_text(data: dict) -> str:
-    output = data.get("output", {}) if isinstance(data, dict) else {}
-    choices = output.get("choices", []) if isinstance(output, dict) else []
-    if not isinstance(choices, list) or not choices:
-        return ""
-
-    message = choices[0].get("message", {}) if isinstance(choices[0], dict) else {}
-    content = message.get("content", "") if isinstance(message, dict) else ""
-
-    if isinstance(content, str):
-        return content.strip()
-    if isinstance(content, list):
-        texts: list[str] = []
-        for item in content:
-            if isinstance(item, str):
-                texts.append(item)
-            elif isinstance(item, dict):
-                text = item.get("text")
-                if isinstance(text, str):
-                    texts.append(text)
-        return "\n".join([x.strip() for x in texts if x and x.strip()]).strip()
-    if isinstance(content, dict):
-        text = content.get("text")
-        if isinstance(text, str):
-            return text.strip()
-
-    return ""
-
-
 _KB_LINE_RE = re.compile(r"^\[(\d+)\]\s*来源=([^\s]+)\s+内容=(.*)$")
 
 
@@ -1106,35 +1077,30 @@ def generate_route(requirement: dict, locations: list) -> dict:
 
     prompt = {
         "role": "user",
-        "content": [
-            {
-                "text": (
-                    "请基于以下泸沽湖景点生成一天的时间轴路线，返回严格JSON："
-                    "{title,preference,timeline:[{time,location,stay_minutes,highlight}]}。"
-                    f"用户需求: {json.dumps(requirement, ensure_ascii=False)}。"
-                    f"景点: {json.dumps(location_dicts, ensure_ascii=False)}"
-                )
-            }
-        ],
+        "content": (
+            "请基于以下泸沽湖景点生成一天的时间轴路线，返回严格JSON："
+            "{title,preference,timeline:[{time,location,stay_minutes,highlight}]}。"
+            f"用户需求: {json.dumps(requirement, ensure_ascii=False)}。"
+            f"景点: {json.dumps(location_dicts, ensure_ascii=False)}"
+        ),
     }
 
     try:
         resp = requests.post(
-            "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation",
+            "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
             headers={
                 "Authorization": f"Bearer {settings.dashscope_api_key}",
                 "Content-Type": "application/json",
             },
             json={
                 "model": settings.dashscope_model,
-                "input": {"messages": [prompt]},
-                "parameters": {"result_format": "message"},
+                "messages": [prompt],
             },
             timeout=25,
         )
         resp.raise_for_status()
         data = resp.json()
-        text = data.get("output", {}).get("choices", [{}])[0].get("message", {}).get("content", "{}")
+        text = data["choices"][0]["message"]["content"]
         parsed = json.loads(text) if isinstance(text, str) else text
         if isinstance(parsed, dict) and parsed.get("timeline"):
             return parsed
@@ -1174,25 +1140,24 @@ def chat(
     if final_system_prompt:
         messages.append({
             "role": "system",
-            "content": [{"text": final_system_prompt}]
+            "content": final_system_prompt
         })
         
     if history:
         for msg in history:
             messages.append({
                 "role": msg["role"],
-                "content": [{"text": msg["content"]}]
+                "content": msg["content"]
             })
     
     messages.append({
         "role": "user",
-        "content": [{"text": message}]
+        "content": message
     })
 
     request_payload = {
         "model": settings.dashscope_model,
-        "input": {"messages": messages},
-        "parameters": {"result_format": "message"},
+        "messages": messages,
     }
 
     last_error_code = ""
@@ -1201,7 +1166,7 @@ def chat(
     for attempt in range(2):
         try:
             resp = requests.post(
-                "https://dashscope.aliyuncs.com/api/v1/services/aigc/text-generation/generation",
+                "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
                 headers={
                     "Authorization": f"Bearer {settings.dashscope_api_key}",
                     "Content-Type": "application/json",
@@ -1211,7 +1176,7 @@ def chat(
             )
             resp.raise_for_status()
             data = resp.json()
-            text = _extract_dashscope_text(data)
+            text = (data["choices"][0]["message"]["content"] or "").strip()
             final_reply = text if text else "抱歉，未获得回复，请稍后重试"
             return _append_references_to_reply(final_reply, references), references
         except Exception as exc:
@@ -1219,23 +1184,13 @@ def chat(
                 try:
                     error_data = exc.response.json()
                     if isinstance(error_data, dict):
+                        error_data = error_data.get("error", error_data)
+                    if isinstance(error_data, dict):
                         last_error_code = str(error_data.get("code") or "")
                         last_error_message = str(error_data.get("message") or "")
                 except Exception:
                     last_error_code = ""
                     last_error_message = ""
-
-            if (
-                last_error_code == "InvalidParameter"
-                and "url error" in (last_error_message or "").lower()
-                and request_payload.get("model") != "qwen-plus"
-            ):
-                logger.warning(
-                    "DashScope model '%s' incompatible for this endpoint, fallback to qwen-plus",
-                    request_payload.get("model"),
-                )
-                request_payload["model"] = "qwen-plus"
-                continue
 
             if last_error_code == "Arrearage":
                 logger.warning("DashScope account arrearage: %s", last_error_message)
