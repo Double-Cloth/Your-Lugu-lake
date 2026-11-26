@@ -3,10 +3,12 @@
 @tailwind utilities;
 
 :root:root:root {
-  font-family: "PingFang SC", "Noto Sans SC", system-ui, -apple-system, sans-serif;
+  font-family: "MiSans VF", "MiSans", "PingFang SC", "HarmonyOS Sans SC",
+    "Noto Sans SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
   color: rgba(255, 255, 255, 0.9);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 
   /* ========== Lugu Lake Warm Orange Theme Design Tokens ========== */
   /* Primary Orange Palette */
@@ -30,6 +32,10 @@
   --border-orange-medium: rgba(252, 182, 118, 0.5);
   --glass-bg-light: rgba(255, 255, 255, 0.1);
   --glass-bg-warm: rgba(82, 40, 20, 0.62);
+
+  /* Antd Mobile Typography */
+  --adm-font-family: "MiSans VF", "MiSans", "PingFang SC", "HarmonyOS Sans SC",
+    "Noto Sans SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
 
   /* Antd Mobile Dark Theme Overrides */
   --adm-color-text: rgba(255,255,255,0.95);

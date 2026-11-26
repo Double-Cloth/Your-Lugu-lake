@@ -36,8 +36,25 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["PingFang SC", "Noto Sans SC", "system-ui", "sans-serif"],
-        serif: ["Georgia", "serif"],
+        sans: [
+          "MiSans VF",
+          "MiSans",
+          "PingFang SC",
+          "HarmonyOS Sans SC",
+          "Noto Sans SC",
+          "Microsoft YaHei",
+          "system-ui",
+          "sans-serif",
+        ],
+        serif: [
+          "LXGW WenKai",
+          "LXGW WenKai Screen",
+          "STKaiti",
+          "KaiTi",
+          "Songti SC",
+          "Noto Serif SC",
+          "serif",
+        ],
       },
       fontSize: {
         xs: ["12px", "1.5"],
