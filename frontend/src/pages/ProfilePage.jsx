@@ -178,7 +178,7 @@ function drawTrackPreview(ctx, points, x, y, width, height) {
   ctx.fill();
 
   ctx.fillStyle = "rgba(226, 245, 255, 0.92)";
-  ctx.font = "600 18px 'PingFang SC', 'Noto Sans SC', sans-serif";
+  ctx.font = "600 18px 'MiSans VF', 'PingFang SC', 'Noto Sans SC', sans-serif";
   ctx.fillText(`轨迹点 ${points.length}`, x + 16, y + height - 14);
   ctx.restore();
 }
@@ -606,14 +606,14 @@ export default function ProfilePage() {
     ctx.strokeRect(32, 32, canvas.width - 64, canvas.height - 64);
 
     ctx.fillStyle = "#f3fbff";
-    ctx.font = "700 44px 'PingFang SC', 'Noto Sans SC', sans-serif";
+    ctx.font = "700 44px 'LXGW WenKai', 'MiSans VF', 'PingFang SC', sans-serif";
     ctx.fillText("泸沽湖旅行海报", 56, 430);
 
-    ctx.font = "500 26px 'PingFang SC', 'Noto Sans SC', sans-serif";
+    ctx.font = "500 26px 'MiSans VF', 'PingFang SC', 'Noto Sans SC', sans-serif";
     ctx.fillStyle = "rgba(232,246,255,0.9)";
     ctx.fillText(`旅行者：${displayName}`, 56, 472);
 
-    ctx.font = "500 22px 'PingFang SC', 'Noto Sans SC', sans-serif";
+    ctx.font = "500 22px 'MiSans VF', 'PingFang SC', 'Noto Sans SC', sans-serif";
     ctx.fillStyle = "rgba(205,234,247,0.95)";
     ctx.fillText(`打卡 ${records.length} 次  ·  探索 ${uniqueSpots} 个景点  ·  路线 ${savedRoutes.length} 条`, 56, 510);
 
@@ -621,7 +621,7 @@ export default function ProfilePage() {
       drawTrackPreview(ctx, trackPointsForPoster, 56, 538, canvas.width - 112, 188);
     }
 
-    ctx.font = "500 21px 'PingFang SC', 'Noto Sans SC', sans-serif";
+    ctx.font = "500 21px 'MiSans VF', 'PingFang SC', 'Noto Sans SC', sans-serif";
     records.slice(0, hasTrackPreview ? 3 : 5).forEach((item, idx) => {
       const y = (hasTrackPreview ? 780 : 578) + idx * 72;
       ctx.fillStyle = "#75daf3";
@@ -638,12 +638,12 @@ export default function ProfilePage() {
 
     if (topMood) {
       ctx.fillStyle = "rgba(245, 227, 192, 0.95)";
-      ctx.font = "500 22px 'PingFang SC', 'Noto Sans SC', sans-serif";
+      ctx.font = "500 22px 'MiSans VF', 'PingFang SC', 'Noto Sans SC', sans-serif";
       ctx.fillText(`今日心情：${(topMood.mood || "湖畔风正好").slice(0, 26)}`, 56, 968);
     }
 
     ctx.fillStyle = "#9adff4";
-    ctx.font = "italic 20px 'Times New Roman', serif";
+    ctx.font = "italic 20px 'LXGW WenKai', 'STKaiti', serif";
     ctx.fillText(`Generated ${new Date().toLocaleDateString("zh-CN")}`, 56, canvas.height - 56);
   }
 
@@ -678,15 +678,15 @@ export default function ProfilePage() {
   const renderUnauth = () => (
     <div className="relative z-10 w-full max-w-sm mx-auto animate-[fadeIn_0.5s_ease-out] flex flex-col mt-4 md:mt-[8vh] mb-auto py-8">
       <div className="text-center mb-8 mt-4">
-        <h1 className="text-4xl font-bold text-white mb-3 tracking-[0.2em] font-serif drop-shadow-lg">
+        <h1 className="app-display-title text-[34px] mb-3 drop-shadow-lg">
           泸沽湖
         </h1>
-        <p className="text-white/80 text-sm tracking-widest">
+        <p className="text-white/70 text-[13px] tracking-[0.18em]">
           {authMode === "login" ? "登录开启专属旅程" : "注册记录湖畔时光"}
         </p>
       </div>
 
-      <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-[32px] p-6 shadow-2xl relative overflow-hidden shrink-0">
+      <div className="profile-auth-card backdrop-blur-xl border rounded-[28px] p-6 shadow-2xl relative overflow-hidden shrink-0">
         <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-orange-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="flex relative mb-8 bg-black/40 rounded-2xl p-1 backdrop-blur-md">
@@ -894,7 +894,7 @@ export default function ProfilePage() {
               onChange={setEditPassword}
               disabled={!editMode}
               inputType="password"
-              placeholder={editMode ? "输入新密码（可选）" : "••••••••"}
+              placeholder={editMode ? "输入新密码（可选）" : "点击「修改资料」后可修改"}
               className={!editMode ? "opacity-70" : ""}
             />
           </div>
@@ -1077,7 +1077,7 @@ export default function ProfilePage() {
         onMaskClick={() => setPosterVisible(false)} 
         bodyStyle={{ backgroundColor: "transparent" }}
       >
-        <div className="p-6 bg-slate-900/95 backdrop-blur-3xl rounded-t-3xl border-t border-white/20 pb-10">
+        <div className="p-6 bg-[#241108]/95 backdrop-blur-3xl rounded-t-3xl border-t border-white/15 pb-10">
           <h3 className="text-xl font-bold text-white mb-2 tracking-wide text-center">AI 个性化海报</h3>
           <p className="text-xs text-white/50 text-center mb-6">根据游览记录自动生成，可保存至相册</p>
           

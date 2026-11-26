@@ -261,7 +261,7 @@ export default function ScrollPage(): ReactElement {
 					<span>打卡 {summary.total}</span>
 					<span>景点 {summary.uniqueLocationCount}</span>
 					<span>照片 {summary.photoCount}</span>
-					<span>最近 {summary.latestLabel}</span>
+					<span>最近 {summary.latestLabel !== "暂无" ? summary.latestLabel.slice(5, 10) : "暂无"}</span>
 				</div>
 			</div>
 

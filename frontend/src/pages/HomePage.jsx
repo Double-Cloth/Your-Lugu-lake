@@ -17,6 +17,7 @@ import {
   getUserToken,
 } from "../api";
 import { clearUserSession, withUserSessionPath } from "../auth";
+import { formatCategoryLabel } from "../labels";
 
 const LUGU_LAKE_BG_URL = "/images/lugu-hero.png";
 const LUGU_LAKE_WEATHER_POINT = {
@@ -557,13 +558,13 @@ export default function HomePage() {
       {/* 顶部标题：泸沽湖智慧文旅 */}
       <div className="w-full pt-8 sm:pt-10 z-20 flex justify-center shrink-0">
         <div className="w-full max-w-xl text-center relative text-shadow-md">
-          <div className="inline-block bg-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-white/95 text-xs tracking-widest mb-4 border border-white/20 shadow-lg">
+          <div className="inline-block bg-black/20 backdrop-blur-md px-4 py-1.5 rounded-full text-white/90 text-[11px] tracking-[0.2em] mb-4 border border-white/20 shadow-lg">
             欢迎来到泸沽湖景区
           </div>
-          <h1 className="text-[34px] md:text-[40px] font-bold text-white mb-4 tracking-[0.15em] font-serif drop-shadow-lg">
+          <h1 className="app-display-title home-brand-title text-[32px] sm:text-[38px] mb-3 drop-shadow-lg">
             泸沽湖智慧文旅
           </h1>
-          <p className="text-white/85 text-[15px] tracking-[0.3em] font-light drop-shadow-md pl-1">
+          <p className="home-brand-subtitle text-[13px] sm:text-sm drop-shadow-md">
             看风景 · 懂文化 · 走路线
           </p>
         </div>
@@ -572,7 +573,7 @@ export default function HomePage() {
       {/* 主体小组件 + 导航选项区域 */}
       <div className="flex-1 flex flex-col justify-center items-center w-full pb-8 sm:pb-10 mt-safe">
         {/* 天气与外部服务组件置于卡片上方 */}
-        <div className="w-full max-w-xl flex flex-wrap justify-between items-center gap-y-3 mb-6 sm:mb-8 px-4 z-20 shrink-0">
+        <div className="w-full max-w-xl flex flex-wrap justify-center sm:justify-between items-center gap-x-3 gap-y-3 mb-6 sm:mb-8 px-4 z-20 shrink-0">
           <div className="group flex items-center gap-2.5 px-1.5 py-1.5 pr-4 rounded-full bg-black/20 backdrop-blur-md border border-white/20 shadow-[0_4px_24px_rgba(0,0,0,0.15)] hover:bg-black/30 transition-all cursor-pointer"
                onClick={() => openExternalLink(officialServiceLinks.weather?.url, "查看完整天气预报")}>
             {weatherInfo.loading ? (
@@ -601,7 +602,10 @@ export default function HomePage() {
                     </span>
                   </div>
                   <span className="text-[10px] text-white/90 leading-none tracking-wide drop-shadow-sm">
-                    {weatherInfo.condition} 泸沽湖
+                    {weatherInfo.condition}
+                    {Number.isFinite(weatherInfo.low) && Number.isFinite(weatherInfo.high)
+                      ? ` · ${Math.round(weatherInfo.low)}°~${Math.round(weatherInfo.high)}°`
+                      : " · 泸沽湖"}
                   </span>
                 </div>
               </>
@@ -639,7 +643,7 @@ export default function HomePage() {
                 );
               }}
             >
-              <div className="w-6 h-6 flex items-center justify-center rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 shadow-inner group-hover:scale-105 transition-transform text-white">
+              <div className="w-6 h-6 flex items-center justify-center rounded-full bg-gradient-to-br from-amber-400 to-orange-500 shadow-inner group-hover:scale-105 transition-transform text-white">
                 <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="drop-shadow-sm">
                   <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"></path>
                   <path d="M3 6h18"></path>
@@ -686,11 +690,11 @@ export default function HomePage() {
         </div>
       </div>
 
-      <Popup visible={activePanel === "overview"} onMaskClick={closePanel} bodyStyle={{ minHeight: "75vh", width: "100%", maxWidth: "100%", overflowY: "auto", background: "transparent" }}>
+      <Popup visible={activePanel === "overview"} onMaskClick={closePanel} bodyClassName="home-popup-body" bodyStyle={{ minHeight: "75vh", width: "100%", maxWidth: "100%", overflowY: "auto", background: "transparent" }}>
         <div className="app-glass-popup p-5 min-h-[75vh] home-popup-scrollable">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-2xl font-bold text-white tracking-wide">景区一览</h3>
-            <button className="text-[rgba(189,232,250,0.8)] active:text-white px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm backdrop-blur-sm transition-all shadow-sm" onClick={closePanel}>← 返回</button>
+            <h3 className="home-popup-title m-0">景区一览</h3>
+            <button className="home-popup-back-btn" onClick={closePanel}>← 返回</button>
           </div>
           {loading ? (
             <div className="bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md text-center"><DotLoading color="primary" /></div>
@@ -753,11 +757,11 @@ export default function HomePage() {
         </div>
       </Popup>
 
-      <Popup visible={activePanel === "culture"} onMaskClick={closePanel} bodyStyle={{ minHeight: "75vh", width: "100%", maxWidth: "100%", overflowY: "auto", background: "transparent" }}>
+      <Popup visible={activePanel === "culture"} onMaskClick={closePanel} bodyClassName="home-popup-body" bodyStyle={{ minHeight: "75vh", width: "100%", maxWidth: "100%", overflowY: "auto", background: "transparent" }}>
         <div className="app-glass-popup p-5 min-h-[75vh] home-popup-scrollable">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-2xl font-bold text-white tracking-wide">文化导览</h3>
-            <button className="text-[rgba(252,182,118,0.85)] active:text-white px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm backdrop-blur-sm transition-all shadow-sm" onClick={closePanel}>← 返回</button>
+            <h3 className="home-popup-title m-0">文化导览</h3>
+            <button className="home-popup-back-btn" onClick={closePanel}>← 返回</button>
           </div>
           <Card className="bg-white/10 border border-[rgba(252,182,118,0.32)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md">
             <div className="text-sm text-white/90 leading-relaxed">
@@ -937,11 +941,11 @@ export default function HomePage() {
         </div>
       </Popup>
 
-      <Popup visible={activePanel === "global"} onMaskClick={closePanel} bodyStyle={{ minHeight: "75vh", width: "100%", maxWidth: "100%", overflowY: "auto", background: "transparent" }}>
+      <Popup visible={activePanel === "global"} onMaskClick={closePanel} bodyClassName="home-popup-body" bodyStyle={{ minHeight: "75vh", width: "100%", maxWidth: "100%", overflowY: "auto", background: "transparent" }}>
         <div className="app-glass-popup p-5 min-h-[75vh] home-popup-scrollable">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-2xl font-bold text-white tracking-wide">全域导览</h3>
-            <button className="text-[rgba(252,182,118,0.85)] active:text-white px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm backdrop-blur-sm transition-all shadow-sm" onClick={closePanel}>← 返回</button>
+            <h3 className="home-popup-title m-0">全域导览</h3>
+            <button className="home-popup-back-btn" onClick={closePanel}>← 返回</button>
           </div>
           <Card className="bg-white/10 border border-[rgba(252,182,118,0.32)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md global-section-card">
             <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">景点总览（知识库全量）</div>
@@ -958,7 +962,7 @@ export default function HomePage() {
                   >
                     <div className="flex items-center justify-between">
                       <div className="font-semibold text-white/95">{item.name}</div>
-                      <span className="px-2 py-1 text-xs rounded-full bg-white/20 text-white/90">{item.category || "景点"}</span>
+                      <span className="px-2 py-1 text-xs rounded-full bg-white/20 text-white/90">{formatCategoryLabel(item.category)}</span>
                     </div>
                     <div className="text-sm text-white/80 mt-1">{item.description || "暂无简介"}</div>
                     {item.latitude && item.longitude ? (
@@ -1018,7 +1022,7 @@ export default function HomePage() {
                   >
                     <div className="flex items-center justify-between">
                       <div className="font-semibold text-white/95">{item.name}</div>
-                      <span className="px-2 py-1 text-xs rounded-full bg-white/20 text-white/90">{item.category}</span>
+                      <span className="px-2 py-1 text-xs rounded-full bg-white/20 text-white/90">{formatCategoryLabel(item.category)}</span>
                     </div>
                     <div className="text-sm text-white/80 mt-1">{item.description}</div>
                   </Link>
@@ -1029,11 +1033,11 @@ export default function HomePage() {
         </div>
       </Popup>
 
-      <Popup visible={activePanel === "eco"} onMaskClick={closePanel} bodyStyle={{ minHeight: "75vh", width: "100%", maxWidth: "100%", overflowY: "auto", background: "transparent" }}>
+      <Popup visible={activePanel === "eco"} onMaskClick={closePanel} bodyClassName="home-popup-body" bodyStyle={{ minHeight: "75vh", width: "100%", maxWidth: "100%", overflowY: "auto", background: "transparent" }}>
         <div className="app-glass-popup p-5 min-h-[75vh] home-popup-scrollable">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-2xl font-bold text-white tracking-wide">生态导览</h3>
-            <button className="text-[rgba(189,232,250,0.8)] active:text-white px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm backdrop-blur-sm transition-all shadow-sm" onClick={closePanel}>← 返回</button>
+            <h3 className="home-popup-title m-0">生态导览</h3>
+            <button className="home-popup-back-btn" onClick={closePanel}>← 返回</button>
           </div>
 
           <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md">
@@ -1184,7 +1188,7 @@ export default function HomePage() {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="font-semibold text-white/95">{item.name}</div>
-                      <span className="px-2 py-1 text-xs rounded-full bg-white/20 text-white/90">{item.category || "自然"}</span>
+                      <span className="px-2 py-1 text-xs rounded-full bg-white/20 text-white/90">{formatCategoryLabel(item.category)}</span>
                     </div>
                     <div className="text-sm text-white/75 mt-1">{item.description || "适合纳入生态线路的自然点位。"}</div>
                   </Link>

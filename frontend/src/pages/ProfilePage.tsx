@@ -775,15 +775,15 @@ export default function ProfilePage(): React.ReactElement {
   const renderUnauth = (): ReactNode => (
     <div className="relative z-10 w-full max-w-sm mx-auto animate-[fadeIn_0.5s_ease-out] flex flex-col mt-4 md:mt-[8vh] mb-auto py-8">
       <div className="text-center mb-8 mt-4">
-        <h1 className="text-4xl font-bold text-white mb-3 tracking-[0.2em] font-serif drop-shadow-lg">
+        <h1 className="app-display-title text-[34px] mb-3 drop-shadow-lg">
           泸沽湖
         </h1>
-        <p className="text-white/80 text-sm tracking-widest">
+        <p className="text-white/70 text-[13px] tracking-[0.18em]">
           {authMode === "login" ? "登录开启专属旅程" : "注册记录湖畔时光"}
         </p>
       </div>
 
-      <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-[32px] p-6 shadow-2xl relative overflow-hidden shrink-0">
+      <div className="profile-auth-card backdrop-blur-xl border rounded-[28px] p-6 shadow-2xl relative overflow-hidden shrink-0">
         <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-orange-500/20 rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="flex relative mb-8 bg-black/40 rounded-2xl p-1 backdrop-blur-md">
@@ -1056,7 +1056,7 @@ export default function ProfilePage(): React.ReactElement {
               onChange={setEditPassword}
               disabled={!editMode}
               inputType="password"
-              placeholder={editMode ? "输入新密码（可选）" : "••••••••"}
+              placeholder={editMode ? "输入新密码（可选）" : "点击「修改资料」后可修改"}
               className={!editMode ? "opacity-70" : ""}
             />
           </div>

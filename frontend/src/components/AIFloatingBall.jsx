@@ -963,10 +963,10 @@ export default function AIFloatingBall() {
                   <path d="M10 16 C11 17, 13 17, 14 16" strokeWidth="2" strokeLinecap="round"/>
               </svg>
 
-              {/* 消息红点提示 (右上角) */}
-              <span className="absolute top-0 right-0 flex h-4 w-4">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-white"></span>
+              {/* 在线状态提示 (右上角) */}
+              <span className="absolute top-0.5 right-0.5 flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-60"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-400 border-2 border-[#4a2410]"></span>
               </span>
           </button>
         </div>

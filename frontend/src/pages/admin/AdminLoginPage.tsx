@@ -45,14 +45,14 @@ export default function AdminLoginPage(): ReactElement {
 		<ImmersivePage bgImage="/images/lugu-hero.png" className="items-center justify-center">
 			<div className="w-full max-w-sm px-4 flex flex-col justify-center min-h-[60vh]">
 				<div className="text-center mb-8">
-					<div className="inline-block bg-white/20 backdrop-blur-md px-4 py-1 rounded-full text-white/90 text-xs tracking-widest mb-4 border border-white/20 shadow-lg">
+					<div className="inline-block bg-black/20 backdrop-blur-md px-4 py-1 rounded-full text-white/85 text-[11px] tracking-[0.2em] mb-4 border border-white/20 shadow-lg">
 						Admin Access
 					</div>
-					<h1 className="text-3xl font-bold text-white mb-2 tracking-wider font-serif drop-shadow-md">管理员登录</h1>
-					<p className="text-white/80 text-sm tracking-wide drop-shadow">进入后台进行管理</p>
+					<h1 className="app-display-title text-[30px] mb-2 drop-shadow-md">管理员登录</h1>
+					<p className="text-white/70 text-[13px] tracking-[0.08em] drop-shadow">进入后台进行管理</p>
 				</div>
 
-				<CardComponent variant="glass" className="p-6">
+				<CardComponent variant="glass" className="profile-auth-card p-6">
 					<div className="space-y-4">
 						<GlassInput
 							value={username}

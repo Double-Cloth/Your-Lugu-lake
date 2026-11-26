@@ -1,0 +1,919 @@
+/* ==========================================================================
+   Lugu Lake UI 2.0 — final polish layer
+   Loaded after styles.css on purpose: typography, surfaces, motion and
+   page-level refinements live here so the visual system stays predictable.
+   ========================================================================== */
+
+:root {
+  --font-ui: "MiSans VF", "MiSans", "PingFang SC", "HarmonyOS Sans SC",
+    "Noto Sans SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  --font-display: "LXGW WenKai", "LXGW WenKai Screen", "STKaiti", "KaiTi",
+    "Songti SC", "Noto Serif SC", serif;
+  --ui-ink: #fff9f2;
+  --ui-ink-soft: rgba(255, 246, 236, 0.76);
+  --ui-ink-muted: rgba(255, 244, 232, 0.56);
+  --ui-line: rgba(255, 211, 168, 0.18);
+  --ui-surface: rgba(56, 29, 14, 0.42);
+  --ui-surface-strong: rgba(43, 22, 11, 0.64);
+  --ui-accent: #f0a05a;
+  --ui-accent-strong: #d9712a;
+  --ui-shadow: 0 20px 46px -32px rgba(16, 7, 2, 0.9);
+}
+
+html,
+body,
+#root {
+  font-family: var(--font-ui);
+}
+
+body {
+  color: var(--ui-ink);
+  letter-spacing: 0.01em;
+}
+
+button,
+input,
+textarea,
+select,
+.adm-button,
+.adm-input,
+.adm-text-area,
+.adm-tab-bar,
+.adm-dialog,
+.adm-popup,
+.adm-toast {
+  font-family: var(--font-ui);
+}
+
+::selection {
+  background: rgba(240, 160, 90, 0.35);
+  color: #fff;
+}
+
+/* Keep the variable font crisp: MiSans VF tops out at 700. */
+.font-black,
+.font-extrabold {
+  font-weight: 700;
+}
+
+/* --------------------------------------------------------------------------
+   Typography: one display face for page titles, MiSans everywhere else.
+   -------------------------------------------------------------------------- */
+
+.app-display-title,
+.page-title,
+.home-brand-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.055em;
+  line-height: 1.3;
+  color: var(--ui-ink);
+  text-shadow: 0 2px 20px rgba(40, 17, 4, 0.55);
+  text-wrap: balance;
+}
+
+.page-title,
+.app-display-title {
+  font-size: clamp(25px, 7vw, 31px);
+}
+
+.app-display-title-sm {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.35;
+  color: var(--ui-ink);
+}
+
+.app-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 220, 185, 0.18);
+  background: rgba(28, 14, 6, 0.42);
+  backdrop-filter: blur(8px);
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(255, 226, 193, 0.94);
+  text-shadow: 0 1px 10px rgba(30, 12, 3, 0.55);
+}
+
+.app-section-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ui-ink);
+}
+
+/* --------------------------------------------------------------------------
+   App shell, immersive background and navigation chrome.
+   -------------------------------------------------------------------------- */
+
+.app-mobile-shell {
+  background:
+    radial-gradient(120% 62% at 8% 0%, rgba(255, 214, 168, 0.28), transparent 58%),
+    radial-gradient(120% 60% at 94% 100%, rgba(255, 188, 128, 0.2), transparent 56%),
+    linear-gradient(180deg, #8a451e 0%, #6f3217 48%, #542411 100%);
+}
+
+.app-main-scroll {
+  padding-bottom: calc(110px + env(safe-area-inset-bottom)) !important;
+  scrollbar-width: none;
+  overscroll-behavior-y: contain;
+}
+
+.app-main-scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+.immersive-overlay {
+  background:
+    linear-gradient(
+      180deg,
+      rgba(47, 23, 10, 0.2) 0%,
+      rgba(37, 18, 8, 0.42) 44%,
+      rgba(20, 9, 3, 0.74) 100%
+    );
+  backdrop-filter: blur(1.5px);
+}
+
+.immersive-page {
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 205, 160, 0.24) transparent;
+}
+
+.immersive-page::-webkit-scrollbar {
+  width: 5px;
+}
+
+.immersive-page::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.immersive-page::-webkit-scrollbar-thumb {
+  background: rgba(255, 205, 160, 0.24);
+  border-radius: 999px;
+}
+
+.immersive-page::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 205, 160, 0.4);
+}
+
+@media (min-width: 768px) {
+  .immersive-content {
+    width: 100%;
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .detail-page .immersive-content {
+    max-width: 760px;
+  }
+}
+
+.immersive-vignette {
+  background: radial-gradient(
+    125% 85% at 50% 0%,
+    transparent 56%,
+    rgba(16, 6, 1, 0.34) 100%
+  );
+}
+
+.app-glass-header {
+  padding: 10px 12px 8px;
+}
+
+.app-glass-header-inner {
+  border-radius: 18px;
+  border-color: rgba(255, 205, 160, 0.24);
+  background: rgba(58, 29, 14, 0.32);
+  backdrop-filter: blur(16px) saturate(120%);
+  box-shadow: 0 16px 34px -24px rgba(10, 4, 1, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+}
+
+.app-glass-footer-wrap {
+  width: min(92%, 372px);
+}
+
+.app-glass-footer {
+  border: 1px solid rgba(255, 205, 160, 0.34);
+  background: linear-gradient(180deg, rgba(70, 35, 17, 0.72), rgba(44, 21, 10, 0.82));
+  box-shadow: 0 20px 42px -22px rgba(10, 4, 1, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(18px) saturate(126%);
+}
+
+.app-glass-tabbar .adm-tab-bar-wrap {
+  min-height: 58px;
+  padding: 4px 6px;
+}
+
+.app-glass-tabbar .adm-tab-bar-item {
+  border-radius: 15px;
+  padding: 4px 0;
+}
+
+.app-glass-tabbar .adm-tab-bar-item-active {
+  background: linear-gradient(180deg, rgba(255, 214, 170, 0.3), rgba(255, 191, 133, 0.14));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    0 8px 18px -12px rgba(0, 0, 0, 0.6);
+  transform: translateY(-1px);
+}
+
+.app-glass-tabbar .adm-tab-bar-item-title {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+/* --------------------------------------------------------------------------
+   Cards, popups and form controls.
+   -------------------------------------------------------------------------- */
+
+.app-glass-popup {
+  background: linear-gradient(168deg, rgba(58, 29, 14, 0.96) 0%, rgba(41, 20, 9, 0.985) 100%);
+  border: 1px solid rgba(255, 196, 146, 0.22);
+  border-bottom: none;
+  border-radius: 28px 28px 0 0;
+  box-shadow: 0 -22px 54px -30px rgba(10, 4, 1, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(22px) saturate(118%);
+}
+
+.home-popup-body {
+  background: transparent !important;
+}
+
+.home-popup-scrollable {
+  padding-bottom: calc(30px + env(safe-area-inset-bottom));
+}
+
+.home-popup-title {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.3;
+  color: var(--ui-ink);
+}
+
+.home-popup-back-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 205, 160, 0.22);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 236, 218, 0.9);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(8px);
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.home-popup-back-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.home-popup-back-btn:active {
+  transform: scale(0.97);
+}
+
+.app-glass-popup .adm-card {
+  background: rgba(255, 246, 238, 0.055) !important;
+  border: 1px solid rgba(255, 210, 170, 0.16) !important;
+  border-radius: 20px !important;
+  box-shadow: none !important;
+}
+
+.app-glass-popup .adm-card-body {
+  padding: 0 !important;
+}
+
+.app-glass-popup .adm-card-header {
+  border-bottom-color: rgba(255, 255, 255, 0.1) !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(255, 245, 234, 0.44);
+  opacity: 1;
+}
+
+.glass-input {
+  background: rgba(18, 9, 4, 0.26);
+}
+
+.glass-input input {
+  color: var(--ui-ink);
+}
+
+.scroll-theme .scroll-card .glass-input {
+  background: rgba(255, 252, 246, 0.74);
+  border-color: rgba(160, 116, 72, 0.26);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+}
+
+.scroll-theme .scroll-card .glass-input input {
+  color: #3a2413;
+}
+
+.scroll-theme .scroll-card .glass-input input::placeholder {
+  color: rgba(82, 58, 40, 0.48);
+}
+
+.app-glass-back-btn,
+.scroll-back-btn {
+  background: rgba(36, 18, 8, 0.58);
+  border: 1px solid rgba(255, 205, 160, 0.3);
+  color: #fff5e8;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 24px -16px rgba(10, 4, 1, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+.app-glass-back-btn:hover,
+.scroll-back-btn:hover {
+  background: rgba(54, 27, 13, 0.74);
+  color: #fff;
+}
+
+.app-glass-back-btn {
+  width: 36px;
+  height: 36px;
+  border-radius: 13px;
+}
+
+.scroll-back-btn {
+  min-height: 38px;
+}
+
+.page-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 36px;
+  padding: 0 13px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 205, 160, 0.26);
+  background: rgba(36, 18, 8, 0.46);
+  color: rgba(255, 244, 230, 0.9);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  backdrop-filter: blur(10px);
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.page-back-link:hover {
+  background: rgba(54, 27, 13, 0.66);
+  color: #fff;
+}
+
+.page-back-link:active {
+  transform: scale(0.97);
+}
+
+.adm-button--primary {
+  background: linear-gradient(135deg, #f2a15c 0%, #d9712a 100%) !important;
+  border: none !important;
+  color: #fff !important;
+  box-shadow: 0 12px 26px -16px rgba(201, 100, 36, 0.9) !important;
+}
+
+.adm-button-default {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 220, 190, 0.24) !important;
+  color: var(--ui-ink) !important;
+}
+
+.adm-popup-mask {
+  background: rgba(12, 5, 2, 0.58) !important;
+  backdrop-filter: blur(2px);
+}
+
+.adm-toast-main {
+  border-radius: 14px !important;
+  background: rgba(32, 16, 8, 0.9) !important;
+  box-shadow: 0 18px 38px -24px rgba(0, 0, 0, 0.9),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 205, 160, 0.18);
+}
+
+/* Legacy shadow utilities used blue tints; keep the elevation, warm it up. */
+.shadow-md {
+  box-shadow: 0 8px 20px -16px rgba(15, 6, 2, 0.8);
+}
+
+.shadow-lg {
+  box-shadow: 0 18px 36px -24px rgba(15, 6, 2, 0.85);
+}
+
+.shadow-xl {
+  box-shadow: 0 24px 48px -28px rgba(15, 6, 2, 0.9);
+}
+
+/* --------------------------------------------------------------------------
+   Home page.
+   -------------------------------------------------------------------------- */
+
+.home-brand-title {
+  font-size: clamp(30px, 8.2vw, 38px);
+  letter-spacing: 0.1em;
+}
+
+.home-brand-subtitle {
+  letter-spacing: 0.18em;
+  font-weight: 400;
+  color: rgba(255, 247, 238, 0.82);
+}
+
+.home-top-pill {
+  min-height: 36px;
+}
+
+.home-func-btn {
+  border: 1px solid rgba(255, 233, 205, 0.35);
+  box-shadow: 0 16px 32px -20px rgba(44, 20, 6, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.home-func-btn:hover {
+  filter: brightness(1.025);
+}
+
+.home-func-btn:focus-visible {
+  outline: 2px solid rgba(255, 210, 160, 0.9);
+  outline-offset: 3px;
+}
+
+.home-func-title {
+  font-weight: 700;
+  letter-spacing: 0.015em;
+}
+
+.home-func-desc {
+  font-weight: 600;
+  opacity: 0.82;
+}
+
+/* --------------------------------------------------------------------------
+   Check-in page: adopt the warm brand palette while keeping the map dark.
+   -------------------------------------------------------------------------- */
+
+.checkin-theme {
+  --checkin-ink: #fff8ef;
+  --checkin-subtle: rgba(255, 242, 228, 0.68);
+  --checkin-border: rgba(255, 196, 146, 0.26);
+  --checkin-card-bg: linear-gradient(150deg, rgba(58, 30, 15, 0.66) 0%, rgba(40, 20, 10, 0.8) 100%);
+  --checkin-card-shadow: 0 18px 40px -28px rgba(12, 5, 1, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.checkin-theme .checkin-hero {
+  border-color: rgba(255, 199, 151, 0.3);
+  background:
+    radial-gradient(circle at 88% 8%, rgba(255, 218, 175, 0.22), transparent 44%),
+    radial-gradient(circle at 12% 110%, rgba(255, 176, 112, 0.18), transparent 46%),
+    linear-gradient(150deg, rgba(84, 42, 20, 0.82) 0%, rgba(54, 26, 12, 0.9) 100%);
+  box-shadow: var(--checkin-card-shadow);
+}
+
+.checkin-theme .checkin-icon-cyan {
+  color: #ffd8ac;
+}
+
+.checkin-theme .checkin-icon-amber {
+  color: #ffc77d;
+}
+
+.checkin-theme .checkin-icon-coral {
+  color: #ffb08a;
+}
+
+.checkin-theme .checkin-icon-rose {
+  color: #ffb9c2;
+}
+
+.checkin-theme .checkin-status {
+  border: 1px solid rgba(255, 210, 170, 0.24);
+  color: rgba(255, 244, 232, 0.82);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.checkin-theme .checkin-status.is-live {
+  border-color: rgba(146, 245, 211, 0.5);
+  color: #dcfff1;
+  background: rgba(43, 160, 120, 0.22);
+}
+
+.checkin-theme .checkin-ghost-btn {
+  border: 1px solid rgba(255, 208, 164, 0.28) !important;
+  color: #fff7ee !important;
+  background: rgba(255, 255, 255, 0.07) !important;
+}
+
+.checkin-theme .checkin-soft-panel {
+  border: 1px solid rgba(255, 208, 164, 0.16);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.checkin-theme .checkin-alert {
+  border: 1px solid rgba(255, 198, 140, 0.38);
+  color: #ffe9c9;
+  background: rgba(255, 161, 82, 0.13);
+  box-shadow: inset 0 1px 0 rgba(255, 240, 217, 0.12);
+}
+
+.checkin-theme .checkin-map-stage {
+  background: linear-gradient(180deg, rgba(38, 21, 11, 0.34) 0%, rgba(22, 11, 5, 0.62) 100%);
+}
+
+.checkin-theme .checkin-map-overlay {
+  background: rgba(28, 14, 6, 0.58);
+}
+
+.checkin-theme .checkin-map-fullscreen-btn {
+  border-color: rgba(255, 208, 164, 0.34);
+  background: rgba(48, 25, 12, 0.74);
+  color: #fff4e8;
+}
+
+.checkin-theme .checkin-section-title {
+  color: var(--checkin-ink);
+}
+
+/* --------------------------------------------------------------------------
+   Scroll page & profile surfaces.
+   -------------------------------------------------------------------------- */
+
+.scroll-theme .scroll-hero .page-title {
+  color: #fff8ef;
+}
+
+.scroll-theme .scroll-capture-title {
+  font-family: var(--font-display);
+  letter-spacing: 0.04em;
+}
+
+.scroll-theme .scroll-card,
+.scroll-theme .scroll-capture {
+  box-shadow: 0 24px 56px -38px rgba(44, 22, 9, 0.55);
+}
+
+.profile-auth-card {
+  background: linear-gradient(165deg, rgba(58, 30, 15, 0.72) 0%, rgba(35, 17, 8, 0.84) 100%) !important;
+  border-color: rgba(255, 205, 160, 0.22) !important;
+  box-shadow: var(--ui-shadow) !important;
+}
+
+.profile-function-item,
+.profile-category-item {
+  border-color: rgba(255, 220, 188, 0.16);
+  background: rgba(22, 11, 5, 0.56);
+  backdrop-filter: blur(10px);
+}
+
+.profile-function-item:active,
+.profile-category-item:active {
+  background: rgba(52, 27, 13, 0.68);
+}
+
+.profile-category-desc {
+  color: rgba(255, 244, 232, 0.66);
+  font-size: 11.5px;
+}
+
+.profile-category-name,
+.profile-function-text {
+  font-size: 13px;
+}
+
+.profile-function-section {
+  background: rgba(26, 13, 6, 0.32);
+  border-color: rgba(255, 220, 188, 0.14);
+}
+
+.profile-function-item:focus-visible,
+.profile-category-item:focus-visible {
+  outline: 2px solid rgba(255, 205, 160, 0.7);
+  outline-offset: 2px;
+}
+
+/* --------------------------------------------------------------------------
+   Floating assistant: slightly smaller, clear of the tab bar.
+   -------------------------------------------------------------------------- */
+
+.ai-floating-container {
+  right: max(18px, env(safe-area-inset-right));
+  bottom: calc(98px + env(safe-area-inset-bottom));
+}
+
+.ai-floating-container > button {
+  width: 56px;
+  height: 56px;
+}
+
+.ai-chat-panel {
+  border-color: rgba(255, 205, 160, 0.34);
+}
+
+.ai-chat-panel-title {
+  letter-spacing: 0.02em;
+}
+
+/* Warm cream chat surface so the assistant belongs to the Lugu palette. */
+.ai-chat-overlay {
+  background:
+    radial-gradient(circle at 18% 8%, rgba(255, 220, 180, 0.16), transparent 42%),
+    radial-gradient(circle at 82% 92%, rgba(255, 188, 128, 0.12), transparent 40%),
+    rgba(20, 9, 3, 0.56);
+  backdrop-filter: blur(14px) saturate(110%);
+}
+
+.ai-chat-panel {
+  border-color: rgba(255, 205, 160, 0.5);
+  background:
+    radial-gradient(120% 80% at 12% 0%, rgba(255, 255, 255, 0.82), transparent 46%),
+    linear-gradient(155deg, #fffaf3 0%, #f8ebda 55%, #f2ddc4 100%) !important;
+  box-shadow: 0 24px 44px -24px rgba(44, 22, 9, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.55);
+}
+
+.ai-chat-panel-header {
+  border-bottom-color: rgba(198, 150, 105, 0.28);
+  background: linear-gradient(90deg, rgba(255, 252, 247, 0.92), rgba(250, 238, 223, 0.88));
+}
+
+.ai-chat-panel-title,
+.ai-chat-scene-title,
+.ai-history-title {
+  color: #5a3420;
+}
+
+.ai-panel-btn-light {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(249, 235, 218, 0.82));
+  color: #7a4a26 !important;
+  border: 1px solid rgba(198, 150, 105, 0.4) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    0 8px 16px -12px rgba(90, 52, 32, 0.35);
+}
+
+.ai-panel-btn-light:hover {
+  background: #fff;
+  border-color: rgba(198, 150, 105, 0.58) !important;
+}
+
+.ai-panel-corner-close {
+  background: rgba(122, 74, 38, 0.1);
+  color: #7a4a26;
+}
+
+.ai-panel-corner-close:hover {
+  background: rgba(122, 74, 38, 0.18);
+  color: #5a3420;
+}
+
+.ai-history-panel {
+  border-right-color: rgba(198, 150, 105, 0.28);
+  background: rgba(255, 255, 255, 0.34);
+}
+
+.ai-history-empty {
+  color: rgba(107, 67, 40, 0.72);
+  border-color: rgba(198, 150, 105, 0.35);
+  background: rgba(255, 252, 247, 0.6);
+}
+
+.ai-history-item {
+  background: rgba(255, 252, 247, 0.64);
+  border-color: rgba(198, 150, 105, 0.25);
+}
+
+.ai-history-item:hover {
+  background: #fffaf3;
+  border-color: rgba(198, 150, 105, 0.5);
+}
+
+.ai-history-item-active {
+  background: #fff3e4;
+  border-color: rgba(217, 113, 42, 0.5);
+  box-shadow: inset 0 0 0 1px rgba(255, 205, 160, 0.5);
+}
+
+.ai-history-question {
+  color: #5a3420;
+}
+
+.ai-history-answer {
+  color: rgba(90, 52, 32, 0.7);
+}
+
+.ai-history-meta {
+  color: rgba(107, 67, 40, 0.6);
+}
+
+.ai-chat-scene-header {
+  border-bottom-color: rgba(198, 150, 105, 0.25);
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.ai-chat-scene-subtitle,
+.ai-chat-context {
+  color: rgba(107, 67, 40, 0.72);
+}
+
+.ai-empty-state {
+  color: rgba(107, 67, 40, 0.86);
+}
+
+.ai-empty-icon {
+  color: rgba(176, 110, 60, 0.7);
+}
+
+.ai-empty-hint {
+  color: rgba(107, 67, 40, 0.6);
+}
+
+.ai-quick-ask-item {
+  background: rgba(230, 128, 52, 0.1);
+  border-color: rgba(230, 128, 52, 0.3);
+  color: #7a4a26;
+}
+
+.ai-quick-ask-item:hover {
+  background: rgba(230, 128, 52, 0.17);
+  border-color: rgba(176, 88, 34, 0.46);
+  color: #5a3420;
+}
+
+.ai-message-assistant .ai-message-bubble {
+  background: rgba(255, 252, 247, 0.84);
+  border-color: rgba(198, 150, 105, 0.35);
+  color: #4a2a16;
+}
+
+.ai-message-user .ai-message-bubble {
+  background: linear-gradient(135deg, #f0a05a, #d9712a);
+}
+
+.ai-message-loading {
+  color: rgba(122, 74, 38, 0.6);
+}
+
+.ai-input-area {
+  border-top-color: rgba(198, 150, 105, 0.28);
+  background: rgba(255, 255, 255, 0.32);
+}
+
+.ai-input-wrapper {
+  background: rgba(255, 255, 255, 0.72) !important;
+}
+
+.ai-textarea {
+  --color: #5a3420;
+  --placeholder-color: rgba(122, 74, 38, 0.45);
+}
+
+.ai-textarea .adm-text-area-element {
+  color: #5a3420;
+}
+
+.ai-textarea .adm-text-area-element::placeholder {
+  color: rgba(122, 74, 38, 0.45);
+}
+
+.ai-send-btn {
+  background: linear-gradient(135deg, #f0a05a, #d9712a);
+  box-shadow: 0 8px 18px -12px rgba(160, 78, 24, 0.75);
+}
+
+.ai-markdown-content a {
+  color: #a4551f;
+}
+
+.ai-markdown-content code {
+  background: rgba(217, 113, 42, 0.1);
+  color: #8a451e;
+}
+
+/* --------------------------------------------------------------------------
+   Dialogs, sheets and modals: keep every overlay in the warm palette.
+   -------------------------------------------------------------------------- */
+
+.ai-delete-confirm-dialog .adm-dialog,
+.route-delete-confirm-dialog .adm-dialog {
+  background: linear-gradient(165deg, #2c170c 0%, #1d0e06 100%) !important;
+  border: 1px solid rgba(255, 205, 160, 0.22) !important;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08) !important;
+}
+
+.ai-delete-confirm-dialog .adm-dialog-title,
+.route-delete-confirm-dialog .adm-dialog-title {
+  color: var(--ui-ink) !important;
+}
+
+.ai-delete-confirm-dialog .adm-dialog-content,
+.route-delete-confirm-dialog .adm-dialog-content {
+  background: transparent !important;
+  color: rgba(255, 244, 232, 0.78) !important;
+}
+
+.ai-delete-confirm-dialog .adm-dialog-footer,
+.route-delete-confirm-dialog .adm-dialog-footer {
+  border-top: 1px solid rgba(255, 205, 160, 0.16) !important;
+  background: rgba(20, 9, 3, 0.4) !important;
+}
+
+.ai-delete-confirm-dialog .adm-dialog-button,
+.route-delete-confirm-dialog .adm-dialog-button {
+  color: rgba(255, 244, 232, 0.76) !important;
+}
+
+.ai-delete-confirm-dialog .adm-dialog-button:last-child,
+.route-delete-confirm-dialog .adm-dialog-button:last-child {
+  color: #ffb1a3 !important;
+  background: rgba(127, 29, 29, 0.24) !important;
+}
+
+.checkin-modal .adm-modal-content,
+.checkin-modal .adm-modal-body {
+  background: linear-gradient(165deg, #fff9f2 0%, #f6e6d3 100%) !important;
+  border: 1px solid rgba(198, 150, 105, 0.35) !important;
+  color: #4a2a16;
+}
+
+.checkin-modal .checkin-modal-content {
+  color: #4a2a16;
+}
+
+.checkin-modal .checkin-modal-title,
+.checkin-theme .checkin-modal-title {
+  color: #4a2a16;
+}
+
+.checkin-modal .checkin-modal-desc,
+.checkin-theme .checkin-modal-desc {
+  color: #6b4a32;
+}
+
+.checkin-modal .checkin-modal-meta,
+.checkin-theme .checkin-modal-meta {
+  color: rgba(107, 74, 50, 0.7);
+}
+
+.checkin-modal .adm-modal-action {
+  color: #7a4a26 !important;
+  border-top: 1px solid rgba(198, 150, 105, 0.3) !important;
+}
+
+.checkin-modal .adm-modal-action-primary {
+  color: var(--ui-accent-strong) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Admin.
+   -------------------------------------------------------------------------- */
+
+.admin-dashboard {
+  background:
+    radial-gradient(120% 60% at 10% 0%, rgba(255, 214, 168, 0.2), transparent 58%),
+    linear-gradient(180deg, #7c3e1c 0%, #522512 100%);
+}
+
+.admin-stat-tile {
+  border-color: rgba(255, 214, 178, 0.22);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* --------------------------------------------------------------------------
+   Legacy dark-mode override used to tint page titles teal. Keep them warm.
+   -------------------------------------------------------------------------- */
+
+@media (prefers-color-scheme: dark) {
+  .page-title,
+  .app-display-title {
+    color: var(--ui-ink) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ai-animate-float,
+  .ai-eye-blink {
+    animation: none !important;
+  }
+}

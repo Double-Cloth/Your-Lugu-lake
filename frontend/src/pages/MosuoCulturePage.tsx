@@ -69,11 +69,11 @@ export default function MosuoCulturePage(): ReactElement {
 	const tips = Array.isArray(details.experienceTips) ? details.experienceTips : [];
 
 	return (
-		<ImmersivePage bgImage="/images/lugu-hero.png" className="page-fade-in pb-[env(safe-area-inset-bottom)]">
-			<div className="mb-4 pt-2 -mx-2">
+		<ImmersivePage bgImage="/images/lugu-hero.png" className="detail-page page-fade-in pb-[env(safe-area-inset-bottom)]">
+			<div className="mb-4 pt-8 -mx-2">
 				<button
 					type="button"
-					className="px-2 py-1 inline-flex items-center text-amber-100/80 hover:text-white transition-colors"
+					className="page-back-link"
 					onClick={() => navigate("/home", { state: { openPanel: "overview" } })}
 				>
 					<LucideIcon name="ChevronLeft" size={20} className="mr-1" /> 返回
@@ -81,15 +81,15 @@ export default function MosuoCulturePage(): ReactElement {
 			</div>
 
 			<div className="mb-6">
-				<div className="text-amber-200 text-sm font-bold tracking-wider uppercase mb-1 drop-shadow-md text-shadow-sm">
+				<div className="app-kicker mb-1.5">
 					Mosuo Culture
 				</div>
-				<h1 className="text-3xl font-bold text-white drop-shadow-lg m-0 text-shadow">{data.title || data.name}</h1>
+				<h1 className="app-display-title m-0 drop-shadow-lg">{data.title || data.name}</h1>
 			</div>
 
 			<CardComponent variant="glass" className="mb-4">
 				<p className="text-white/90 text-justify mb-0 leading-relaxed">{data.description || ""}</p>
-				{details.introduction && (
+				{details.introduction && details.introduction !== data.description && (
 					<div className="mt-4 text-sm text-white/70 leading-relaxed border-t border-white/10 pt-3">
 						{details.introduction}
 					</div>

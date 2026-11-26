@@ -6,6 +6,7 @@ import LucideIcon from "../components/LucideIcon";
 import { ImmersivePage, CardComponent } from "../components/SharedUI";
 
 import { fetchLocationDetail, fetchKnowledgeBaseLocationImages } from "../api";
+import { formatCategoryLabel } from "../labels";
 
 type LocationDetails = {
 	introduction?: string;
@@ -145,11 +146,11 @@ export default function LocationDetailPage(): ReactElement {
 	const bgImage = galleryImages.length > 0 ? galleryImages[0] : "/images/lugu-hero.png";
 
 	return (
-		<ImmersivePage bgImage={bgImage} className="page-fade-in pb-[env(safe-area-inset-bottom)]">
-			<div className="mb-4 pt-2 -mx-2">
+		<ImmersivePage bgImage={bgImage} className="detail-page page-fade-in pb-[env(safe-area-inset-bottom)]">
+			<div className="mb-4 pt-8 -mx-2">
 				<button
 					type="button"
-					className="px-2 py-1 inline-flex items-center text-white/90 hover:text-white transition-colors drop-shadow-md"
+					className="page-back-link"
 					onClick={handleBack}
 				>
 					<LucideIcon name="ChevronLeft" size={20} className="mr-1" /> 返回
@@ -157,24 +158,26 @@ export default function LocationDetailPage(): ReactElement {
 			</div>
 
 			<div className="mb-6">
-				<div className="text-amber-200 text-sm font-bold tracking-wider uppercase mb-1 drop-shadow-md text-shadow-sm">
+				<div className="app-kicker mb-1.5">
 					Location Detail
 				</div>
-				<h1 className="text-3xl font-bold text-white drop-shadow-lg m-0 text-shadow">{item.name}</h1>
+				<h1 className="app-display-title m-0 drop-shadow-lg">{item.name}</h1>
 			</div>
 
 			<CardComponent variant="glass" className="mb-4 backdrop-blur-xl">
 				<div className="flex items-center justify-between mb-3 border-b border-white/10 pb-3">
 					<span className="px-3 py-1 bg-amber-400/25 text-amber-100 rounded-full text-xs font-medium border border-amber-300/40">
-						{item.category || "景点"}
+						{formatCategoryLabel(item.category)}
 					</span>
 					<span className="text-amber-100/80 text-xs flex items-center">
 						<LucideIcon name="MapPin" size={12} className="mr-1 text-amber-200" />
-						{item.latitude?.toFixed(4)}, {item.longitude?.toFixed(4)}
+						{Number.isFinite(Number(item.latitude)) && Number.isFinite(Number(item.longitude))
+							? `${Number(item.latitude).toFixed(4)}, ${Number(item.longitude).toFixed(4)}`
+							: "坐标待补充"}
 					</span>
 				</div>
 				<p className="text-white/90 leading-relaxed text-justify mb-0">{item.description}</p>
-				{details.introduction && (
+				{details.introduction && details.introduction !== item.description && (
 					<div className="mt-4 text-sm text-white/70 leading-relaxed border-t border-white/10 pt-3">
 						{details.introduction}
 					</div>
@@ -206,7 +209,7 @@ export default function LocationDetailPage(): ReactElement {
 					{sections.galleryTitle || "景点图片"}
 				</h2>
 				{galleryImages.length > 0 ? (
-					<div className="grid grid-cols-2 gap-3">
+					<div className="grid grid-cols-2 md:grid-cols-3 gap-3">
 						{galleryImages.map((src, idx) => (
 							<div key={idx} className="aspect-square rounded-xl overflow-hidden shadow-smooth">
 								<img

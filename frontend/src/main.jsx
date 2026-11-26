@@ -8,6 +8,7 @@ import "lxgw-wenkai-webfont/lxgwwenkai-regular.css";
 import "lxgw-wenkai-webfont/lxgwwenkai-bold.css";
 import "./styles.css";
 import "antd-mobile/es/global";
+import "./ui-polish.css";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
