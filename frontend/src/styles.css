@@ -3,8 +3,7 @@
 @tailwind utilities;
 
 :root:root:root {
-  font-family: "MiSans VF", "MiSans", "PingFang SC", "HarmonyOS Sans SC",
-    "Noto Sans SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  font-family: var(--font-ui);
   color: rgba(255, 255, 255, 0.9);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -34,8 +33,7 @@
   --glass-bg-warm: rgba(82, 40, 20, 0.62);
 
   /* Antd Mobile Typography */
-  --adm-font-family: "MiSans VF", "MiSans", "PingFang SC", "HarmonyOS Sans SC",
-    "Noto Sans SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  --adm-font-family: var(--font-ui);
 
   /* Antd Mobile Dark Theme Overrides */
   --adm-color-text: rgba(255,255,255,0.95);

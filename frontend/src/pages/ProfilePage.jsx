@@ -4,6 +4,7 @@ import { Dialog, Popup, Toast } from "antd-mobile";
 import { UserOutline, LockOutline } from "antd-mobile-icons";
 import { useNavigate, useParams } from "react-router-dom";
 import { ImmersivePage, CardComponent, ButtonComponent, GlassInput, SkeletonComponent, EmptyStateComponent } from "../components/SharedUI";
+import { DISPLAY_FONT, UI_FONT, canvasFont, loadBrandFonts } from "../typography";
 import {
   buildAssetUrl,
   deleteRoute,
@@ -114,9 +115,9 @@ function drawTrackPreview(ctx, points, x, y, width, height) {
   ctx.save();
   ctx.beginPath();
   ctx.roundRect(x, y, width, height, panelRadius);
-  ctx.fillStyle = "rgba(8, 30, 44, 0.46)";
+  ctx.fillStyle = "rgba(28, 14, 6, 0.5)";
   ctx.fill();
-  ctx.strokeStyle = "rgba(151, 212, 236, 0.38)";
+  ctx.strokeStyle = "rgba(255, 205, 160, 0.38)";
   ctx.lineWidth = 1.4;
   ctx.stroke();
 
@@ -128,7 +129,7 @@ function drawTrackPreview(ctx, points, x, y, width, height) {
   const lonSpan = Math.max(0.00001, maxLon - minLon);
   const latSpan = Math.max(0.00001, maxLat - minLat);
 
-  const gridColor = "rgba(181, 224, 244, 0.12)";
+  const gridColor = "rgba(255, 220, 185, 0.12)";
   ctx.strokeStyle = gridColor;
   ctx.lineWidth = 1;
   for (let idx = 1; idx <= 3; idx += 1) {
@@ -155,11 +156,11 @@ function drawTrackPreview(ctx, points, x, y, width, height) {
   plotPoints.slice(1).forEach((point) => {
     ctx.lineTo(point.x, point.y);
   });
-  ctx.strokeStyle = "rgba(113, 229, 255, 0.95)";
+  ctx.strokeStyle = "rgba(245, 160, 90, 0.95)";
   ctx.lineWidth = 4;
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
-  ctx.shadowColor = "rgba(54, 196, 239, 0.6)";
+  ctx.shadowColor = "rgba(240, 160, 90, 0.55)";
   ctx.shadowBlur = 8;
   ctx.stroke();
 
@@ -167,18 +168,18 @@ function drawTrackPreview(ctx, points, x, y, width, height) {
   const endPoint = plotPoints[plotPoints.length - 1];
 
   ctx.shadowBlur = 0;
-  ctx.fillStyle = "#bdfde6";
+  ctx.fillStyle = "#ffe1b8";
   ctx.beginPath();
   ctx.arc(startPoint.x, startPoint.y, 5, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "#ffe4aa";
+  ctx.fillStyle = "#fff4de";
   ctx.beginPath();
   ctx.arc(endPoint.x, endPoint.y, 6, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = "rgba(226, 245, 255, 0.92)";
-  ctx.font = "600 18px 'MiSans VF', 'PingFang SC', 'Noto Sans SC', sans-serif";
+  ctx.fillStyle = "rgba(255, 238, 218, 0.92)";
+  ctx.font = canvasFont({ weight: 400, size: 18, family: DISPLAY_FONT });
   ctx.fillText(`轨迹点 ${points.length}`, x + 16, y + height - 14);
   ctx.restore();
 }
@@ -572,6 +573,13 @@ export default function ProfilePage() {
     canvas.width = 720;
     canvas.height = 1080;
 
+    await loadBrandFonts([
+      { weight: 700, size: 44, family: DISPLAY_FONT, text: "泸沽湖旅行海报" },
+      { weight: 400, size: 22, family: DISPLAY_FONT, text: "泸沽湖旅行绘卷" },
+      { weight: 400, size: 26, family: UI_FONT, text: "旅行者打卡探索景点路线" },
+      { weight: 400, size: 18, family: DISPLAY_FONT, text: "轨迹点" },
+    ]);
+
     const uniqueSpots = new Set(records.map((item) => item.title)).size;
     const topMood = records.find((item) => item.mood && item.mood !== "完成打卡");
     const trackPointsForPoster = normalizePosterTrackPoints(posterTrackPoints);
@@ -586,64 +594,64 @@ export default function ProfilePage() {
       ctx.restore();
     } catch {
       const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-      gradient.addColorStop(0, "#0b3b4f");
-      gradient.addColorStop(1, "#0e3141");
+      gradient.addColorStop(0, "#3a1f10");
+      gradient.addColorStop(1, "#1d0e06");
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     }
 
     const overlay = ctx.createLinearGradient(0, 0, 0, canvas.height);
-    overlay.addColorStop(0, "rgba(5, 20, 30, 0.36)");
-    overlay.addColorStop(0.55, "rgba(6, 24, 36, 0.48)");
-    overlay.addColorStop(1, "rgba(5, 18, 28, 0.78)");
+    overlay.addColorStop(0, "rgba(24, 11, 4, 0.34)");
+    overlay.addColorStop(0.55, "rgba(22, 10, 4, 0.5)");
+    overlay.addColorStop(1, "rgba(14, 6, 2, 0.82)");
     ctx.fillStyle = overlay;
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.fillStyle = "rgba(255,255,255,0.06)";
+    ctx.fillStyle = "rgba(255, 246, 236, 0.06)";
     ctx.fillRect(32, 32, canvas.width - 64, canvas.height - 64);
-    ctx.strokeStyle = "rgba(196,231,246,0.35)";
+    ctx.strokeStyle = "rgba(255, 205, 160, 0.35)";
     ctx.lineWidth = 2;
     ctx.strokeRect(32, 32, canvas.width - 64, canvas.height - 64);
 
-    ctx.fillStyle = "#f3fbff";
-    ctx.font = "700 44px 'LXGW WenKai', 'MiSans VF', 'PingFang SC', sans-serif";
+    ctx.fillStyle = "#fff9f2";
+    ctx.font = canvasFont({ weight: 700, size: 44, family: DISPLAY_FONT });
     ctx.fillText("泸沽湖旅行海报", 56, 430);
 
-    ctx.font = "500 26px 'MiSans VF', 'PingFang SC', 'Noto Sans SC', sans-serif";
-    ctx.fillStyle = "rgba(232,246,255,0.9)";
+    ctx.font = canvasFont({ weight: 400, size: 26, family: UI_FONT });
+    ctx.fillStyle = "rgba(255, 244, 232, 0.9)";
     ctx.fillText(`旅行者：${displayName}`, 56, 472);
 
-    ctx.font = "500 22px 'MiSans VF', 'PingFang SC', 'Noto Sans SC', sans-serif";
-    ctx.fillStyle = "rgba(205,234,247,0.95)";
+    ctx.font = canvasFont({ weight: 400, size: 22, family: UI_FONT });
+    ctx.fillStyle = "rgba(255, 231, 206, 0.95)";
     ctx.fillText(`打卡 ${records.length} 次  ·  探索 ${uniqueSpots} 个景点  ·  路线 ${savedRoutes.length} 条`, 56, 510);
 
     if (hasTrackPreview) {
       drawTrackPreview(ctx, trackPointsForPoster, 56, 538, canvas.width - 112, 188);
     }
 
-    ctx.font = "500 21px 'MiSans VF', 'PingFang SC', 'Noto Sans SC', sans-serif";
+    ctx.font = canvasFont({ weight: 400, size: 21, family: UI_FONT });
     records.slice(0, hasTrackPreview ? 3 : 5).forEach((item, idx) => {
       const y = (hasTrackPreview ? 780 : 578) + idx * 72;
-      ctx.fillStyle = "#75daf3";
+      ctx.fillStyle = "#f0a05a";
       ctx.beginPath();
       ctx.arc(62, y - 6, 6, 0, Math.PI * 2);
       ctx.fill();
 
-      ctx.fillStyle = "#fff7eb";
+      ctx.fillStyle = "#fff4e6";
       ctx.fillText(`${item.title} · ${item.time.split(" ")[0]}`, 80, y);
-      ctx.fillStyle = "rgba(213,236,247,0.85)";
+      ctx.fillStyle = "rgba(255, 238, 222, 0.85)";
       const mood = (item.mood || "完成打卡").slice(0, 24);
       ctx.fillText(mood, 80, y + 30);
     });
 
     if (topMood) {
-      ctx.fillStyle = "rgba(245, 227, 192, 0.95)";
-      ctx.font = "500 22px 'MiSans VF', 'PingFang SC', 'Noto Sans SC', sans-serif";
+      ctx.fillStyle = "rgba(255, 227, 188, 0.95)";
+      ctx.font = canvasFont({ weight: 400, size: 22, family: UI_FONT });
       ctx.fillText(`今日心情：${(topMood.mood || "湖畔风正好").slice(0, 26)}`, 56, 968);
     }
 
-    ctx.fillStyle = "#9adff4";
-    ctx.font = "italic 20px 'LXGW WenKai', 'STKaiti', serif";
+    ctx.fillStyle = "#ffc98f";
+    ctx.font = canvasFont({ weight: 400, size: 20, family: DISPLAY_FONT });
     ctx.fillText(`Generated ${new Date().toLocaleDateString("zh-CN")}`, 56, canvas.height - 56);
   }
 
@@ -766,7 +774,7 @@ export default function ProfilePage() {
         <div className="absolute -right-8 -top-8 w-32 h-32 bg-amber-400/20 blur-3xl rounded-full"></div>
         <div className="flex items-center gap-5 relative z-10">
           <div className="w-16 h-16 rounded-full bg-gradient-to-br from-amber-400 to-orange-600 p-[2px] shadow-lg flex-shrink-0">
-            <div className="w-full h-full bg-slate-900 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+            <div className="w-full h-full bg-[#2a1408] rounded-full flex items-center justify-center text-white text-2xl font-bold">
               {displayName.charAt(0).toUpperCase()}
             </div>
           </div>
@@ -783,22 +791,22 @@ export default function ProfilePage() {
 
       <div className="grid grid-cols-3 gap-3 mb-6">
         <CardComponent variant="immersive" className="mb-0 flex flex-col items-center justify-center py-5">
-          <div className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-white/60 mb-1">
+          <div className="profile-stat-value mb-1 text-transparent bg-clip-text bg-gradient-to-br from-white to-white/60">
             {records.length}
           </div>
-          <div className="text-xs text-white/50 tracking-wider">打卡次数</div>
+          <div className="profile-stat-label">打卡次数</div>
         </CardComponent>
         <CardComponent variant="immersive" className="mb-0 flex flex-col items-center justify-center py-5">
-          <div className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-white/60 mb-1">
+          <div className="profile-stat-value mb-1 text-transparent bg-clip-text bg-gradient-to-br from-white to-white/60">
             {new Set(records.map(r => r.title)).size}
           </div>
-          <div className="text-xs text-white/50 tracking-wider">探索景点</div>
+          <div className="profile-stat-label">探索景点</div>
         </CardComponent>
         <CardComponent variant="immersive" className="mb-0 flex flex-col items-center justify-center py-5">
-          <div className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white to-white/60 mb-1">
+          <div className="profile-stat-value mb-1 text-transparent bg-clip-text bg-gradient-to-br from-white to-white/60">
             {savedRoutes.length}
           </div>
-          <div className="text-xs text-white/50 tracking-wider">我的路线</div>
+          <div className="profile-stat-label">我的路线</div>
         </CardComponent>
       </div>
 
@@ -878,7 +886,7 @@ export default function ProfilePage() {
         </h3>
         <CardComponent variant="immersive" className="p-4 space-y-4 shrink-0">
           <div>
-            <label className="block text-xs text-white/50 mb-1.5 ml-1">用户名</label>
+            <label className="app-field-label block text-xs text-white/50 mb-1.5 ml-1">用户名</label>
             <GlassInput 
               value={editName} 
               onChange={setEditName} 
@@ -888,7 +896,7 @@ export default function ProfilePage() {
             />
           </div>
           <div>
-            <label className="block text-xs text-white/50 mb-1.5 ml-1">登录密码</label>
+            <label className="app-field-label block text-xs text-white/50 mb-1.5 ml-1">登录密码</label>
             <GlassInput
               value={editPassword}
               onChange={setEditPassword}
@@ -937,7 +945,7 @@ export default function ProfilePage() {
             <div className="relative border-l-2 border-white/10 ml-3 space-y-6">
               {records.map((item) => (
                 <div key={item.id} className="relative pl-5">
-                  <div className="absolute w-3 h-3 bg-amber-400 rounded-full -left-[7px] top-1.5 shadow-[0_0_8px_rgba(251, 146, 60, 0.5)] border-2 border-slate-900"></div>
+                  <div className="absolute w-3 h-3 bg-amber-400 rounded-full -left-[7px] top-1.5 shadow-[0_0_8px_rgba(251, 146, 60, 0.5)] border-2 border-[#2a1408]"></div>
                   <div className="text-xs text-white/50 font-mono tracking-wider">{item.time}</div>
                   <div className="text-base font-bold text-white mt-1 mb-0.5">{item.title}</div>
                   <div className="text-sm text-white/70 leading-relaxed bg-white/5 p-2 rounded-lg mt-2 italic shadow-inner">"{item.mood}"</div>

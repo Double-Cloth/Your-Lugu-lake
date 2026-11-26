@@ -9,6 +9,7 @@
     "Noto Sans SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
   --font-display: "LXGW WenKai", "LXGW WenKai Screen", "STKaiti", "KaiTi",
     "Songti SC", "Noto Serif SC", serif;
+  --font-mono: "LXGW WenKai Mono", "LXGW WenKai", "STKaiti", "KaiTi", monospace;
   --ui-ink: #fff9f2;
   --ui-ink-soft: rgba(255, 246, 236, 0.76);
   --ui-ink-muted: rgba(255, 244, 232, 0.56);
@@ -31,18 +32,47 @@ body {
   letter-spacing: 0.01em;
 }
 
+/*
+ * Font coverage, not inheritance, is the fragile part: form controls, antd
+ * portals and third-party widgets all ship their own `font-family`. Force the
+ * two brand faces onto every interactive surface so no system font leaks in.
+ */
 button,
 input,
 textarea,
 select,
+option,
+optgroup,
+label,
+legend,
 .adm-button,
 .adm-input,
 .adm-text-area,
 .adm-tab-bar,
+.adm-tabs,
 .adm-dialog,
 .adm-popup,
-.adm-toast {
+.adm-toast,
+.adm-modal,
+.adm-center-popup,
+.adm-picker,
+.adm-selector,
+.adm-list,
+.adm-card,
+.adm-image-uploader,
+.adm-mask,
+.adm-portal {
   font-family: var(--font-ui);
+}
+
+code,
+pre,
+kbd,
+samp,
+.font-mono,
+.adm-error {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1;
 }
 
 ::selection {
@@ -57,7 +87,8 @@ select,
 }
 
 /* --------------------------------------------------------------------------
-   Typography: one display face for page titles, MiSans everywhere else.
+   Typography: WenKai carries every title, label and action; MiSans stays on
+   body copy so long paragraphs remain comfortable to read.
    -------------------------------------------------------------------------- */
 
 .app-display-title,
@@ -65,8 +96,8 @@ select,
 .home-brand-title {
   font-family: var(--font-display);
   font-weight: 700;
-  letter-spacing: 0.055em;
-  line-height: 1.3;
+  letter-spacing: 0.06em;
+  line-height: 1.28;
   color: var(--ui-ink);
   text-shadow: 0 2px 20px rgba(40, 17, 4, 0.55);
   text-wrap: balance;
@@ -74,18 +105,48 @@ select,
 
 .page-title,
 .app-display-title {
-  font-size: clamp(25px, 7vw, 31px);
+  font-size: clamp(27px, 7.4vw, 34px);
 }
 
 .app-display-title-sm {
   font-family: var(--font-display);
   font-weight: 700;
-  letter-spacing: 0.04em;
-  line-height: 1.35;
+  letter-spacing: 0.045em;
+  line-height: 1.34;
   color: var(--ui-ink);
 }
 
-.app-kicker {
+/* All content headings share the display face. */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.app-section-title,
+.app-card-title,
+.app-card-subtitle,
+.app-list-title,
+.scroll-section-head h3,
+.scroll-empty-state-title,
+.scroll-capture-highlight-title,
+.scroll-timeline-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.035em;
+}
+
+h1 {
+  line-height: 1.28;
+}
+
+h2,
+h3 {
+  line-height: 1.4;
+}
+
+.app-kicker,
+.hero-kicker {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -104,10 +165,92 @@ select,
 }
 
 .app-section-title {
-  font-size: 16px;
+  font-size: 17px;
+  line-height: 1.4;
+  color: var(--ui-ink);
+}
+
+.app-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 18px;
+  line-height: 1.35;
+  color: var(--ui-ink);
+}
+
+.app-card-subtitle,
+.app-list-title {
+  font-size: 15px;
+  line-height: 1.4;
+  color: rgba(255, 249, 242, 0.94);
+}
+
+.app-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 205, 160, 0.26);
+  background: rgba(255, 255, 255, 0.1);
+  font-family: var(--font-display);
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: rgba(255, 249, 242, 0.94);
+  white-space: nowrap;
+}
+
+.app-field-label,
+label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/*
+ * Tailwind-heavy legacy markup often marks headings with utility classes
+ * instead of semantic tags. Keep those labels on the display face too, so a
+ * new card cannot silently fall back to the UI font.
+ */
+[class*="font-semibold"][class*="text-white"],
+[class*="font-bold"][class*="text-white"] {
+  font-family: var(--font-display);
+}
+
+.app-stat-value {
+  font-family: var(--font-display);
   font-weight: 700;
   letter-spacing: 0.02em;
-  color: var(--ui-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.app-stat-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  color: rgba(255, 244, 232, 0.64);
+}
+
+/* Buttons read as part of the brand rather than as browser chrome. */
+.adm-button,
+.home-popup-back-btn,
+.app-glass-back-btn,
+.scroll-back-btn,
+.page-back-link {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.app-glass-tabbar .adm-tab-bar-item-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.1em;
 }
 
 /* --------------------------------------------------------------------------
@@ -230,8 +373,10 @@ select,
 }
 
 .app-glass-tabbar .adm-tab-bar-item-title {
-  font-size: 11px;
-  letter-spacing: 0.08em;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
 }
 
 /* --------------------------------------------------------------------------
@@ -337,11 +482,11 @@ textarea::placeholder {
 
 .app-glass-back-btn,
 .scroll-back-btn {
-  background: rgba(36, 18, 8, 0.58);
-  border: 1px solid rgba(255, 205, 160, 0.3);
+  background: rgba(26, 13, 6, 0.76);
+  border: 1px solid rgba(255, 214, 178, 0.36);
   color: #fff5e8;
   backdrop-filter: blur(12px);
-  box-shadow: 0 10px 24px -16px rgba(10, 4, 1, 0.9),
+  box-shadow: 0 10px 24px -18px rgba(10, 4, 1, 0.95),
     inset 0 1px 0 rgba(255, 255, 255, 0.14);
 }
 
@@ -365,16 +510,19 @@ textarea::placeholder {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  min-height: 36px;
-  padding: 0 13px;
+  min-height: 38px;
+  margin-top: 2px;
+  padding: 0 14px;
   border-radius: 999px;
-  border: 1px solid rgba(255, 205, 160, 0.26);
-  background: rgba(36, 18, 8, 0.46);
-  color: rgba(255, 244, 230, 0.9);
+  border: 1px solid rgba(255, 214, 178, 0.36);
+  background: rgba(26, 13, 6, 0.78);
+  color: rgba(255, 249, 242, 0.94);
   font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  backdrop-filter: blur(10px);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  backdrop-filter: blur(12px);
+  box-shadow: 0 10px 24px -18px rgba(10, 4, 1, 0.95),
+    inset 0 1px 0 rgba(255, 255, 255, 0.14);
   transition: background 160ms ease, color 160ms ease, transform 160ms ease;
 }
 
@@ -436,7 +584,8 @@ textarea::placeholder {
 }
 
 .home-brand-subtitle {
-  letter-spacing: 0.18em;
+  font-family: var(--font-display);
+  letter-spacing: 0.22em;
   font-weight: 400;
   color: rgba(255, 247, 238, 0.82);
 }
@@ -461,11 +610,14 @@ textarea::placeholder {
 }
 
 .home-func-title {
+  font-family: var(--font-display);
+  font-size: 20px;
   font-weight: 700;
-  letter-spacing: 0.015em;
+  letter-spacing: 0.05em;
 }
 
 .home-func-desc {
+  font-family: var(--font-ui);
   font-weight: 600;
   opacity: 0.82;
 }
@@ -550,10 +702,28 @@ textarea::placeholder {
   border-color: rgba(255, 208, 164, 0.34);
   background: rgba(48, 25, 12, 0.74);
   color: #fff4e8;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.05em;
 }
 
 .checkin-theme .checkin-section-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  letter-spacing: 0.04em;
   color: var(--checkin-ink);
+}
+
+.checkin-theme .checkin-status {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.checkin-theme .checkin-subtle-text {
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.03em;
 }
 
 /* --------------------------------------------------------------------------
@@ -566,7 +736,51 @@ textarea::placeholder {
 
 .scroll-theme .scroll-capture-title {
   font-family: var(--font-display);
-  letter-spacing: 0.04em;
+  letter-spacing: 0.06em;
+}
+
+.scroll-theme .scroll-hero-stats span,
+.scroll-theme .scroll-chip,
+.scroll-theme .scroll-capture-badge,
+.scroll-theme .scroll-capture-meta span,
+.scroll-theme .scroll-timeline-badge,
+.scroll-theme .scroll-footer-tag {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.scroll-theme .scroll-metric-label,
+.scroll-theme .scroll-footer-label,
+.scroll-theme .scroll-capture-highlight-label,
+.scroll-theme .scroll-section-head span {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.scroll-theme .scroll-section-head h3 {
+  font-size: 18px;
+  letter-spacing: 0.05em;
+}
+
+.scroll-theme .scroll-timeline-time {
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.scroll-theme .scroll-metric-card strong,
+.scroll-theme .scroll-capture-stamp strong,
+.scroll-theme .scroll-timeline-marker {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.scroll-theme .scroll-capture-highlight-title,
+.scroll-theme .scroll-timeline-title,
+.scroll-theme .scroll-empty-state-title {
+  letter-spacing: 0.05em;
 }
 
 .scroll-theme .scroll-card,
@@ -593,13 +807,40 @@ textarea::placeholder {
 }
 
 .profile-category-desc {
+  font-family: var(--font-ui);
   color: rgba(255, 244, 232, 0.66);
   font-size: 11.5px;
 }
 
 .profile-category-name,
 .profile-function-text {
-  font-size: 13px;
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  font-size: 13.5px;
+}
+
+.profile-function-title {
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.08em;
+}
+
+.profile-stat-value {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 1.05;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-stat-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.1em;
+  color: rgba(255, 244, 232, 0.62);
 }
 
 .profile-function-section {
@@ -632,7 +873,32 @@ textarea::placeholder {
 }
 
 .ai-chat-panel-title {
-  letter-spacing: 0.02em;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.ai-chat-scene-title,
+.ai-history-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.ai-quick-ask-item,
+.ai-send-btn,
+.ai-panel-btn-light {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.ai-empty-state,
+.ai-history-question {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.03em;
 }
 
 /* Warm cream chat surface so the assistant belongs to the Lugu palette. */
@@ -895,9 +1161,45 @@ textarea::placeholder {
     linear-gradient(180deg, #7c3e1c 0%, #522512 100%);
 }
 
+.admin-dashboard h3 {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+.admin-dashboard .adm-tabs-tab {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
 .admin-stat-tile {
   border-color: rgba(255, 214, 178, 0.22);
   background: rgba(255, 255, 255, 0.07);
+}
+
+.admin-stat-label {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: rgba(255, 244, 232, 0.66);
+}
+
+.admin-stat-value {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.adm-dialog-title,
+.adm-modal-title,
+.adm-center-popup-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 /* --------------------------------------------------------------------------

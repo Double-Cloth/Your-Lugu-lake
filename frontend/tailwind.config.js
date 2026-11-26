@@ -46,6 +46,15 @@ export default {
           "system-ui",
           "sans-serif",
         ],
+        display: [
+          "LXGW WenKai",
+          "LXGW WenKai Screen",
+          "STKaiti",
+          "KaiTi",
+          "Songti SC",
+          "Noto Serif SC",
+          "serif",
+        ],
         serif: [
           "LXGW WenKai",
           "LXGW WenKai Screen",
@@ -54,6 +63,13 @@ export default {
           "Songti SC",
           "Noto Serif SC",
           "serif",
+        ],
+        mono: [
+          "LXGW WenKai Mono",
+          "LXGW WenKai",
+          "STKaiti",
+          "KaiTi",
+          "monospace",
         ],
       },
       fontSize: {

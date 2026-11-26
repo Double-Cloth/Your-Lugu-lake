@@ -92,7 +92,7 @@ export const ButtonComponent = ({
   return (
     <button
       type="button"
-      className={`flex items-center justify-center transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-45 disabled:saturate-[0.65] disabled:active:scale-100 disabled:cursor-not-allowed ${variants[variant]} ${sizes[size]} ${className}`}
+      className={`flex items-center justify-center font-display tracking-[0.04em] transition-all duration-200 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-300/70 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent disabled:opacity-45 disabled:saturate-[0.65] disabled:active:scale-100 disabled:cursor-not-allowed ${variants[variant]} ${sizes[size]} ${className}`}
       onClick={onClick}
       disabled={disabled || loading}
     >
@@ -114,7 +114,7 @@ export const SkeletonComponent = ({ className = '' }) => (
 export const EmptyStateComponent = ({ icon = <LucideIcon name="Frown" size={48} className="text-white/40 mb-3 mx-auto" strokeWidth={1.5} />, title = '暂无数据', description = '', className = '' }) => (
   <div className={`flex flex-col items-center justify-center p-8 text-center bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl ${className}`}>
     <div className="text-4xl mb-3 opacity-60">{icon}</div>
-    <div className="text-white font-bold mb-1">{title}</div>
+    <div className="app-card-subtitle mb-1">{title}</div>
     {description && <div className="text-white/60 text-sm">{description}</div>}
   </div>
 );

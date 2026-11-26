@@ -667,13 +667,13 @@ export default function AdminDashboardPage() {
 			<div className="w-full max-w-4xl mx-auto pt-4 pb-20">
 				<div className="flex items-start justify-between mb-6 px-4">
 					<div className="text-white drop-shadow-md">
-						<div className="inline-block bg-black/20 backdrop-blur-md px-3 py-1 rounded-full text-white/85 text-[11px] tracking-[0.2em] mb-2 border border-white/20 shadow-lg">
+						<div className="app-kicker mb-2">
 							Dashboard
 						</div>
 						<h1 className="app-display-title-sm text-[26px] m-0">管理中心</h1>
 						<p className="text-white/65 text-[13px] mt-2 tracking-[0.06em] drop-shadow mb-0">景点管理、游客统计、打卡数据...</p>
 					</div>
-					<ButtonComponent variant="glass" className="text-sm px-4 py-1.5" onClick={logout}>
+					<ButtonComponent variant="glass" className="text-sm px-4 py-1.5 shrink-0 whitespace-nowrap" onClick={logout}>
 						退出
 					</ButtonComponent>
 				</div>

@@ -45,7 +45,7 @@ export default function AdminLoginPage(): ReactElement {
 		<ImmersivePage bgImage="/images/lugu-hero.png" className="items-center justify-center">
 			<div className="w-full max-w-sm px-4 flex flex-col justify-center min-h-[60vh]">
 				<div className="text-center mb-8">
-					<div className="inline-block bg-black/20 backdrop-blur-md px-4 py-1 rounded-full text-white/85 text-[11px] tracking-[0.2em] mb-4 border border-white/20 shadow-lg">
+					<div className="app-kicker mb-4">
 						Admin Access
 					</div>
 					<h1 className="app-display-title text-[30px] mb-2 drop-shadow-md">管理员登录</h1>

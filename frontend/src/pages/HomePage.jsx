@@ -558,7 +558,7 @@ export default function HomePage() {
       {/* 顶部标题：泸沽湖智慧文旅 */}
       <div className="w-full pt-8 sm:pt-10 z-20 flex justify-center shrink-0">
         <div className="w-full max-w-xl text-center relative text-shadow-md">
-          <div className="inline-block bg-black/20 backdrop-blur-md px-4 py-1.5 rounded-full text-white/90 text-[11px] tracking-[0.2em] mb-4 border border-white/20 shadow-lg">
+          <div className="app-kicker mb-4">
             欢迎来到泸沽湖景区
           </div>
           <h1 className="app-display-title home-brand-title text-[32px] sm:text-[38px] mb-3 drop-shadow-lg">
@@ -701,12 +701,12 @@ export default function HomePage() {
           ) : (
             <>
               <Card className="bg-white/10 border border-[rgba(252,182,118,0.32)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md overview-module-card">
-                <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">{kbOverview?.lake?.title || "泸沽湖整体介绍"}</div>
+                <div className="app-card-title">{kbOverview?.lake?.title || "泸沽湖整体介绍"}</div>
                 {primaryLake ? (
                   <>
                     <div className="flex items-center justify-between mt-2">
                       <h3 className="m-0 text-lg text-white/95">{primaryLake.title || "泸沽湖整体介绍"}</h3>
-                      <span className="px-2 py-1 text-xs rounded-full bg-white/20 text-white/90">湖区总览</span>
+                      <span className="app-chip">湖区总览</span>
                     </div>
                     <p className="text-sm text-white/80 mt-2 mb-0">
                       {primaryLake.description || ""}
@@ -727,7 +727,7 @@ export default function HomePage() {
               </Card>
 
               <Card className="bg-white/10 border border-[rgba(252,182,118,0.32)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md overview-module-card">
-                <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">{kbOverview?.culture?.title || "摩梭文化介绍"}</div>
+                <div className="app-card-title">{kbOverview?.culture?.title || "摩梭文化介绍"}</div>
                 <p className="text-sm text-white/80 mt-2 mb-2">
                   {kbOverview?.culture?.description || ""}
                 </p>
@@ -774,7 +774,7 @@ export default function HomePage() {
           </Card>
 
           <Card className="bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md">
-            <div className="text-sm font-semibold text-white/95">灵感模板</div>
+            <div className="app-list-title text-sm">灵感模板</div>
             <div className="grid grid-cols-1 gap-2 mt-3">
               {CULTURE_TEMPLATES.map((template) => (
                 <button
@@ -796,7 +796,7 @@ export default function HomePage() {
           </Card>
 
           <Card className="bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md">
-            <div className="text-sm font-semibold text-white/95">出行画像</div>
+            <div className="app-list-title text-sm">出行画像</div>
 
             <div className="mt-3">
               <div className="text-xs text-white/60 mb-2">游玩时长</div>
@@ -877,7 +877,7 @@ export default function HomePage() {
           </Card>
 
           <Card className="bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md">
-            <div className="font-semibold text-white/95">语音导览资源</div>
+            <div className="app-list-title">语音导览资源</div>
             {locationsWithAudio.length === 0 ? (
               <div className="text-sm text-white/50 mt-2">当前景点暂无 audio_url 数据。</div>
             ) : (
@@ -948,7 +948,7 @@ export default function HomePage() {
             <button className="home-popup-back-btn" onClick={closePanel}>← 返回</button>
           </div>
           <Card className="bg-white/10 border border-[rgba(252,182,118,0.32)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md global-section-card">
-            <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">景点总览（知识库全量）</div>
+            <div className="app-card-title">景点总览（知识库全量）</div>
             {kbLocations.length === 0 ? (
               <div className="text-sm text-white/50 mt-2">暂未读取到知识库景点，已保留数据库数据作为回退。</div>
             ) : (
@@ -961,8 +961,8 @@ export default function HomePage() {
                     className="block bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md list-card no-underline text-current"
                   >
                     <div className="flex items-center justify-between">
-                      <div className="font-semibold text-white/95">{item.name}</div>
-                      <span className="px-2 py-1 text-xs rounded-full bg-white/20 text-white/90">{formatCategoryLabel(item.category)}</span>
+                      <div className="app-list-title">{item.name}</div>
+                      <span className="app-chip">{formatCategoryLabel(item.category)}</span>
                     </div>
                     <div className="text-sm text-white/80 mt-1">{item.description || "暂无简介"}</div>
                     {item.latitude && item.longitude ? (
@@ -975,7 +975,7 @@ export default function HomePage() {
           </Card>
 
           <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md global-section-card">
-            <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">周围景点 / 酒店</div>
+            <div className="app-card-title">周围景点 / 酒店</div>
             <div className="grid grid-cols-2 gap-4 mt-2">
               <div>
                 <div className="text-sm font-semibold text-white/90 mb-2">周边景点</div>
@@ -1021,8 +1021,8 @@ export default function HomePage() {
                     className="block bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md list-card no-underline text-current"
                   >
                     <div className="flex items-center justify-between">
-                      <div className="font-semibold text-white/95">{item.name}</div>
-                      <span className="px-2 py-1 text-xs rounded-full bg-white/20 text-white/90">{formatCategoryLabel(item.category)}</span>
+                      <div className="app-list-title">{item.name}</div>
+                      <span className="app-chip">{formatCategoryLabel(item.category)}</span>
                     </div>
                     <div className="text-sm text-white/80 mt-1">{item.description}</div>
                   </Link>
@@ -1041,7 +1041,7 @@ export default function HomePage() {
           </div>
 
           <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md">
-            <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">{kbEcoGuide?.sections?.scienceTitle || "生态科普"}</div>
+            <div className="app-card-title">{kbEcoGuide?.sections?.scienceTitle || "生态科普"}</div>
             <div className="text-sm text-white/85 leading-relaxed">
               {ecoIntro}
             </div>
@@ -1127,7 +1127,7 @@ export default function HomePage() {
           </Card>
 
           <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md">
-            <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">{kbEcoGuide?.sections?.wellnessRouteTitle || "康养路线"}</div>
+            <div className="app-card-title">{kbEcoGuide?.sections?.wellnessRouteTitle || "康养路线"}</div>
             <div className="space-y-2 text-sm text-white/85">
               {ecoRoute.length === 0 ? (
                 <div className="bg-white/5 border border-white/10 rounded-2xl p-3">暂无路线配置，请在 knowledge-base/common/pages/eco-guide.json 中补充。</div>
@@ -1143,7 +1143,7 @@ export default function HomePage() {
           </Card>
 
           <Card className="bg-white/10 border border-[rgba(189,232,250,0.2)] rounded-3xl p-5 mb-4 shadow-[0_8px_32px_rgba(0,0,0,0.2)] backdrop-blur-md">
-            <div className="text-xl font-bold text-white border-b border-white/20 pb-2 mb-3">生态足迹</div>
+            <div className="app-card-title">生态足迹</div>
             <div className="grid grid-cols-3 gap-2 text-center">
               <div className="bg-white/5 border border-white/10 rounded-2xl p-3">
                 <div className="text-lg font-bold text-white">{footprintSummary.total}</div>
@@ -1177,7 +1177,7 @@ export default function HomePage() {
 
           {ecoLocations.length > 0 ? (
             <Card className="bg-white/10 border border-white/20 rounded-3xl p-5 mb-4 shadow-lg backdrop-blur-md mb-0">
-              <div className="font-semibold text-white/95">推荐自然点位</div>
+              <div className="app-list-title">推荐自然点位</div>
               <div className="space-y-2 mt-3">
                 {ecoLocations.slice(0, 4).map((item) => (
                   <Link
@@ -1187,8 +1187,8 @@ export default function HomePage() {
                     className="block bg-white/10 border border-white/20 rounded-2xl p-4 no-underline text-current"
                   >
                     <div className="flex items-center justify-between gap-3">
-                      <div className="font-semibold text-white/95">{item.name}</div>
-                      <span className="px-2 py-1 text-xs rounded-full bg-white/20 text-white/90">{formatCategoryLabel(item.category)}</span>
+                      <div className="app-list-title">{item.name}</div>
+                      <span className="app-chip">{formatCategoryLabel(item.category)}</span>
                     </div>
                     <div className="text-sm text-white/75 mt-1">{item.description || "适合纳入生态线路的自然点位。"}</div>
                   </Link>

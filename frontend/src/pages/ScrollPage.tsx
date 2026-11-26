@@ -170,6 +170,10 @@ export default function ScrollPage(): ReactElement {
 			throw new Error("绘卷区域尚未渲染完成");
 		}
 
+		if (typeof document !== "undefined" && document.fonts?.ready) {
+			await document.fonts.ready;
+		}
+
 		await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
 
 		return html2canvas(scrollRef.current, {
